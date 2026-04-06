@@ -1,0 +1,43 @@
+CREATE PRODUCT ERROR: MongoServerError: E11000 duplicate key error collection: test.products index: companyBrandName_1_sizeValue_1_sizeUnit_1_packagingType_1_isDeleted_1 dup key: { companyBrandName: null, sizeValue: null, sizeUnit: null, packagingType: "blisters", isDeleted: null }
+    at InsertOneOperation.handleOk (E:\BioBurgLifeScience\backend\node_modules\mongodb\lib\operations\insert.js:51:19)
+    at tryOperation (E:\BioBurgLifeScience\backend\node_modules\mongodb\lib\operations\execute_operation.js:214:34)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async executeOperation (E:\BioBurgLifeScience\backend\node_modules\mongodb\lib\operations\execute_operation.js:78:16)
+    at async Collection.insertOne (E:\BioBurgLifeScience\backend\node_modules\mongodb\lib\collection.js:154:16) {
+  errorLabelSet: Set(0) {},
+  errorResponse: {
+    index: 0,
+    code: 11000,
+    errmsg: 'E11000 duplicate key error collection: test.products index: companyBrandName_1_sizeValue_1_sizeUnit_1_packagingType_1_isDeleted_1 dup key: { companyBrandName: null, sizeValue: null, sizeUnit: null, packagingType: "blisters", isDeleted: null }',
+    keyPattern: {
+      companyBrandName: 1,
+      sizeValue: 1,
+      sizeUnit: 1,
+      packagingType: 1,
+      isDeleted: 1
+    },
+    keyValue: {
+      companyBrandName: null,
+      sizeValue: null,
+      sizeUnit: null,
+      packagingType: 'blisters',
+      isDeleted: null
+    }
+  },
+  index: 0,
+  code: 11000,
+  keyPattern: {
+    companyBrandName: 1,
+    sizeValue: 1,
+    sizeUnit: 1,
+    packagingType: 1,
+    isDeleted: 1
+  },
+  keyValue: {
+    companyBrandName: null,
+    sizeValue: null,
+    sizeUnit: null,
+    packagingType: 'blisters',
+    isDeleted: null
+  }
+}

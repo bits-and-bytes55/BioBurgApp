@@ -1,0 +1,13 @@
+# Logs
+frontend/node_modules/
+backend/node_modules/
+backend/logs
+frontend/logs   
+backend/.env
+frontend/.env
+*node_modules/
+.history/
+.vscode/
+.DS_Store
+.history
+.github/

@@ -1,0 +1,40 @@
+@import "tailwindcss";
+.swiper-button-next,
+.swiper-button-prev {
+  width: 45px !important;
+  height: 45px !important;
+  background: white !important;
+  border-radius: 50%;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.20);
+  color: black !important;
+}
+
+.swiper-button-next:after,
+.swiper-button-prev:after {
+  font-size: 20px !important;
+  font-weight: bold !important;
+}
+
+/* ===== B2B Slider Arrow Custom Size ===== */
+.b2b-slider .swiper-button-next,
+.b2b-slider .swiper-button-prev {
+  width: 20px;          /* arrow container size */
+  height: 20px;
+}
+
+.b2b-slider .swiper-button-next::after,
+.b2b-slider .swiper-button-prev::after {
+  font-size: 8px;      /* arrow icon size */
+  font-weight: bold;
+}
+
+/* optional polish */
+.b2b-slider .swiper-button-next,
+.b2b-slider .swiper-button-prev {
+  color: #374151;       /* soft dark gray */
+}
+
+.b2b-slider .swiper-button-next:hover,
+.b2b-slider .swiper-button-prev:hover {
+  color: #111827;       /* darker on hover */
+}

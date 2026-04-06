@@ -1,0 +1,56 @@
+[dotenv@17.2.3] injecting env (7) from .env -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+✅ MongoDB Connected
+🚀 Server running with Socket on PORT: 8000
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5YTU3ODJmOWI0NDYzNGZjY2MxYTQwZCIsImlhdCI6MTc3MjQ1MTg4OCwiZXhwIjoxNzczMDU2Njg4fQ.oMDV9TDmQvfh8lnc5NrSMeohRb1OmTbvTXN9Ua0j1Og
+➡️ ROUTE HIT
+DECODED TOKEN: { id: '69a5782f9b44634fccc1a40d', iat: 1772451888, exp: 1773056688 }
+➡️ ADMIN PASSED
+➡️ UPLOAD DONE undefined
+➡️ CONTROLLER START
+BODY: {
+  title: 'AutoTestCat_admin_test_1772451887',
+  offer: 5,
+  image: {
+    url: 'https://example.com/cat.png',
+    public_id: 'autotest-cat-admin_test_1772451887'
+  }
+}
+CONTENT TYPE: application/json
+✅ CATEGORY SAVED
+DECODED TOKEN: { id: '69a5782f9b44634fccc1a40d', iat: 1772451888, exp: 1773056688 }
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5YTU3ODYyOWI0NDYzNGZjY2MxYTQxNiIsImlhdCI6MTc3MjQ1MTkzOSwiZXhwIjoxNzczMDU2NzM5fQ.hr9OtHPQbm7BJthOpxSJRTaqb8oarulundHXnDsTvFM
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5YTU3ODdmOWI0NDYzNGZjY2MxYTQxOSIsImlhdCI6MTc3MjQ1MTk2NywiZXhwIjoxNzczMDU2NzY3fQ.qshIhraTho76E5SWWz9RaG9gcfuIiGmupdH4rk2R_xg
+➡️ ROUTE HIT
+DECODED TOKEN: { id: '69a5787f9b44634fccc1a419', iat: 1772451967, exp: 1773056767 }
+➡️ ADMIN PASSED
+➡️ UPLOAD DONE undefined
+➡️ CONTROLLER START
+BODY: {
+  title: 'AutoTestCat_1772451967024',
+  offer: 5,
+  image: {
+    url: 'https://example.com/cat.png',
+    public_id: 'autotest-cat-1772451967024'
+  }
+}
+CONTENT TYPE: application/json
+✅ CATEGORY SAVED
+DECODED TOKEN: { id: '69a5787f9b44634fccc1a419', iat: 1772451967, exp: 1773056767 }
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5YTU3OGExOWI0NDYzNGZjY2MxYTQyNSIsImlhdCI6MTc3MjQ1MjAwMSwiZXhwIjoxNzczMDU2ODAxfQ.3v7sJJbKEyOTqH7L-RE_KOWJley0V42Pf62Z8hnddx8
+➡️ ROUTE HIT
+DECODED TOKEN: { id: '69a578a19b44634fccc1a425', iat: 1772452001, exp: 1773056801 }
+➡️ ADMIN PASSED
+➡️ UPLOAD DONE undefined
+➡️ CONTROLLER START
+BODY: {
+  title: 'AutoTestCat_1772452000933',
+  offer: 5,
+  image: {
+    url: 'https://example.com/cat.png',
+    public_id: 'autotest-cat-1772452000933'
+  }
+}
+CONTENT TYPE: application/json
+✅ CATEGORY SAVED
+DECODED TOKEN: { id: '69a578a19b44634fccc1a425', iat: 1772452001, exp: 1773056801 }

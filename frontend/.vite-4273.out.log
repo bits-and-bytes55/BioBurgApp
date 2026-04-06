@@ -1,0 +1,12 @@
+
+> frontend@0.0.0 dev
+> vite --host 127.0.0.1 --port 4273
+
+
+  [32m[1mVITE[22m v7.2.4[39m  [2mready in [0m[1m944[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m4273[22m/[39m
+[2m3:10:50 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/config/api.js[22m
+[2m3:12:51 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css?direct, /src/index.css, /src/App.css, /src/Franchise/pages/DashboardHome.jsx[22m
+[2m3:12:51 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css?direct, /src/index.css, /src/App.css, /src/context/CartContext.jsx, /src/UserPanel/pages/dashboard/Checkout.jsx[22m
+[2m3:12:51 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/context/CartContext.jsx, /src/index.css?direct, /src/index.css, /src/App.css[22m
