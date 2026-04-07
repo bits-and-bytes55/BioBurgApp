@@ -11,7 +11,7 @@ import {
   getPharmacyDashboard,
   getMyPharmacyDashboard,
   updatePharmacyDashboardSection,
-  getLoginHistory,           // ← NEW
+  getLoginHistory,         
 } from "../controllers/pharmacyController.js";
 
 import Pharmacy from "../models/Pharmacy.js";

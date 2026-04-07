@@ -1,82 +1,91 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { Swiper, SwiperSlide } from 'swiper/react'
-import 'swiper/css'
-import 'swiper/css/autoplay'
-import 'swiper/css/navigation'
-import 'swiper/css/pagination'
-import { Autoplay, Navigation, Pagination } from 'swiper/modules'
-import { userApi } from '../../utils/api'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Swiper, SwiperSlide } from "swiper/react";
+import "swiper/css";
+import "swiper/css/autoplay";
+import "swiper/css/navigation";
+import "swiper/css/pagination";
+import { Autoplay, Navigation, Pagination } from "swiper/modules";
+import { userApi } from "../../utils/api";
+import { useNavigate } from "react-router-dom";
 
-import FavoriteBorderIcon  from '@mui/icons-material/FavoriteBorder'
-import FavoriteIcon        from '@mui/icons-material/Favorite'
-import ShoppingCartIcon    from '@mui/icons-material/ShoppingCart'
-import InfoIcon            from '@mui/icons-material/Info'
-import StarIcon            from '@mui/icons-material/Star'
-import LocalOfferIcon      from '@mui/icons-material/LocalOffer'
-import InventoryIcon       from '@mui/icons-material/Inventory'
-import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos'
-import ArrowBackIosIcon    from '@mui/icons-material/ArrowBackIos'
-import BoltIcon            from '@mui/icons-material/Bolt'
+import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
+import FavoriteIcon from "@mui/icons-material/Favorite";
+import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+import InfoIcon from "@mui/icons-material/Info";
+import StarIcon from "@mui/icons-material/Star";
+import LocalOfferIcon from "@mui/icons-material/LocalOffer";
+import InventoryIcon from "@mui/icons-material/Inventory";
+import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
+import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
+import BoltIcon from "@mui/icons-material/Bolt";
 
-import { useCart } from '../context/useCart'
+import { useCart } from "../context/useCart";
+
+const FALLBACK_IMG =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239ca3af' font-size='12'%3ENo Image%3C/text%3E%3C/svg%3E";
 
 export default function DynamicSectionSlider(props) {
-  const section    = props.section || { title: props.title, key: props.sectionKey }
-  const { title, key: sectionKey } = section || {}
+  const section = props.section || {
+    title: props.title,
+    key: props.sectionKey,
+  };
+  const { title, key: sectionKey } = section || {};
 
-  const { addToCart }               = useCart()
-  const [products,    setProducts]  = useState([])
-  const [wishlist,    setWishlist]  = useState([])
-  const [loading,     setLoading]   = useState(true)
-  const [loadingIds,  setLoadingIds]= useState(new Set())
+  const { addToCart } = useCart();
+  const [products, setProducts] = useState([]);
+  const [wishlist, setWishlist] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingIds, setLoadingIds] = useState(new Set());
 
-  const mountedRef    = useRef(true)
-  const fetchCountRef = useRef(0)
+  const mountedRef = useRef(true);
+  const fetchCountRef = useRef(0);
   // Once products are shown, this is true — we never hide them again
-  const hasLoadedRef  = useRef(false)
+  const hasLoadedRef = useRef(false);
 
   // Stable refs so useCallback never goes stale
-  const keyRef   = useRef(sectionKey)
-  const titleRef = useRef(title)
-  keyRef.current   = sectionKey
-  titleRef.current = title
+  const keyRef = useRef(sectionKey);
+  const titleRef = useRef(title);
+  keyRef.current = sectionKey;
+  titleRef.current = title;
 
-  const navigate  = useNavigate()
-  const swiperRef = useRef(null)
+  const navigate = useNavigate();
+  const swiperRef = useRef(null);
 
   const loadProducts = useCallback(async () => {
-    const key = keyRef.current
-    const ttl = titleRef.current
+    const key = keyRef.current;
+    const ttl = titleRef.current;
 
-    if (!key && !ttl) { setLoading(false); return }
+    if (!key && !ttl) {
+      setLoading(false);
+      return;
+    }
 
-    fetchCountRef.current += 1
-    const thisFetch = fetchCountRef.current
+    fetchCountRef.current += 1;
+    const thisFetch = fetchCountRef.current;
 
-    if (!hasLoadedRef.current) setLoading(true)
+    if (!hasLoadedRef.current) setLoading(true);
 
     const attempts = [
       { section: ttl || key },
       ...(key && key !== ttl ? [{ section: key }] : []),
       { categoryName: ttl || key },
-    ]
+    ];
 
     try {
       for (const params of attempts) {
         try {
-          const res = await userApi.get('/api/products/filter', { params })
-          const p   = res.data?.products || []
+          const res = await userApi.get("/api/products/filter", { params });
+          const p = res.data?.products || [];
 
           // Discard stale responses — a newer fetch is already running
-          if (thisFetch !== fetchCountRef.current) return
+          if (thisFetch !== fetchCountRef.current) return;
 
           if (p.length) {
             if (mountedRef.current) {
-              setProducts(p)
-              hasLoadedRef.current = true
+              setProducts(p);
+              hasLoadedRef.current = true;
             }
-            return
+            return;
           }
         } catch {
           // silently try next fallback
@@ -88,57 +97,70 @@ export default function DynamicSectionSlider(props) {
         mountedRef.current &&
         !hasLoadedRef.current
       ) {
-        setProducts([])
+        setProducts([]);
       }
-
     } finally {
       if (thisFetch === fetchCountRef.current && mountedRef.current) {
-        setLoading(false)
+        setLoading(false);
       }
     }
-  }, []) // empty deps — uses refs, so stable forever
+  }, []); // empty deps — uses refs, so stable forever
 
   useEffect(() => {
-    mountedRef.current = true
-    loadProducts()
-    return () => { mountedRef.current = false }
-  }, [loadProducts])
+    mountedRef.current = true;
+    loadProducts();
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [loadProducts]);
 
   useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem('wishlist') || '[]')
-      setWishlist(Array.isArray(saved) ? saved : [])
-    } catch { setWishlist([]) }
-  }, [])
+      const saved = JSON.parse(localStorage.getItem("wishlist") || "[]");
+      setWishlist(Array.isArray(saved) ? saved : []);
+    } catch {
+      setWishlist([]);
+    }
+  }, []);
 
   const toggleWishlist = (id, e) => {
-    e.stopPropagation()
+    e.stopPropagation();
     const updated = wishlist.includes(id)
       ? wishlist.filter((i) => i !== id)
-      : [...wishlist, id]
-    setWishlist(updated)
-    try { localStorage.setItem('wishlist', JSON.stringify(updated)) } catch {}
-  }
+      : [...wishlist, id];
+    setWishlist(updated);
+    try {
+      localStorage.setItem("wishlist", JSON.stringify(updated));
+    } catch {}
+  };
 
   const handleAddToCart = async (product, e) => {
-    e.stopPropagation()
-    const pid = product._id
-    setLoadingIds((prev) => new Set(prev).add(pid))
-    try { await addToCart(product, 1, null) } catch {}
-    finally {
-      setLoadingIds((prev) => { const n = new Set(prev); n.delete(pid); return n })
+    e.stopPropagation();
+    const pid = product._id;
+    setLoadingIds((prev) => new Set(prev).add(pid));
+    try {
+      await addToCart(product, 1, null);
+    } catch {
+    } finally {
+      setLoadingIds((prev) => {
+        const n = new Set(prev);
+        n.delete(pid);
+        return n;
+      });
     }
-  }
+  };
 
   const handleBuyNow = (product, e) => {
-    e.stopPropagation()
-    addToCart(product, 1, null).catch(() => {})
-    navigate('/checkout')
-  }
+    e.stopPropagation();
+    addToCart(product, 1, null).catch(() => {});
+    navigate("/checkout");
+  };
 
-  const goToDetails = (id) => { if (id) navigate(`/product-details/${id}`) }
+  const goToDetails = (id) => {
+    if (id) navigate(`/product-details/${id}`);
+  };
 
-  if (!section || !section.key) return null
+  if (!section || !section.key) return null;
 
   // Skeleton — only on very first load, never after products have been shown
   if (loading && !hasLoadedRef.current) {
@@ -150,19 +172,22 @@ export default function DynamicSectionSlider(props) {
             <div className="h-1 w-16 bg-gray-200 rounded animate-pulse" />
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {[1,2,3,4,5,6].map((i) => (
-              <div key={i} className="aspect-[3/4] bg-gray-100 rounded-xl animate-pulse" />
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div
+                key={i}
+                className="aspect-[3/4] bg-gray-100 rounded-xl animate-pulse"
+              />
             ))}
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   // Nothing found on first load — render nothing cleanly
-  if (!products.length) return null
+  if (!products.length) return null;
 
-  const enableLoop = products.length >= 12
+  const enableLoop = products.length >= 12;
 
   return (
     <>
@@ -173,12 +198,13 @@ export default function DynamicSectionSlider(props) {
 
       <div className="w-full mt-15 py-8 px-4 md:px-6 lg:px-8 bg-gradient-to-b from-gray-50 to-white">
         <div className="max-w-7xl mx-auto">
-
           {/* HEADER */}
           <div className="mb-8 px-2">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">{title}</h2>
+                <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
+                  {title}
+                </h2>
                 <div className="flex items-center gap-2">
                   <div className="w-12 h-1 bg-blue-600 rounded-full" />
                   <div className="w-4  h-1 bg-blue-400 rounded-full" />
@@ -191,10 +217,16 @@ export default function DynamicSectionSlider(props) {
                   <ArrowForwardIosIcon className="text-sm group-hover:translate-x-1 transition-transform" />
                 </button>
                 <div className="flex items-center gap-2 sm:hidden">
-                  <button className={`prev-${sectionKey} w-8 h-8 bg-white rounded-full shadow flex items-center justify-center`} aria-label="Previous">
+                  <button
+                    className={`prev-${sectionKey} w-8 h-8 bg-white rounded-full shadow flex items-center justify-center`}
+                    aria-label="Previous"
+                  >
                     <ArrowBackIosIcon className="text-sm text-gray-700" />
                   </button>
-                  <button className={`next-${sectionKey} w-8 h-8 bg-white rounded-full shadow flex items-center justify-center`} aria-label="Next">
+                  <button
+                    className={`next-${sectionKey} w-8 h-8 bg-white rounded-full shadow flex items-center justify-center`}
+                    aria-label="Next"
+                  >
                     <ArrowForwardIosIcon className="text-sm text-gray-700" />
                   </button>
                 </div>
@@ -208,29 +240,41 @@ export default function DynamicSectionSlider(props) {
               ref={swiperRef}
               slidesPerView={2}
               spaceBetween={16}
-              autoplay={{ delay: 3500, disableOnInteraction: false, pauseOnMouseEnter: true }}
+              autoplay={{
+                delay: 3500,
+                disableOnInteraction: false,
+                pauseOnMouseEnter: true,
+              }}
               loop={enableLoop}
-              navigation={{ nextEl: `.next-${sectionKey}`, prevEl: `.prev-${sectionKey}` }}
+              navigation={{
+                nextEl: `.next-${sectionKey}`,
+                prevEl: `.prev-${sectionKey}`,
+              }}
               pagination={{ clickable: true, el: `.pagination-${sectionKey}` }}
               modules={[Autoplay, Navigation, Pagination]}
               breakpoints={{
-                375:  { slidesPerView: 2 },
-                480:  { slidesPerView: 2.3 },
-                640:  { slidesPerView: 2.8 },
-                768:  { slidesPerView: 3.6 },
+                375: { slidesPerView: 2 },
+                480: { slidesPerView: 2.3 },
+                640: { slidesPerView: 2.8 },
+                768: { slidesPerView: 3.6 },
                 1024: { slidesPerView: 4.5 },
                 1280: { slidesPerView: 5.2 },
               }}
               className="!pb-12"
             >
               {products.map((p) => {
-                const productName   = p.brandName || p.genericName || 'Unnamed Product'
-                const mrp           = parseFloat(p.mrp) || 0
-                const sellingPrice  = p.rolePrice ? parseFloat(p.rolePrice.finalRate) : mrp
-                const discount      = p.rolePrice ? parseFloat(p.rolePrice.discountPercent) : 0
-                const isInStock     = (p.totalStocks > 0) || (p.stocks > 0)
-                const isWishlisted  = wishlist.includes(p._id)
-                const isThisLoading = loadingIds.has(p._id)
+                const productName =
+                  p.brandName || p.genericName || "Unnamed Product";
+                const mrp = parseFloat(p.mrp) || 0;
+                const sellingPrice = p.rolePrice
+                  ? parseFloat(p.rolePrice.finalRate)
+                  : mrp;
+                const discount = p.rolePrice
+                  ? parseFloat(p.rolePrice.discountPercent)
+                  : 0;
+                const isInStock = p.totalStocks > 0 || p.stocks > 0;
+                const isWishlisted = wishlist.includes(p._id);
+                const isThisLoading = loadingIds.has(p._id);
 
                 return (
                   <SwiperSlide key={p._id} className="h-full">
@@ -242,9 +286,11 @@ export default function DynamicSectionSlider(props) {
                       onClick={() => goToDetails(p._id)}
                     >
                       {discount > 0 && (
-                        <div className="absolute top-8 left-3 bg-gradient-to-r from-red-500 to-orange-500
+                        <div
+                          className="absolute top-8 left-3 bg-gradient-to-r from-red-500 to-orange-500
                                         text-white text-xs font-bold px-3 py-1.5 rounded-full
-                                        shadow-lg z-10 flex items-center gap-1.5">
+                                        shadow-lg z-10 flex items-center gap-1.5"
+                        >
                           <LocalOfferIcon sx={{ fontSize: 12 }} />
                           <span>{discount}% OFF</span>
                         </div>
@@ -255,27 +301,44 @@ export default function DynamicSectionSlider(props) {
                                    rounded-full flex items-center justify-center shadow-lg
                                    hover:bg-white hover:scale-110 active:scale-95 transition-all duration-200"
                         onClick={(e) => toggleWishlist(p._id, e)}
-                        aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+                        aria-label={
+                          isWishlisted
+                            ? "Remove from wishlist"
+                            : "Add to wishlist"
+                        }
                       >
-                        {isWishlisted
-                          ? <FavoriteIcon className="text-red-500" sx={{ fontSize: 18 }} />
-                          : <FavoriteBorderIcon className="text-gray-600 group-hover/card:text-red-400" sx={{ fontSize: 18 }} />}
+                        {isWishlisted ? (
+                          <FavoriteIcon
+                            className="text-red-500"
+                            sx={{ fontSize: 18 }}
+                          />
+                        ) : (
+                          <FavoriteBorderIcon
+                            className="text-gray-600 group-hover/card:text-red-400"
+                            sx={{ fontSize: 18 }}
+                          />
+                        )}
                       </button>
 
                       <div className="pt-[75%] relative bg-gradient-to-b from-gray-50 to-white overflow-hidden">
                         <div className="absolute inset-0 p-4 flex items-center justify-center">
                           <img
-                            src={p.images?.[0]?.url || '/no-image.png'}
+                            src={p.images?.[0]?.url || FALLBACK_IMG}
                             alt={productName}
                             className="max-h-full max-w-full object-contain transition-transform duration-500 group-hover/card:scale-110"
                             loading="lazy"
-                            onError={(e) => { e.target.src = '/no-image.png' }}
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = FALLBACK_IMG;
+                            }}
                           />
                         </div>
                         <div className="absolute inset-0 bg-black/0 group-hover/card:bg-black/60 flex items-center justify-center transition-all duration-300 z-20">
-                          <button className="opacity-0 group-hover/card:opacity-100 transform translate-y-4 group-hover/card:translate-y-0
+                          <button
+                            className="opacity-0 group-hover/card:opacity-100 transform translate-y-4 group-hover/card:translate-y-0
                                              bg-white text-blue-600 px-4 py-2 rounded-full font-medium text-sm
-                                             flex items-center gap-2 hover:bg-blue-50 transition-all duration-300">
+                                             flex items-center gap-2 hover:bg-blue-50 transition-all duration-300"
+                          >
                             <InfoIcon sx={{ fontSize: 16 }} />
                             Quick View
                           </button>
@@ -287,15 +350,21 @@ export default function DynamicSectionSlider(props) {
                           {productName}
                         </h3>
                         {p.genericName && (
-                          <p className="text-xs text-gray-500 mb-3 line-clamp-1">{p.genericName}</p>
+                          <p className="text-xs text-gray-500 mb-3 line-clamp-1">
+                            {p.genericName}
+                          </p>
                         )}
                         {p.rating && (
                           <div className="flex items-center gap-1.5 mb-3">
                             <div className="flex items-center bg-blue-50 text-blue-600 text-xs font-bold px-2 py-1 rounded">
                               <StarIcon sx={{ fontSize: 12 }} />
-                              <span className="ml-1">{p.rating.toFixed(1)}</span>
+                              <span className="ml-1">
+                                {p.rating.toFixed(1)}
+                              </span>
                             </div>
-                            <span className="text-xs text-gray-400">• 128 reviews</span>
+                            <span className="text-xs text-gray-400">
+                              • 128 reviews
+                            </span>
                           </div>
                         )}
 
@@ -306,17 +375,23 @@ export default function DynamicSectionSlider(props) {
                             </span>
                             {mrp > sellingPrice && (
                               <div className="flex items-center gap-2">
-                                <span className="text-sm line-through text-gray-400">₹{mrp.toLocaleString()}</span>
+                                <span className="text-sm line-through text-gray-400">
+                                  ₹{mrp.toLocaleString()}
+                                </span>
                                 <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded">
                                   Save ₹{(mrp - sellingPrice).toLocaleString()}
                                 </span>
                               </div>
                             )}
                           </div>
-                          <div className={`flex items-center gap-2 text-xs ${isInStock ? 'text-green-600' : 'text-red-500'} mb-2`}>
+                          <div
+                            className={`flex items-center gap-2 text-xs ${isInStock ? "text-green-600" : "text-red-500"} mb-2`}
+                          >
                             <InventoryIcon sx={{ fontSize: 14 }} />
                             <span className="font-medium">
-                              {isInStock ? `${p.totalStocks || p.stocks} units available` : 'Out of Stock'}
+                              {isInStock
+                                ? `${p.totalStocks || p.stocks} units available`
+                                : "Out of Stock"}
                             </span>
                           </div>
                         </div>
@@ -324,41 +399,73 @@ export default function DynamicSectionSlider(props) {
                         <div className="flex flex-col gap-2">
                           <button
                             className={`w-full py-2 rounded-xl text-sm font-medium transition-all duration-200
-                                       ${isInStock && !isThisLoading
-                                         ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md hover:shadow-lg active:scale-95'
-                                         : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-                            onClick={(e) => { if (isInStock && !isThisLoading) handleAddToCart(p, e); else e.stopPropagation() }}
+                                       ${
+                                         isInStock && !isThisLoading
+                                           ? "bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md hover:shadow-lg active:scale-95"
+                                           : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                       }`}
+                            onClick={(e) => {
+                              if (isInStock && !isThisLoading)
+                                handleAddToCart(p, e);
+                              else e.stopPropagation();
+                            }}
                             disabled={!isInStock || isThisLoading}
                           >
                             <div className="flex items-center justify-center gap-2">
-                              {isThisLoading
-                                ? <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                                  </svg>
-                                : <ShoppingCartIcon sx={{ fontSize: 16 }} />}
-                              {!isInStock ? 'Out of Stock' : isThisLoading ? 'Adding...' : 'Add to Cart'}
+                              {isThisLoading ? (
+                                <svg
+                                  className="animate-spin h-4 w-4 text-white"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                >
+                                  <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="4"
+                                  />
+                                  <path
+                                    className="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8v8H4z"
+                                  />
+                                </svg>
+                              ) : (
+                                <ShoppingCartIcon sx={{ fontSize: 16 }} />
+                              )}
+                              {!isInStock
+                                ? "Out of Stock"
+                                : isThisLoading
+                                  ? "Adding..."
+                                  : "Add to Cart"}
                             </div>
                           </button>
 
                           <button
                             className={`w-full py-2 rounded-xl text-sm font-medium transition-all duration-200
-                                       ${isInStock
-                                         ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-md hover:shadow-lg active:scale-95'
-                                         : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-                            onClick={(e) => { if (isInStock) handleBuyNow(p, e); else e.stopPropagation() }}
+                                       ${
+                                         isInStock
+                                           ? "bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-md hover:shadow-lg active:scale-95"
+                                           : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                       }`}
+                            onClick={(e) => {
+                              if (isInStock) handleBuyNow(p, e);
+                              else e.stopPropagation();
+                            }}
                             disabled={!isInStock}
                           >
                             <div className="flex items-center justify-center gap-2">
                               <BoltIcon sx={{ fontSize: 16 }} />
-                              {isInStock ? 'Buy Now' : 'Out of Stock'}
+                              {isInStock ? "Buy Now" : "Out of Stock"}
                             </div>
                           </button>
                         </div>
                       </div>
                     </div>
                   </SwiperSlide>
-                )
+                );
               })}
             </Swiper>
 
@@ -381,10 +488,12 @@ export default function DynamicSectionSlider(props) {
               <ArrowForwardIosIcon className="text-gray-700 text-sm lg:text-base" />
             </button>
 
-            <div className={`pagination-${sectionKey} flex justify-center gap-2 mt-6`} />
+            <div
+              className={`pagination-${sectionKey} flex justify-center gap-2 mt-6`}
+            />
           </div>
         </div>
       </div>
     </>
-  )
+  );
 }

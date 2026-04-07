@@ -88,8 +88,9 @@ import CMSPages from "./pages/CMSPages";
 import CMSPageEditor from "./pages/CMSPageEditor";
 import RegistrationTable from "../adminpanel/pages/registrations/RegistrationTable";
 import JobHistory from "../marketingAgent/pages/JobHistory";
-import Leads from "../marketingAgent/pages/Leads";
 import Profile from "../marketingAgent/pages/Profile";
+import AdminLeads        from "./MarketingAgent/AdminLeads";
+import AdminPointsPayout from "./MarketingAgent/Adminpointspayout";
 import AgentProfile from "../DeliveryAgent/pages/AgentProfile";
 import DeliveryLeads from "../DeliveryAgent/pages/Leads";
 import Training from "./MarketingAgent/Training&Meeting";
@@ -867,7 +868,7 @@ const Dashboard = () => {
               Job history
             </Button>
             <Button
-              onClick={() => setActiveSection("marketing-products")}
+              onClick={() => setActiveSection("marketing-leads")}
               sx={subMenuBtnSx}
             >
               Leads
@@ -884,6 +885,11 @@ const Dashboard = () => {
             >
               Order Management
             </Button>
+            <Button 
+            onClick={() => setActiveSection("marketing-points-payout")} 
+            sx={subMenuBtnSx}>
+              Points & Payout
+              </Button>
           </Box>
         </Collapse>
 
@@ -2514,6 +2520,8 @@ const Dashboard = () => {
         {activeSection === "marketing-products" && <DeliveryLeads />}
         {activeSection === "training-meeting" && <Training/>}
         {activeSection === "marketing-orders" && <AdminMarketingOrders/>}
+        {activeSection === "marketing-leads" && <AdminLeads />}
+        {activeSection === "marketing-points-payout" && <AdminPointsPayout />}
 
         {/* ================= Delivery ZONE ================= */}
         {activeSection === "delivery-overview" && <DeliveryOverview />}

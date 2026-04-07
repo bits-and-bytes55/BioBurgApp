@@ -11,10 +11,10 @@ import {
 
 const router = express.Router();
 
-// ── PUBLIC (veteran submits ticket — no auth needed) ──────────────────────────
+// ── PUBLIC (veteran submits ticket — no auth needed)
 router.post("/", createTicket);
 
-// ── ADMIN only ────────────────────────────────────────────────────────────────
+// ── ADMIN only 
 // stats MUST come before /:id
 router.get("/stats",  protect, adminMiddleware, getStats);
 router.get("/",       protect, adminMiddleware, getAllTickets);

@@ -115,6 +115,7 @@ import MarkAttendance from "./marketingAgent/pages/AttendenceSystem.jsx";
 import Products from "./marketingAgent/pages/Products.jsx";
 import Invoices from "./marketingAgent/pages/Invoices.jsx";
 import PaymentHistory from "./marketingAgent/pages/PaymentHistory.jsx";
+import PointsAndPayout from "./marketingAgent/pages/Points&Payout.jsx";
 import CreateOrders from "./marketingAgent/pages/CreateOrders.jsx";
 import CreateBill from "./marketingAgent/pages/CreateBill.jsx";
 import CreateChallan from "./marketingAgent/pages/CreateChallan.jsx";
@@ -463,6 +464,7 @@ function App() {
                 <Route path="/agent/job-activity" element={<JobActivity />} />
                 <Route path="/agent/responses" element={<Responses />} />
                 <Route path="mark-attendance" element={<MarkAttendance />} />
+                <Route path="points-payout" element={<PointsAndPayout />} />
                 <Route path="training-meeting" element={<TrainingMeeting />} />
                 <Route path="leads" element={<Leads />} />
                 <Route path="enquiries" element={<Vendors />} />
