@@ -1,9 +1,9 @@
 // controllers/pointsAdminController.js
 
 import mongoose from "mongoose";
-import AgentPoints from "../models/AgentPoints.js";
-import PointsConfig from "../models/PointsConfig.js";
-import PayoutRequest from "../models/PayoutRequest.js";
+import AgentPoints from "../models/Agentpoints.js";
+import PointsConfig from "../models/Pointsconfig.js";
+import PayoutRequest from "../models/Payoutrequest.js";
 
 // ── GET /api/points/admin/config 
 export const getPointsConfigs = async (req, res) => {

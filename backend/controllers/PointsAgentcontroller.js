@@ -1,8 +1,8 @@
 // controllers/pointsAgentController.js
 
 import mongoose from "mongoose";
-import AgentPoints from "../models/AgentPoints.js";
-import PayoutRequest from "../models/PayoutRequest.js";
+import AgentPoints from "../models/Agentpoints.js";
+import PayoutRequest from "../models/Payoutrequest.js";
 
 const POINTS_TO_RUPEE_RATE = 1; 
 
