@@ -1,6 +1,6 @@
 // utils/awardPoints.js
-import AgentPoints from "../models/AgentPoints.js";
-import PointsConfig from "../models/PointsConfig.js";
+import AgentPoints from "../models/Agentpoints.js";
+import PointsConfig from "../models/Pointsconfig.js";
 
 /**
  * Award points to an agent based on a configured task key.
