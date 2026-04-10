@@ -18,10 +18,13 @@ export default function AgentTraining() {
   const [loadingModule, setLoadingModule] = useState(false)
 
   // Video state
-  const [watchedPct, setWatchedPct]   = useState(0)
+  const [watchedPct, setWatchedPct]     = useState(0)
   const [quizUnlocked, setQuizUnlocked] = useState(false)
-  const videoRef = useRef(null)
+  const [isCompleted, setIsCompleted]   = useState(false)
+  const [completing, setCompleting]     = useState(false)
+  const videoRef     = useRef(null)
   const startTimeRef = useRef(null)
+  const maxWatchedRef = useRef(0)  
 
   // Quiz state
   const [answers, setAnswers]         = useState([])
@@ -54,26 +57,61 @@ export default function AgentTraining() {
         setSubmitted(false)
         setResult(null)
         setWatchedPct(0)
-        setQuizUnlocked(!m.hasVideo || m.watchPercent === 0) // unlock immediately if no video
+        setQuizUnlocked(!m.hasVideo || m.watchPercent === 0)
+        setIsCompleted(m.hasPassed || false)
+        setCompleting(false)
+        maxWatchedRef.current = 0
         startTimeRef.current = Date.now()
       }
     } catch { toast('Failed to load module', 'error') }
     setLoadingModule(false)
   }
 
+  // AFTER
   const closeModule = () => {
     setActiveModule(null); setAnswers([]); setSubmitted(false)
     setResult(null); setWatchedPct(0); setQuizUnlocked(false)
+    setIsCompleted(false); setCompleting(false)
+    maxWatchedRef.current = 0
   }
 
   /* ── Video time tracking ── */
+  // AFTER
   const handleTimeUpdate = () => {
     const v = videoRef.current
     if (!v || !v.duration) return
+
+    // Prevent skipping forward — rewind if jumped > 2s ahead of max watched
+    if (v.currentTime > maxWatchedRef.current + 2) {
+      v.currentTime = maxWatchedRef.current
+    } else {
+      maxWatchedRef.current = Math.max(maxWatchedRef.current, v.currentTime)
+    }
+
     const pct = Math.round((v.currentTime / v.duration) * 100)
     setWatchedPct(pct)
     if (activeModule?.hasQuiz && pct >= (activeModule.watchPercent || 0)) {
       setQuizUnlocked(true)
+    }
+  }
+
+  // NEW — fires when video reaches the end naturally
+  const handleVideoEnded = async () => {
+    if (isCompleted || completing || activeModule?.hasQuiz) return
+    setCompleting(true)
+    try {
+      await axios.post(
+        `${BASE}/api/training/agent/modules/${activeModule._id}/complete`,
+        {},
+        { headers: authHeader() }
+      )
+      setIsCompleted(true)
+      toast('🎉 Module completed! Great work.', 'success')
+      fetchModules()  // updates Available/Completed counts on dashboard
+    } catch (err) {
+      toast(err?.response?.data?.message || 'Could not save completion', 'error')
+    } finally {
+      setCompleting(false)
     }
   }
 
@@ -272,25 +310,35 @@ export default function AgentTraining() {
                   {/* Secured video player */}
                   <Box sx={{ position: 'relative', paddingTop: '56.25%', borderRadius: 2, overflow: 'hidden', bgcolor: '#000' }}
                     onContextMenu={e => e.preventDefault()}>
-                    {activeModule.videoUrl.includes('youtube.com') || activeModule.videoUrl.includes('youtu.be') ? (
+                    
+                    // AFTER
+                  {activeModule.videoUrl.includes('youtube.com') || activeModule.videoUrl.includes('youtu.be') ? (
                       <iframe
-                        src={`${activeModule.videoUrl}?controls=1&modestbranding=1&rel=0&fs=0&disablekb=0`}
+                        src={`${activeModule.videoUrl}?controls=0&modestbranding=1&rel=0&fs=0&disablekb=1`}
                         style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
                         allow="accelerometer; autoplay; encrypted-media; gyroscope"
                         allowFullScreen={false}
                         title={activeModule.title}
                       />
                     ) : (
-                      <video
-                        ref={videoRef}
-                        src={activeModule.videoUrl}
-                        controls
-                        controlsList="nodownload noremoteplayback nofullscreen"
-                        disablePictureInPicture
-                        onContextMenu={e => e.preventDefault()}
-                        onTimeUpdate={handleTimeUpdate}
-                        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
-                      />
+                      <>
+                        <style>{`
+                          video::-webkit-media-controls-timeline { display: none !important; }
+                          video::-webkit-media-controls-current-time-display { display: none !important; }
+                          video::-webkit-media-controls-time-remaining-display { display: none !important; }
+                        `}</style>
+                        <video
+                          ref={videoRef}
+                          src={activeModule.videoUrl}
+                          controls
+                          controlsList="nodownload noremoteplayback noplaybackrate"
+                          disablePictureInPicture
+                          onContextMenu={e => e.preventDefault()}
+                          onTimeUpdate={handleTimeUpdate}
+                          onEnded={handleVideoEnded}
+                          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+                        />
+                      </>
                     )}
                     {/* Blocks right-click on YouTube iframe top half */}
                     <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: '60px', zIndex: 1, cursor: 'default' }}
@@ -352,11 +400,21 @@ export default function AgentTraining() {
                 </Box>
               )}
 
-              {/* Video-only module message */}
+              {/* Video-only module message + completion status */}
               {!submitted && activeModule.hasVideo && !activeModule.hasQuiz && (
-                <Alert severity="success" sx={{ mt: 2, borderRadius: 2, fontSize: 13 }}>
-                  This is a video-only module. Watch the video above to complete your training.
-                </Alert>
+                isCompleted ? (
+                  <Alert severity="success" sx={{ mt: 2, borderRadius: 2, fontSize: 13, fontWeight: 700 }}>
+                    You have completed this module!
+                  </Alert>
+                ) : completing ? (
+                  <Alert severity="info" sx={{ mt: 2, borderRadius: 2, fontSize: 13 }}>
+                    Saving your completion...
+                  </Alert>
+                ) : (
+                  <Alert severity="success" sx={{ mt: 2, borderRadius: 2, fontSize: 13 }}>
+                    This is a video-only module. Watch the video above to complete your training.
+                  </Alert>
+                )
               )}
             </DialogContent>
 

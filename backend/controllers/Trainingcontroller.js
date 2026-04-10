@@ -4,10 +4,10 @@ import { deleteFromCloudinary } from "../utils/cloudinaryDelete.js";
 
 export const listAgentsForAssignment = async (req, res) => {
   try {
-    const agents = await MarketingAgent.find({})
-      .select("name email assignedArea")
-      .sort({ name: 1 })
-      .lean();
+    const agents = await MarketingAgent.find({ isApproved: true })
+    .select("name email assignedArea")
+    .sort({ name: 1 })
+    .lean();
     res.json({ success: true, agents });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -356,5 +356,53 @@ export const submitAttempt = async (req, res) => {
   } catch (err) {
     console.error("submitAttempt:", err);
     res.status(500).json({ message: err.message });
+  }
+};
+
+export const markVideoComplete = async (req, res) => {
+  try {
+    const agentId = req.user.id;
+
+    const module = await TrainingModule.findOne({
+      _id: req.params.id,
+      isActive: true,
+      isVisible: true,
+    });
+    if (!module) return res.status(404).json({ message: "Module not found" });
+    if (module.hasQuiz) {
+      return res.status(400).json({ message: "This module has a quiz — use /attempt instead" });
+    }
+    if (!module.hasVideo) {
+      return res.status(400).json({ message: "This module has no video" });
+    }
+
+    // Check already completed by this agent
+    const alreadyDone = (module.attempts || []).some(
+      (a) => String(a.agent) === String(agentId) && a.passed
+    );
+    if (alreadyDone) {
+      return res.json({ success: true, alreadyCompleted: true, message: "Already completed" });
+    }
+
+    const agent = await MarketingAgent.findById(agentId).select("name").lean();
+
+    await TrainingModule.findByIdAndUpdate(module._id, {
+      $push: {
+        attempts: {
+          agent: agentId,
+          agentName: agent?.name || "Unknown",
+          score: 1,
+          total: 1,
+          passed: true,
+          timeTaken: "video",
+          watchedPct: 100,
+        },
+      },
+    });
+
+    return res.json({ success: true, message: "Module marked as completed!" });
+  } catch (err) {
+    console.error("markVideoComplete:", err);
+    return res.status(500).json({ message: err.message });
   }
 };

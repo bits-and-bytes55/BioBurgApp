@@ -1,85 +1,71 @@
-import { Box, Drawer, IconButton, useMediaQuery, useTheme } from "@mui/material";
-import { Menu as MenuIcon } from "@mui/icons-material";
-import { Outlet } from "react-router-dom";
-import { useState } from "react";
-import AgentSidebar from "../components/AgentSidebar";
+// layouts/AgentLayout.jsx
+import { useState } from 'react'
+import { Outlet } from 'react-router-dom'
+import { Box, IconButton, AppBar, Toolbar, Typography, useMediaQuery, useTheme } from '@mui/material'
+import MenuIcon from '@mui/icons-material/Menu'
+import AgentSidebar from '../components/AgentSidebar' // adjust path as needed
 
-const SIDEBAR_WIDTH = 248;
+const SIDEBAR_WIDTH   = 248
+const COLLAPSED_WIDTH = 68
 
-const AgentLayout = () => {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("lg"));
+export default function AgentLayout() {
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const theme   = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh" }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#f8fafc' }}>
 
-      {/* ── HAMBURGER — only visible on mobile ── */}
-      {isMobile && (
-        <IconButton
-          onClick={() => setMobileOpen(true)}
-          sx={{
-            position: "fixed",
-            top: 12,
-            left: 12,
-            zIndex: 1400,
-            bgcolor: darkMode ? "#0f172a" : "#1d4ed8",
-            color: "white",
-            width: 42,
-            height: 42,
-            borderRadius: "10px",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
-            "&:hover": { bgcolor: darkMode ? "#1e293b" : "#1e40af" },
-          }}
-        >
-          <MenuIcon />
-        </IconButton>
-      )}
+      {/* ── SIDEBAR ── */}
+      <AgentSidebar
+        mobileOpen={mobileOpen}
+        onMobileClose={() => setMobileOpen(false)}
+      />
 
-      {/* ── DESKTOP SIDEBAR (permanent) ── */}
-      <Box sx={{ display: { xs: "none", lg: "block" } }}>
-        <AgentSidebar darkMode={darkMode} />
-      </Box>
-
-      {/* ── MOBILE SIDEBAR (temporary drawer) ── */}
-      <Drawer
-        variant="temporary"
-        open={mobileOpen}
-        onClose={() => setMobileOpen(false)}
-        ModalProps={{ keepMounted: true }}
-        sx={{
-          display: { xs: "block", lg: "none" },
-          "& .MuiDrawer-paper": {
-            width: SIDEBAR_WIDTH,
-            boxSizing: "border-box",
-            border: "none",
-          },
-        }}
-      >
-        <AgentSidebar
-          darkMode={darkMode}
-          mobile
-          onClose={() => setMobileOpen(false)}
-        />
-      </Drawer>
-
-      {/* ── MAIN CONTENT ── */}
+      {/* ── MAIN AREA ── */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          width: { lg: `calc(100% - ${SIDEBAR_WIDTH}px)` },
-          // Push content down on mobile so it clears the hamburger button
-          pt: { xs: 8, lg: 0 },
-          px: { xs: 2, lg: 3 },
-          pb: 3,
+          minWidth: 0,          // prevent flex overflow
+          display: 'flex',
+          flexDirection: 'column',
+          // On desktop push content right of sidebar
+          ml: isMobile ? 0 : 0, // MUI permanent drawer handles its own width
         }}
       >
-        <Outlet />
+        {/* Mobile top bar */}
+        {isMobile && (
+          <AppBar
+            position="sticky"
+            elevation={0}
+            sx={{
+              bgcolor: '#1d4ed8',
+              borderBottom: '1px solid rgba(255,255,255,0.12)',
+              zIndex: theme.zIndex.drawer - 1,
+            }}
+          >
+            <Toolbar sx={{ minHeight: '56px !important', px: 1.5 }}>
+              <IconButton
+                edge="start"
+                color="inherit"
+                onClick={() => setMobileOpen(true)}
+                sx={{ mr: 1.5 }}
+              >
+                <MenuIcon />
+              </IconButton>
+              <Typography sx={{ fontWeight: 700, fontSize: 15, color: 'white', letterSpacing: '0.02em' }}>
+                Marketing Agent Portal
+              </Typography>
+            </Toolbar>
+          </AppBar>
+        )}
+
+        {/* Page content */}
+        <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
+          <Outlet />
+        </Box>
       </Box>
     </Box>
-  );
-};
-
-export default AgentLayout;
+  )
+}

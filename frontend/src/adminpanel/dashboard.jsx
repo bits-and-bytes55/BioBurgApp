@@ -87,11 +87,12 @@ import AdminBioburgJewelers from "./pages/AdminBioburgJewelers";
 import CMSPages from "./pages/CMSPages";
 import CMSPageEditor from "./pages/CMSPageEditor";
 import RegistrationTable from "../adminpanel/pages/registrations/RegistrationTable";
-import JobHistory from "../marketingAgent/pages/JobHistory";
+import JobHistory from "../adminpanel/MarketingAgent/JobHistory";
 import Profile from "../marketingAgent/pages/Profile";
 import AdminLeads        from "./MarketingAgent/AdminLeads";
 import AdminPointsPayout from "./MarketingAgent/Adminpointspayout";
-import AgentProfile from "../DeliveryAgent/pages/AgentProfile";
+import MarketingOverview from "./MarketingAgent/Overview";
+import MarketingAllAgents from "./MarketingAgent/AllAgents";
 import DeliveryLeads from "../DeliveryAgent/pages/Leads";
 import Training from "./MarketingAgent/Training&Meeting";
 import AdminMarketingOrders from "./MarketingAgent/MarketingOrders"
@@ -266,7 +267,7 @@ const Dashboard = () => {
     useState(false);
   const [openJobsAndCareersZone, setOpenJobsAndCareersZone] = useState(false);
   const [openJobsExServiceZone, setOpenJobsExServiceZone] = useState(false);
-  const [selectedVendorId, setSelectedVendorId] = useState(null);
+  const [setSelectedVendorId] = useState(null);
   const [openPharmaApprovalZone, setOpenPharmaApprovalZone] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [selectedProductId, setSelectedProductId] = useState(null);
@@ -422,12 +423,12 @@ const Dashboard = () => {
       submenu: true,
     },
     { id: "nav-manager", label: "Navigation Manager", icon: <MenuIcon /> },
-    { id: "banners", label: "Ad banners", icon: <PhotoLibraryIcon /> },
-    { id: "home-slider", label: "Home slider", icon: <PhotoLibraryIcon /> },
+    { id: "banners", label: "Ad Banners", icon: <PhotoLibraryIcon /> },
+    { id: "home-slider", label: "Home Slider", icon: <PhotoLibraryIcon /> },
     { id: "testimonials", label: "Testimonials", icon: <TestimonialIcon /> },
     {
       id: "user-question",
-      label: "User question",
+      label: "User Question",
       icon: <QuestionAnswerIcon />,
     },
   ];
@@ -548,13 +549,13 @@ const Dashboard = () => {
                           onClick={() => setActiveSection("add-category")}
                           sx={subMenuBtnSx}
                         >
-                          Add category
+                          Add Category
                         </Button>
                         <Button
                           onClick={() => setActiveSection("all-category")}
                           sx={subMenuBtnSx}
                         >
-                          All categories
+                          All Categories
                         </Button>
                       </>
                     )}
@@ -565,13 +566,13 @@ const Dashboard = () => {
                           onClick={() => setActiveSection("add-product")}
                           sx={subMenuBtnSx}
                         >
-                          Add product
+                          Add Product
                         </Button>
                         <Button
                           onClick={() => setActiveSection("admin-all-products")}
                           sx={subMenuBtnSx}
                         >
-                          All products
+                          All Products
                         </Button>
                       </>
                     )}
@@ -608,7 +609,7 @@ const Dashboard = () => {
             color: "#1e293b",
           }}
         >
-          CMS pages
+          CMS Pages
         </Button>
 
         {/* Policy Page  */}
@@ -668,7 +669,7 @@ const Dashboard = () => {
             color: "#1e293b",
           }}
         >
-          D2C Orders zone
+          D2C Orders Zone
         </Button>
 
         <Collapse in={openD2CZone} timeout="auto" unmountOnExit>
@@ -677,25 +678,25 @@ const Dashboard = () => {
               onClick={() => setActiveSection("d2c-all-orders")}
               sx={subMenuBtnSx}
             >
-              All orders
+              All Orders
             </Button>
             <Button
               onClick={() => setActiveSection("d2c-pending-orders")}
               sx={subMenuBtnSx}
             >
-              Pending orders
+              Pending Orders
             </Button>
             <Button
               onClick={() => setActiveSection("d2c-delivered-orders")}
               sx={subMenuBtnSx}
             >
-              Delivered orders
+              Delivered Orders
             </Button>
             <Button
               onClick={() => setActiveSection("d2c-all-users")}
               sx={subMenuBtnSx}
             >
-              All users
+              All Users
             </Button>
           </Box>
         </Collapse>
@@ -724,7 +725,7 @@ const Dashboard = () => {
             color: "#1e293b",
           }}
         >
-          B2B section zone
+          B2B Section Zone
         </Button>
 
         <Collapse in={openB2B} timeout="auto" unmountOnExit>
@@ -763,7 +764,7 @@ const Dashboard = () => {
             color: "#1e293b",
           }}
         >
-          Brand logo section zone
+          Brand Logo Section Zone
         </Button>
 
         <Collapse in={openBrandLogo} timeout="auto" unmountOnExit>
@@ -772,7 +773,7 @@ const Dashboard = () => {
               onClick={() => setActiveSection("create-brandLogo")}
               sx={subMenuBtnSx}
             >
-              ➕ Add brand logo
+              ➕ Add Brand Logo
             </Button>
           </Box>
         </Collapse>
@@ -805,7 +806,7 @@ const Dashboard = () => {
             color: "#1e293b",
           }}
         >
-          Bioburg jewelers section
+          Bioburg Jewelers Section
         </Button>
 
         <Collapse in={openBioburgJewelers} timeout="auto" unmountOnExit>
@@ -814,13 +815,13 @@ const Dashboard = () => {
               onClick={() => setActiveSection("create-bioburg-jewelers")}
               sx={subMenuBtnSx}
             >
-              ➕ Add Bioburg jewelers
+              ➕ Add Bioburg Jewelers
             </Button>
             <Button
               onClick={() => setActiveSection("all-bioburg-jewelers")}
               sx={subMenuBtnSx}
             >
-              📋 All Bioburg jewelers
+              📋 All Bioburg Jewelers
             </Button>
           </Box>
         </Collapse>
@@ -850,7 +851,7 @@ const Dashboard = () => {
             color: "#1e293b",
           }}
         >
-          Marketing zone
+          Marketing Zone
         </Button>
 
         <Collapse in={openMarketingZone} timeout="auto" unmountOnExit>
@@ -859,13 +860,19 @@ const Dashboard = () => {
               onClick={() => setActiveSection("marketing-overview")}
               sx={subMenuBtnSx}
             >
-              Profile
+              Overview
             </Button>
             <Button
-              onClick={() => setActiveSection("marketing-vendors")}
+              onClick={() => setActiveSection("marketing-allagents")}
               sx={subMenuBtnSx}
             >
-              Job history
+              All Agents
+            </Button>
+            <Button
+              onClick={() => setActiveSection("marketing-jobs")}
+              sx={subMenuBtnSx}
+            >
+              Job History
             </Button>
             <Button
               onClick={() => setActiveSection("marketing-leads")}
@@ -919,7 +926,7 @@ const Dashboard = () => {
             color: "#1e293b",
           }}
         >
-          Delivery zone
+          Delivery Zone
         </Button>
 
         <Collapse in={openDeliveryZone} timeout="auto" unmountOnExit>
@@ -934,13 +941,13 @@ const Dashboard = () => {
               onClick={() => setActiveSection("delivery-agents")}
               sx={subMenuBtnSx}
             >
-              Agent management
+              Agent Management
             </Button>
             <Button
               onClick={() => setActiveSection("delivery-orders")}
               sx={subMenuBtnSx}
             >
-              Order management
+              Order Management
             </Button>
             <Button
               onClick={() => setActiveSection("delivery-analytics")}
@@ -981,7 +988,7 @@ const Dashboard = () => {
             color: "#1e293b",
           }}
         >
-          Doctor zone
+          Doctor Zone
         </Button>
 
         <Collapse in={openDoctorZone} timeout="auto" unmountOnExit>
@@ -996,13 +1003,13 @@ const Dashboard = () => {
               onClick={() => setActiveSection("doctor-all")}
               sx={subMenuBtnSx}
             >
-              All doctors
+              All Doctors
             </Button>
             <Button
               onClick={() => setActiveSection("doctor-approved")}
               sx={subMenuBtnSx}
             >
-              Approved doctors
+              Approved Doctors
             </Button>
             <Button
               onClick={() => setActiveSection("doctor-pending")}
@@ -1014,7 +1021,7 @@ const Dashboard = () => {
               onClick={() => setActiveSection("doctor-blocked")}
               sx={subMenuBtnSx}
             >
-              Blocked doctors
+              Blocked Doctors
             </Button>
             <Button
               onClick={() => setActiveSection("doctor-consultations")}
@@ -1054,7 +1061,7 @@ const Dashboard = () => {
             color: "#1e293b",
           }}
         >
-          Franchise zone
+          Franchise Zone
         </Button>
 
         <Collapse in={openFranchiseZone} timeout="auto" unmountOnExit>
@@ -1063,13 +1070,13 @@ const Dashboard = () => {
               onClick={() => setActiveSection("admin-franchise-requests")}
               sx={subMenuBtnSx}
             >
-              Franchise requests
+              Franchise Requests
             </Button>
             <Button
               onClick={() => setActiveSection("franchise-accounts")}
               sx={subMenuBtnSx}
             >
-              Franchise accounts
+              Franchise Accounts
             </Button>
 
             <Divider sx={{ my: 1 }} />
@@ -1079,19 +1086,19 @@ const Dashboard = () => {
               onClick={() => setActiveSection("admin-franchise-orders")}
               sx={subMenuBtnSx}
             >
-              Franchise orders
+              Franchise Orders
             </Button>
             <Button
               onClick={() => setActiveSection("franchise-assign-zone")}
               sx={subMenuBtnSx}
             >
-              Zone mapping
+              Zone Mapping
             </Button>
             <Button
               onClick={() => setActiveSection("order-tracking")}
               sx={subMenuBtnSx}
             >
-              Order tracking
+              Order Tracking
             </Button>
 
             <Divider sx={{ my: 1 }} />
@@ -1101,19 +1108,19 @@ const Dashboard = () => {
               onClick={() => setActiveSection("sales-reports")}
               sx={subMenuBtnSx}
             >
-              Sales & settlements
+              Sales & Settlements
             </Button>
             <Button
               onClick={() => setActiveSection("franchise-restock")}
               sx={subMenuBtnSx}
             >
-              Inventory & restock
+              Inventory & Restock
             </Button>
             <Button
               onClick={() => setActiveSection("admin-support")}
               sx={subMenuBtnSx}
             >
-              Support tickets
+              Support Tickets
             </Button>
           </Box>
         </Collapse>
@@ -1143,7 +1150,7 @@ const Dashboard = () => {
             color: "#1e293b",
           }}
         >
-          Vendor zone
+          Vendor Zone
         </Button>
 
         <Collapse in={openVendorZone} timeout="auto" unmountOnExit>
@@ -1158,61 +1165,61 @@ const Dashboard = () => {
               onClick={() => setActiveSection("approve-vendor")}
               sx={subMenuBtnSx}
             >
-              Approve vendor
+              Approve Vendor
             </Button>
             <Button
               onClick={() => setActiveSection("pending-vendor")}
               sx={subMenuBtnSx}
             >
-              Pending vendor
+              Pending Vendor
             </Button>
             <Button
               onClick={() => setActiveSection("vendor-details")}
               sx={subMenuBtnSx}
             >
-              Vendor details
+              Vendor Details
             </Button>
             <Button
               onClick={() => setActiveSection("all-orders")}
               sx={subMenuBtnSx}
             >
-              All orders
+              All Orders
             </Button>
             <Button
               onClick={() => setActiveSection("assigned-orders")}
               sx={subMenuBtnSx}
             >
-              Assigned orders
+              Assigned Orders
             </Button>
             <Button
               onClick={() => setActiveSection("unassigned-orders")}
               sx={subMenuBtnSx}
             >
-              Unassigned orders
+              UnAssigned Orders
             </Button>
             <Button
               onClick={() => setActiveSection("vendor-all-products")}
               sx={subMenuBtnSx}
             >
-              All products
+              All Products
             </Button>
             <Button
               onClick={() => setActiveSection("vendor-products")}
               sx={subMenuBtnSx}
             >
-              Vendor products
+              Vendor Products
             </Button>
             <Button
               onClick={() => setActiveSection("vendor-analytics")}
               sx={subMenuBtnSx}
             >
-              Vendor analytics
+              Vendor Analytics
             </Button>
             <Button
               onClick={() => setActiveSection("vendor-payments")}
               sx={subMenuBtnSx}
             >
-              Vendor payments
+              Vendor Payments
             </Button>
           </Box>
         </Collapse>
@@ -1241,7 +1248,7 @@ const Dashboard = () => {
             color: "#1e293b",
           }}
         >
-          Pathology zone
+          Pathology Zone
         </Button>
 
         <Collapse in={openPathologyZone} timeout="auto" unmountOnExit>
@@ -1256,31 +1263,31 @@ const Dashboard = () => {
               onClick={() => setActiveSection("pathology-all")}
               sx={subMenuBtnSx}
             >
-              All labs
+              All Labs
             </Button>
             <Button
               onClick={() => setActiveSection("pathology-pending")}
               sx={subMenuBtnSx}
             >
-              Pending labs
+              Pending Labs
             </Button>
             <Button
               onClick={() => setActiveSection("pathology-approved")}
               sx={subMenuBtnSx}
             >
-              Approved labs
+              Approved Labs
             </Button>
             <Button
               onClick={() => setActiveSection("sales-reports")}
               sx={subMenuBtnSx}
             >
-              Sales & reports
+              Sales & Reports
             </Button>
             <Button
               onClick={() => setActiveSection("admin-support")}
               sx={subMenuBtnSx}
             >
-              Support tickets
+              Support Tickets
             </Button>
           </Box>
         </Collapse>
@@ -1292,13 +1299,13 @@ const Dashboard = () => {
               onClick={() => setActiveSection("bioburg-jewelers-requests")}
               sx={subMenuBtnSx}
             >
-              Bioburg jewelers requests
+              Bioburg Jewelers Requests
             </Button>
             <Button
               onClick={() => setActiveSection("bioburg-jewelers-accounts")}
               sx={subMenuBtnSx}
             >
-              Bioburg jewelers accounts
+              Bioburg Jewelers Accounts
             </Button>
             <Divider sx={{ my: 1 }} />
             <Typography sx={subMenuHeadingSx}>Orders</Typography>
@@ -1306,13 +1313,13 @@ const Dashboard = () => {
               onClick={() => setActiveSection("bioburg-jewelers-orders")}
               sx={subMenuBtnSx}
             >
-              All orders
+              All Orders
             </Button>
             <Button
               onClick={() => setActiveSection("bioburg-jewelers-assign-zone")}
               sx={subMenuBtnSx}
             >
-              Assign zone
+              Assign Zone
             </Button>
             <Button
               onClick={() =>
@@ -1320,7 +1327,7 @@ const Dashboard = () => {
               }
               sx={subMenuBtnSx}
             >
-              Order tracking
+              Order Tracking
             </Button>
             <Divider sx={{ my: 1 }} />
             <Typography sx={subMenuHeadingSx}>Sales & support</Typography>
@@ -1328,13 +1335,13 @@ const Dashboard = () => {
               onClick={() => setActiveSection("bioburg-jewelers-sales")}
               sx={subMenuBtnSx}
             >
-              Sales & reports
+              Sales & Reports
             </Button>
             <Button
               onClick={() => setActiveSection("bioburg-jewelers-support")}
               sx={subMenuBtnSx}
             >
-              Support tickets
+              Support Tickets
             </Button>
           </Box>
         </Collapse>
@@ -1364,7 +1371,7 @@ const Dashboard = () => {
             color: "#1e293b",
           }}
         >
-          Bioburg C & F zone
+          Bioburg C & F Zone
         </Button>
 
         <Collapse in={openBioburgCAndFZone} timeout="auto" unmountOnExit>
@@ -1373,13 +1380,13 @@ const Dashboard = () => {
               onClick={() => setActiveSection("bioburg-c-and-f-requests")}
               sx={subMenuBtnSx}
             >
-              Bioburg C & F requests
+              Bioburg C & F Requests
             </Button>
             <Button
               onClick={() => setActiveSection("bioburg-c-and-f-accounts")}
               sx={subMenuBtnSx}
             >
-              Bioburg C & F accounts
+              Bioburg C & F Accounts
             </Button>
             <Divider sx={{ my: 1 }} />
             <Typography sx={subMenuHeadingSx}>Orders</Typography>
@@ -1387,19 +1394,19 @@ const Dashboard = () => {
               onClick={() => setActiveSection("bioburg-c-and-f-orders")}
               sx={subMenuBtnSx}
             >
-              All orders
+              All Orders
             </Button>
             <Button
               onClick={() => setActiveSection("bioburg-c-and-f-assign-zone")}
               sx={subMenuBtnSx}
             >
-              Assign zone
+              Assign Zone
             </Button>
             <Button
               onClick={() => setActiveSection("bioburg-c-and-f-order-tracking")}
               sx={subMenuBtnSx}
             >
-              Order tracking
+              Order Tracking
             </Button>
             <Divider sx={{ my: 1 }} />
             <Typography sx={subMenuHeadingSx}>Sales & support</Typography>
@@ -1407,13 +1414,13 @@ const Dashboard = () => {
               onClick={() => setActiveSection("bioburg-c-and-f-sales")}
               sx={subMenuBtnSx}
             >
-              Sales & reports
+              Sales & Reports
             </Button>
             <Button
               onClick={() => setActiveSection("bioburg-c-and-f-support")}
               sx={subMenuBtnSx}
             >
-              Support tickets
+              Support Tickets
             </Button>
           </Box>
         </Collapse>
@@ -1444,7 +1451,7 @@ const Dashboard = () => {
             color: "#1e293b",
           }}
         >
-          Hospital zone
+          Hospital Zone
         </Button>
 
         <Collapse in={openHospitalZone} timeout="auto" unmountOnExit>
@@ -1459,19 +1466,19 @@ const Dashboard = () => {
               onClick={() => setActiveSection("hospital-all")}
               sx={subMenuBtnSx}
             >
-              All hospitals
+              All Hospitals
             </Button>
             <Button
               onClick={() => setActiveSection("hospital-active")}
               sx={subMenuBtnSx}
             >
-              Active hospitals
+              Active Hospitals
             </Button>
             <Button
               onClick={() => setActiveSection("hospital-pending")}
               sx={subMenuBtnSx}
             >
-              Pending approvals
+              Pending Approvals
             </Button>
             <Button
               onClick={() => setActiveSection("hospital-rejected")}
@@ -1504,7 +1511,7 @@ const Dashboard = () => {
             color: "#1e293b",
           }}
         >
-          Pharmacy zone
+          Pharmacy Zone
         </Button>
 
         <Collapse in={openPharmaApprovalZone} timeout="auto" unmountOnExit>
@@ -1519,19 +1526,19 @@ const Dashboard = () => {
               onClick={() => setActiveSection("pharmacy-all")}
               sx={subMenuBtnSx}
             >
-              All pharmacies
+              All Pharmacies
             </Button>
             <Button
               onClick={() => setActiveSection("pharmacy-active")}
               sx={subMenuBtnSx}
             >
-              Active pharmacies
+              Active Pharmacies
             </Button>
             <Button
               onClick={() => setActiveSection("pharmacy-pending")}
               sx={subMenuBtnSx}
             >
-              Pending approvals
+              Pending Approvals
             </Button>
             <Button
               onClick={() => setActiveSection("pharmacy-rejected")}
@@ -1569,7 +1576,7 @@ const Dashboard = () => {
             color: "#1e293b",
           }}
         >
-          Sponsor pharma brand zone
+          Sponsor Pharma Brand Zone
         </Button>
 
         <Collapse in={openSponsorPharmaBrandZone} timeout="auto" unmountOnExit>
@@ -1578,13 +1585,13 @@ const Dashboard = () => {
               onClick={() => setActiveSection("hospital-and-pharmacy-requests")}
               sx={subMenuBtnSx}
             >
-              Sponsor & pharma
+              Sponsor & Pharma
             </Button>
             <Button
               onClick={() => setActiveSection("bioburg-c-and-f-order-tracking")}
               sx={subMenuBtnSx}
             >
-              Sponsor tracking
+              Sponsor Tracking
             </Button>
             <Divider sx={{ my: 1 }} />
             <Typography sx={subMenuHeadingSx}>Sales & support</Typography>
@@ -1592,13 +1599,13 @@ const Dashboard = () => {
               onClick={() => setActiveSection("bioburg-c-and-f-sales")}
               sx={subMenuBtnSx}
             >
-              Sales & reports
+              Sales & Reports
             </Button>
             <Button
               onClick={() => setActiveSection("bioburg-c-and-f-support")}
               sx={subMenuBtnSx}
             >
-              Support tickets
+              Support Tickets
             </Button>
           </Box>
         </Collapse>
@@ -1631,7 +1638,7 @@ const Dashboard = () => {
             color: "#1e293b",
           }}
         >
-          Insurance partner zone
+          Insurance Partner Zone
         </Button>
 
         <Collapse in={openInsurancePartnerZone} timeout="auto" unmountOnExit>
@@ -1640,31 +1647,29 @@ const Dashboard = () => {
               onClick={() => setActiveSection("insurance-partner-requests")}
               sx={subMenuBtnSx}
             >
-              Insurance partner
+              Insurance Partner
             </Button>
             <Button
-              onClick={() =>
-                setActiveSection("insurance-partner-order-tracking")
-              }
+              onClick={() => setActiveSection("insurance-partner-order-tracking")}
               sx={subMenuBtnSx}
             >
-              Insurance partner tracking
+              Insurance Partner Tracking
             </Button>
             <Divider sx={{ my: 1 }} />
             <Typography sx={subMenuHeadingSx}>
-              Insurance partner support
+              Insurance Partner Support
             </Typography>
             <Button
               onClick={() => setActiveSection("insurance-partner-sales")}
               sx={subMenuBtnSx}
             >
-              Sales & reports
+              Sales & Reports
             </Button>
             <Button
               onClick={() => setActiveSection("insurance-partner-support")}
               sx={subMenuBtnSx}
             >
-              Support tickets
+              Support Tickets
             </Button>
           </Box>
         </Collapse>
@@ -1698,7 +1703,7 @@ const Dashboard = () => {
             color: "#1e293b",
           }}
         >
-          Aboard India C & F zone
+          Aboard India C & F Zone
         </Button>
 
         <Collapse in={openAboardIndiaCAndFZone} timeout="auto" unmountOnExit>
@@ -1715,23 +1720,23 @@ const Dashboard = () => {
               }
               sx={subMenuBtnSx}
             >
-              Aboard India C & F tracking
+              Aboard India C & F Tracking
             </Button>
             <Divider sx={{ my: 1 }} />
             <Typography sx={subMenuHeadingSx}>
-              Aboard India C & F support
+              Aboard India C & F Support
             </Typography>
             <Button
               onClick={() => setActiveSection("aboard-india-c-and-f-sales")}
               sx={subMenuBtnSx}
             >
-              Sales & reports
+              Sales & Reports
             </Button>
             <Button
               onClick={() => setActiveSection("aboard-india-c-and-f-support")}
               sx={subMenuBtnSx}
             >
-              Support tickets
+              Support Tickets
             </Button>
           </Box>
         </Collapse>
@@ -1766,7 +1771,7 @@ const Dashboard = () => {
             color: "#1e293b",
           }}
         >
-          Jobs & careers zone
+          Jobs & Careers Zone
         </Button>
 
         <Collapse in={openJobsAndCareersZone} timeout="auto" unmountOnExit>
@@ -1775,13 +1780,13 @@ const Dashboard = () => {
               onClick={() => setActiveSection("jobs-and-careers-requests")}
               sx={subMenuBtnSx}
             >
-              Jobs & careers
+              Jobs & Careers
             </Button>
             <Button
               onClick={() => setActiveSection("jobs-careers-applications")}
               sx={subMenuBtnSx}
             >
-              All applications
+              All Applications
             </Button>
             <Button
               onClick={() =>
@@ -1789,11 +1794,11 @@ const Dashboard = () => {
               }
               sx={subMenuBtnSx}
             >
-              Jobs & careers tracking
+              Jobs & Careers Tracking
             </Button>
             <Divider sx={{ my: 1 }} />
             <Typography sx={subMenuHeadingSx}>
-              Jobs & careers support
+              Jobs & Careers Support
             </Typography>
             <Button
               onClick={() => setActiveSection("jobs-and-careers-reports")}
@@ -1805,7 +1810,7 @@ const Dashboard = () => {
               onClick={() => setActiveSection("jobs-and-careers-support")}
               sx={subMenuBtnSx}
             >
-              Support tickets
+              Support Tickets
             </Button>
           </Box>
         </Collapse>
@@ -1841,7 +1846,7 @@ const Dashboard = () => {
             color: "#1e293b",
           }}
         >
-          Jobs & ExService zone
+          Jobs & ExService Zone
         </Button>
 
         <Collapse in={openJobsExServiceZone} timeout="auto" unmountOnExit>
@@ -1858,7 +1863,7 @@ const Dashboard = () => {
               }
               sx={subMenuBtnSx}
             >
-              All applications
+              All Applications
             </Button>
             <Button
               onClick={() =>
@@ -1866,11 +1871,11 @@ const Dashboard = () => {
               }
               sx={{ ...subMenuBtnSx, whiteSpace: "nowrap" }}
             >
-              Jobs & ExService tracking
+              Jobs & ExService Tracking
             </Button>
             <Divider sx={{ my: 1 }} />
             <Typography sx={subMenuHeadingSx}>
-              Jobs & ExService support
+              Jobs & ExService Support
             </Typography>
             <Button
               onClick={() => setActiveSection("jobs-and-exservice-reports")}
@@ -1882,7 +1887,7 @@ const Dashboard = () => {
               onClick={() => setActiveSection("jobs-and-exservice-support")}
               sx={subMenuBtnSx}
             >
-              Support tickets
+              Support Tickets
             </Button>
           </Box>
         </Collapse>
@@ -1913,7 +1918,7 @@ const Dashboard = () => {
             color: "#1e293b",
           }}
         >
-          Bulk-manufacturer zone
+          Bulk-Manufacturer Zone
         </Button>
 
         <Collapse in={openBulkManufacturerZone} timeout="auto" unmountOnExit>
@@ -1928,37 +1933,37 @@ const Dashboard = () => {
               onClick={() => setActiveSection("bulk-manufacturer-pending")}
               sx={subMenuBtnSx}
             >
-              Pending manufacturers
+              Pending Manufacturers
             </Button>
             <Button
               onClick={() => setActiveSection("bulk-manufacturer-approved")}
               sx={subMenuBtnSx}
             >
-              Approved manufacturers
+              Approved Manufacturers
             </Button>
             <Button
               onClick={() => setActiveSection("bulk-manufacturer-all")}
               sx={subMenuBtnSx}
             >
-              All manufacturers
+              All Manufacturers
             </Button>
             <Button
               onClick={() => setActiveSection("bulk-manufacturer-orders")}
               sx={subMenuBtnSx}
             >
-              Website orders
+              Website Orders
             </Button>
             <Button
               onClick={() => setActiveSection("bulk-manufacturer-products")}
               sx={subMenuBtnSx}
             >
-              Medicines / products
+              Medicines / Products
             </Button>
             <Button
               onClick={() => setActiveSection("bulk-manufacturer-documents")}
               sx={subMenuBtnSx}
             >
-              Documents verification
+              Documents Verification
             </Button>
           </Box>
         </Collapse>
@@ -1988,7 +1993,7 @@ const Dashboard = () => {
             color: "#1e293b",
           }}
         >
-          Pharma-manufacturer zone
+          Pharma-Manufacturer Zone
         </Button>
 
         <Collapse in={openPharmaZone} timeout="auto" unmountOnExit>
@@ -2003,31 +2008,31 @@ const Dashboard = () => {
               onClick={() => setActiveSection("pharma-pending")}
               sx={subMenuBtnSx}
             >
-              Pending manufacturers
+              Pending Manufacturers
             </Button>
             <Button
               onClick={() => setActiveSection("pharma-approved")}
               sx={subMenuBtnSx}
             >
-              Approved manufacturers
+              Approved Manufacturers
             </Button>
             <Button
               onClick={() => setActiveSection("pharma-all")}
               sx={subMenuBtnSx}
             >
-              All manufacturers
+              All Manufacturers
             </Button>
             <Button
               onClick={() => setActiveSection("pharma-products")}
               sx={subMenuBtnSx}
             >
-              Website products
+              Website Products
             </Button>
             <Button
               onClick={() => setActiveSection("pharma-documents")}
               sx={subMenuBtnSx}
             >
-              Document verification
+              Document Verification
             </Button>
           </Box>
         </Collapse>
@@ -2135,7 +2140,7 @@ const Dashboard = () => {
             color: "#1e293b",
           }}
         >
-          Radiology zone
+          Radiology Zone
         </Button>
 
         <Collapse in={openRadiology} timeout="auto" unmountOnExit>
@@ -2144,25 +2149,25 @@ const Dashboard = () => {
               onClick={() => setActiveSection("admin-labs")}
               sx={subMenuBtnSx}
             >
-              Radiology labs
+              Radiology Labs
             </Button>
             <Button
               onClick={() => setActiveSection("radiology-centers")}
               sx={subMenuBtnSx}
             >
-              Radiology centers
+              Radiology Centers
             </Button>
             <Button
               onClick={() => setActiveSection("radiology-bookings")}
               sx={subMenuBtnSx}
             >
-              Radiology bookings
+              Radiology Bookings
             </Button>
             <Button
               onClick={() => setActiveSection("radiology-reports")}
               sx={subMenuBtnSx}
             >
-              Radiology reports
+              Radiology Reports
             </Button>
           </Box>
         </Collapse>
@@ -2184,7 +2189,7 @@ const Dashboard = () => {
             color: "#1e293b",
           }}
         >
-          Home sections zone
+          Home Sections Zone
         </Button>
 
         <Collapse in={openSections} timeout="auto" unmountOnExit>
@@ -2193,7 +2198,7 @@ const Dashboard = () => {
               onClick={() => setActiveSection("add-section")}
               sx={subMenuBtnSx}
             >
-              ➕ Create new section
+              ➕ Create New Section
             </Button>
 
             {/* {sections.map((sec) => (
@@ -2515,8 +2520,9 @@ const Dashboard = () => {
         {activeSection === "d2c-all-users" && <D2CAllUsers />}
 
         {/* ================= Marketing ZONE ================= */}
-        {activeSection === "marketing-overview" && <Profile />}
-        {activeSection === "marketing-vendors" && <JobHistory />}
+        {activeSection === "marketing-overview" && <MarketingOverview />}
+        {activeSection === "marketing-allagents" && <MarketingAllAgents />}
+        {activeSection === "marketing-jobs" && <JobHistory />}
         {activeSection === "marketing-products" && <DeliveryLeads />}
         {activeSection === "training-meeting" && <Training/>}
         {activeSection === "marketing-orders" && <AdminMarketingOrders/>}

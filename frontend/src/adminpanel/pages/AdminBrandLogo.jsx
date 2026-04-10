@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useState } from "react";
-import axios from "axios";
+// import axios from "axios";
 import toast from "react-hot-toast";
 import {
   Box,
@@ -57,7 +57,7 @@ export default function AdminBrandLogoForm() {
 
       let logoPayload = null;
 
-      // ✅ SAME AS CATEGORY / B2B
+      // SAME AS CATEGORY / B2B
       if (logoFile) {
         const uploadRes = await uploadToCloudinary(logoFile);
         logoPayload = {

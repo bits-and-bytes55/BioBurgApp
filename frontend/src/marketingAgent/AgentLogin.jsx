@@ -14,7 +14,6 @@ const AgentLogin = () => {
     const { data } = await agentLogin({ email, password });
     
     localStorage.setItem("agentToken", data.token);
-    console.log(data.token);
     if(data.success){
       toast.success("Login Successful!");
       navigate("/agent/dashboard");

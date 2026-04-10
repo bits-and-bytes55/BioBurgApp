@@ -21,11 +21,12 @@ import walletRoutes        from "./walletRoutes.js";
 
 const router = express.Router();
 
-// ── Public ──────────────────────────────────────────────────────────────────
+//  Public 
 router.post("/register",   registerDoctor);
 router.post("/login",      loginDoctor);
 router.get("/approved",    getApprovedDoctors); 
-// ── Protected ────────────────────────────────────────────────────────────────
+
+//  Protected 
 router.get("/profile",        protectDoctor, getDoctorProfile);
 router.put("/profile",        protectDoctor, updateDoctorProfile);   
 router.post("/profile/photo", protectDoctor, uploadDoctorPhoto);     
@@ -35,13 +36,13 @@ router.patch("/toggle-availability", protectDoctor, toggleAvailability);
 router.get("/activity", protectDoctor, getDoctorActivity);
 
 
-// ── Sub-routers ───────────────────────────────────────────────────────────────
+//  Sub-routers 
 router.use("/availability",  availabilityRoutes);
 router.use("/consultations", consultationRoutes);
 router.use("/prescriptions", prescriptionRoutes);
 router.use("/wallet",        walletRoutes);
 
-// ── Admin only (add your adminProtect middleware as needed) ───────────────────
+//  Admin only (add your adminProtect middleware as needed) 
 router.delete("/admin/:id", adminDeleteDoctor);
 
 export default router;

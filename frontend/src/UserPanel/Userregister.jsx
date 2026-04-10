@@ -64,8 +64,8 @@ export default function PharmaSignup() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#fcfcfc] p-20">
-      <div className="w-full max-w-5xl bg-[#1f1d2b] rounded-2xl shadow-2xl grid md:grid-cols-2 overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-[#fcfcfc] p-4 md:p-20">
+      <div className="w-full max-w-5xl bg-[#1f1d2b] rounded-2xl shadow-2xl grid md:grid-cols-2 overflow-hidden mx-auto">
 
         {/* LEFT IMAGE */}
         <div className="hidden md:block relative">
@@ -78,7 +78,7 @@ export default function PharmaSignup() {
         </div>
 
         {/* RIGHT FORM */}
-        <div className="p-8 md:p-12 text-dark bg-amber-50">
+        <div className="p-5 md:p-12 text-dark bg-amber-50 overflow-y-auto">
           <h2 className="text-3xl font-bold mb-1">Create an account</h2>
           <p className="text-sm text-black-50 mb-6">
             Already have an account?{" "}

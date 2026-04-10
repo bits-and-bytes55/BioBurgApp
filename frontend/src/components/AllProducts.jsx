@@ -57,7 +57,7 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
-const FRONTEND_BASE = "http://localhost:5173";
+// const FRONTEND_BASE = "http://localhost:5173";
 
 const api = axios.create({ baseURL: API_BASE });
 api.interceptors.request.use((cfg) => {

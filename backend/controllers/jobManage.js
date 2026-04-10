@@ -1,6 +1,6 @@
 import Job from "../models/jobManage.js";
 
-// ── ADMIN: Create ─────────────────────────────────────────────────
+//  ADMIN: Create 
 export const createJob = async (req, res) => {
   try {
     const job = await Job.create(req.body);
@@ -10,7 +10,7 @@ export const createJob = async (req, res) => {
   }
 };
 
-// ── ADMIN: Get all (including inactive) ──────────────────────────
+//  ADMIN: Get all (including inactive) 
 export const getAllJobs = async (req, res) => {
   try {
     const jobs = await Job.find().sort({ createdAt: -1 });
@@ -20,7 +20,7 @@ export const getAllJobs = async (req, res) => {
   }
 };
 
-// ── ADMIN: Update ─────────────────────────────────────────────────
+//  ADMIN: Update 
 export const updateJob = async (req, res) => {
   try {
     const job = await Job.findByIdAndUpdate(req.params.id, req.body, { new: true });
@@ -30,7 +30,7 @@ export const updateJob = async (req, res) => {
   }
 };
 
-// ── ADMIN: Delete ─────────────────────────────────────────────────
+//  ADMIN: Delete 
 export const deleteJob = async (req, res) => {
   try {
     await Job.findByIdAndDelete(req.params.id);
@@ -40,7 +40,7 @@ export const deleteJob = async (req, res) => {
   }
 };
 
-// ── PUBLIC: Get all active jobs ───────────────────────────────────
+//  PUBLIC: Get all active jobs 
 export const getPublicJobs = async (req, res) => {
   try {
     const jobs = await Job.find({ status: "active" }).sort({ createdAt: -1 });
@@ -50,7 +50,7 @@ export const getPublicJobs = async (req, res) => {
   }
 };
 
-// ── PUBLIC: Get single active job by ID ──────────────────────────
+//  PUBLIC: Get single active job by ID 
 export const getPublicJobById = async (req, res) => {
   try {
     const job = await Job.findOne({ _id: req.params.id, status: "active" });

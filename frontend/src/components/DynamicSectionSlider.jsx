@@ -140,8 +140,8 @@ export default function DynamicSectionSlider(props) {
     setLoadingIds((prev) => new Set(prev).add(pid));
     try {
       await addToCart(product, 1, null);
-    } catch {
-    } finally {
+    } catch {}
+    finally {
       setLoadingIds((prev) => {
         const n = new Set(prev);
         n.delete(pid);

@@ -20,7 +20,7 @@ const handle401 = (role) => {
   window.location.href = loginRoutes[role] || "/login";
 };
 
-// ── Admin instance ──────────────────────────────────────
+//  Admin instance 
 const api = axios.create({ baseURL: BASE, timeout: 30000 });
 
 api.interceptors.request.use((config) => {
@@ -51,7 +51,7 @@ api.interceptors.response.use(
 
 export default api;
 
-// ── Website / Role instance ─────────────────────────────
+// ── Website / Role instance 
 export const userApi = axios.create({ baseURL: BASE, timeout: 30000 });
 
 userApi.interceptors.request.use((config) => {

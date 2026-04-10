@@ -102,6 +102,7 @@ import popupVideoRoutes from "./routes/popupVideoRoutes.js";
 import trainingRoutes from "./routes/TrainingRoutes.js";
 import saleOrderRoutes from "./routes/Saleorderroutes.js";
 import pointsPayoutRoutes from "./routes/Pointspayoutroutes.js";
+import employeeRoutes from "./routes/employeeRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -184,6 +185,7 @@ app.use("/api/agent/daily-plan", dailyPlanRoutes);
 app.use("/api/marketing-agent", saleBillRoutes);
 app.use("/api/training", trainingRoutes);
 app.use("/api/points", pointsPayoutRoutes);
+app.use("/api/employees", employeeRoutes);
 
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin", adminRegistrationsRoutes);

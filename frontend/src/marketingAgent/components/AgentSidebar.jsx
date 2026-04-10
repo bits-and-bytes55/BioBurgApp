@@ -37,8 +37,7 @@ const AgentSidebar = ({ darkMode, mobileOpen, onMobileClose }) => {
     {
       text: 'Orders', icon: <ShoppingCart />,
       children: [
-        { text: 'Create Bill',    path: '/agent/orders/create-bill' },
-        { text: 'Create Challan', path: '/agent/orders/create-challan' }
+        { text: 'Create Bill/Challan/Quote',    path: '/agent/orders/create-bill' },
       ]
     },
     {
@@ -50,6 +49,8 @@ const AgentSidebar = ({ darkMode, mobileOpen, onMobileClose }) => {
     },
     { text: 'Training & Meeting', icon: <MenuBook />,     path: '/agent/training-meeting' },
     { text: 'Points & Payout',    icon: <EmojiEvents />,  path: '/agent/points-payout' },
+    { text: ' Profile',    icon: <Avatar />,  path: '/agent/profile' },
+
   ]
 
   useEffect(() => {

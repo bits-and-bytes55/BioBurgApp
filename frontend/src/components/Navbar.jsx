@@ -38,7 +38,7 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import PersonIcon from "@mui/icons-material/Person";
 import { logout as authLogout } from "../../utils/auth";
-/* ─── STYLES ────────────────────────────────────────────────────────────── */
+/*  STYLES  */
 
 const PrimaryNav = styled(AppBar)(({ theme }) => ({
   backgroundColor: theme.palette.primary.main,
@@ -89,7 +89,7 @@ const SignUpButton = styled(Button)({
   "&:hover": { backgroundColor: "rgba(255,255,255,0.1)" },
 });
 
-/* ─── HELPER — read vendor / user from localStorage ───────────────────── */
+/*  HELPER — read vendor / user from localStorage  */
 function readVendorSession() {
   const token = localStorage.getItem("vendorToken");
   const raw = localStorage.getItem("vendorUser");
@@ -111,7 +111,7 @@ function readVendorSession() {
 
 function readUserSession() {
   const token = localStorage.getItem("userToken");
-  const raw   = localStorage.getItem("user");
+  const raw = localStorage.getItem("user");
   if (!token || !raw) return null;
   try {
     const u = JSON.parse(raw);
@@ -126,7 +126,7 @@ function readUserSession() {
   }
 }
 
-/* ─── COMPONENT ────────────────────────────────────────────────────────── */
+/*  COMPONENT  */
 
 export default function Navbar() {
   const theme = useTheme();
@@ -170,30 +170,28 @@ export default function Navbar() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const closeAll = () => {
-    setSignupAnchorEl(null);
-    setLoginAnchorEl(null);
-    setCoLoginAnchorEl(null);
-    setRegisterWithUsEl(null);
-  };
+  setSignupAnchorEl(null);
+  setLoginAnchorEl(null);
+};
 
   /* vendor logout */
   const handleVendorLogout = () => {
-  authLogout();
-  setVendorMenuEl(null);
-  setVendor(null);
-  setUser(null);
-  navigate("/");
-};
+    authLogout();
+    setVendorMenuEl(null);
+    setVendor(null);
+    setUser(null);
+    navigate("/");
+  };
 
   /* user logout */
   const handleUserLogout = () => {
-  authLogout();
-  setUserMenuEl(null);
-  setUser(null);
-  navigate("/");
-};
+    authLogout();
+    setUserMenuEl(null);
+    setUser(null);
+    navigate("/");
+  };
 
-  /* ── RENDER ─────────────────────────────────────────────────────────── */
+  /*  RENDER  */
   return (
     <>
       <PrimaryNav position="static">
@@ -207,9 +205,18 @@ export default function Navbar() {
                 >
                   <MenuIcon />
                 </IconButton>
-                <LogoBox component={Link} to="/" sx={{ flexGrow: 1 }}>
+                <IconButton
+                  component={Link}
+                  to="/"
+                  color="inherit"
+                  sx={{
+                    flexGrow: 1,
+                    borderRadius: 0,
+                    justifyContent: "flex-start",
+                  }}
+                >
                   <HealthAndSafetyOutlinedIcon />
-                </LogoBox>
+                </IconButton>
               </>
             ) : (
               <>
@@ -512,19 +519,31 @@ export default function Navbar() {
               ) : (
                 /* ── NOT LOGGED IN — show Login / Sign Up ── */
                 <>
-                  <NavLinkButton
-                    onClick={(e) => setLoginAnchorEl(e.currentTarget)}
-                  >
-                    <LoginIcon sx={{ mr: 0.5 }} />
-                    Login
-                  </NavLinkButton>
+                  {!isMobile && (
+                    <NavLinkButton
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setLoginAnchorEl(e.currentTarget);
+                      }}
+                    >
+                      <LoginIcon sx={{ mr: 0.5 }} />
+                      Login
+                    </NavLinkButton>
+                  )}
 
-                  <SignUpButton
-                    onClick={(e) => setSignupAnchorEl(e.currentTarget)}
-                  >
-                    <HowToRegIcon sx={{ mr: 0.5 }} />
-                    Sign Up
-                  </SignUpButton>
+                  {!isMobile && (
+                    <SignUpButton
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setSignupAnchorEl(e.currentTarget);
+                      }}
+                    >
+                      <HowToRegIcon sx={{ mr: 0.5 }} />
+                      Sign Up
+                    </SignUpButton>
+                  )}
                 </>
               )}
 
@@ -541,71 +560,16 @@ export default function Navbar() {
             <Menu
               anchorEl={loginAnchorEl}
               open={Boolean(loginAnchorEl)}
-              onClose={() => {
-                setLoginAnchorEl(null);
-                setCoLoginAnchorEl(null);
-              }}
+              onClose={() => setLoginAnchorEl(null)}
               anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
               transformOrigin={{ vertical: "top", horizontal: "right" }}
               sx={{ mt: 1, zIndex: 9999 }}
             >
-              <MenuItem component={Link} to="/login" onClick={closeAll}>
-                All Login Options
-              </MenuItem>
               <MenuItem component={Link} to="/userlogin" onClick={closeAll}>
-                User Login
+                <LoginIcon sx={{ mr: 1, fontSize: 18 }} /> User Login
               </MenuItem>
-              <MenuItem component={Link} to="/login/vendor" onClick={closeAll}>
-                Vendor Login
-              </MenuItem>
-              <MenuItem
-                component={Link}
-                to="/login/franchise"
-                onClick={closeAll}
-              >
-                Franchise Login
-              </MenuItem>
-              <MenuItem component={Link} to="/login/doctor" onClick={closeAll}>
-                Doctor Login
-              </MenuItem>
-              <MenuItem
-                component={Link}
-                to="/login/manufacturer"
-                onClick={closeAll}
-              >
-                Manufacturer Login
-              </MenuItem>
-              <Divider />
-              <MenuItem
-                onMouseEnter={(e) => setCoLoginAnchorEl(e.currentTarget)}
-              >
-                Staff/Co-Login <KeyboardArrowRightIcon fontSize="small" />
-              </MenuItem>
-            </Menu>
-
-            {/* CO-LOGIN SUBMENU */}
-            <Menu
-              anchorEl={coLoginAnchorEl}
-              open={Boolean(coLoginAnchorEl)}
-              onClose={() => setCoLoginAnchorEl(null)}
-              anchorOrigin={{ vertical: "top", horizontal: "right" }}
-              transformOrigin={{ vertical: "top", horizontal: "left" }}
-              MenuListProps={{ onMouseLeave: () => setCoLoginAnchorEl(null) }}
-            >
-              {[
-                "Marketer's",
-                "Delivery",
-                "Official's",
-                "Partner's",
-                "Investor's",
-                "Sub Admin",
-              ].map((l) => (
-                <MenuItem key={l} disabled>
-                  {l}
-                </MenuItem>
-              ))}
-              <MenuItem component={Link} to="/admin-login" onClick={closeAll}>
-                Admin Login
+              <MenuItem component={Link} to="/login" onClick={closeAll}>
+                <DashboardIcon sx={{ mr: 1, fontSize: 18 }} /> All Login Options
               </MenuItem>
             </Menu>
 
@@ -613,91 +577,18 @@ export default function Navbar() {
             <Menu
               anchorEl={signupAnchorEl}
               open={Boolean(signupAnchorEl)}
-              onClose={() => {
-                setSignupAnchorEl(null);
-                setRegisterWithUsEl(null);
-              }}
+              onClose={() => setSignupAnchorEl(null)}
               anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
               transformOrigin={{ vertical: "top", horizontal: "right" }}
               sx={{ mt: 1, zIndex: 9999 }}
             >
-              <MenuItem onClick={(e) => setRegisterWithUsEl(e.currentTarget)}>
-                Register With Us
-                <KeyboardArrowRightIcon fontSize="small" />
+              <MenuItem component={Link} to="/userregister" onClick={closeAll}>
+                <PersonIcon sx={{ mr: 1, fontSize: 18 }} /> User Register
               </MenuItem>
               <MenuItem component={Link} to="/signup" onClick={closeAll}>
-                All Signup Options
+                <HowToRegIcon sx={{ mr: 1, fontSize: 18 }} /> All Register
+                Options
               </MenuItem>
-            </Menu>
-
-            <Menu
-              anchorEl={registerWithUsEl}
-              open={Boolean(registerWithUsEl)}
-              onClose={() => setRegisterWithUsEl(null)}
-              anchorOrigin={{ vertical: "top", horizontal: "right" }}
-              transformOrigin={{ vertical: "top", horizontal: "left" }}
-              MenuListProps={{ onMouseLeave: () => setRegisterWithUsEl(null) }}
-            >
-              <MenuItem component={Link} to="/userregister" onClick={closeAll}>
-                User Register
-              </MenuItem>
-              <Divider />
-              <MenuItem
-                component={Link}
-                to="/franchise-application"
-                onClick={closeAll}
-              >
-                Bioburg Franchise
-              </MenuItem>
-              <MenuItem
-                component={Link}
-                to="/register/vendor"
-                onClick={closeAll}
-              >
-                Bioburg Vendor's
-              </MenuItem>
-              <MenuItem disabled>Bioburg Jeweler's</MenuItem>
-              <MenuItem disabled>Bioburg C and F</MenuItem>
-              <MenuItem disabled>Business to Business (B2B)</MenuItem>
-              <MenuItem disabled>Hospital &amp; Pharmacy</MenuItem>
-              <MenuItem
-                component={Link}
-                to="/register/bulk-manufacturing"
-                onClick={closeAll}
-              >
-                Bulk Manufacturing
-              </MenuItem>
-              <MenuItem
-                component={Link}
-                to="/register/doctor"
-                onClick={closeAll}
-              >
-                DR. Consultation
-              </MenuItem>
-              <MenuItem
-                component={Link}
-                to="/register/radiology-diagnostics"
-                onClick={closeAll}
-              >
-                Radiology Diagnostics
-              </MenuItem>
-              <MenuItem component={Link} to="/book-lab-test" onClick={closeAll}>
-                Pathology Lab Test
-              </MenuItem>
-              <MenuItem disabled>Sponsor Pharma Brand</MenuItem>
-              <MenuItem
-                component={Link}
-                to="/register/pharma-manufacturer"
-                onClick={closeAll}
-              >
-                Pharma Manufacturers
-              </MenuItem>
-              <MenuItem disabled>Insurance Partner's</MenuItem>
-              <MenuItem disabled>Aboard India C &amp; F</MenuItem>
-              <MenuItem component={Link} to="/careers" onClick={closeAll}>
-                Jobs and Careers
-              </MenuItem>
-              <MenuItem disabled>Jobs Ex-Servicemen</MenuItem>
             </Menu>
           </Toolbar>
         </Container>

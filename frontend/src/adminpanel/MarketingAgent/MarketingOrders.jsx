@@ -4,7 +4,7 @@ import {
   DialogTitle, DialogContent, DialogActions, Table, TableBody,
   TableCell, TableHead, TableRow, Select, MenuItem, FormControl,
   InputLabel, Alert, Snackbar, CircularProgress, Divider, Tabs, Tab,
-  LinearProgress
+  LinearProgress, Card, CardContent
 } from '@mui/material'
 import axios from 'axios'
 
@@ -47,8 +47,8 @@ export default function AdminMarketingOrders() {
   const [fromDate,  setFromDate]  = useState('')
   const [toDate,    setToDate]    = useState('')
 
-  const [viewOrder,   setViewOrder]   = useState(null)
-  const [editOrder,   setEditOrder]   = useState(null)
+  const [viewOrder,    setViewOrder]    = useState(null)
+  const [editOrder,    setEditOrder]    = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [editForm, setEditForm] = useState({ status: '', paymentStatus: '', paidAmount: '', notes: '' })
   const [saving, setSaving]   = useState(false)
@@ -102,30 +102,35 @@ export default function AdminMarketingOrders() {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc', p: { xs: 2, md: 3 } }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc', p: { xs: 1.5, sm: 2, md: 3 } }}>
 
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>
+        <Typography variant="h5" sx={{ fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', fontSize: { xs: 20, md: 28 } }}>
           Orders Management
         </Typography>
-        <Typography sx={{ color: '#64748b', fontSize: 14, mt: 0.5 }}>
+        <Typography sx={{ color: '#64748b', fontSize: 13, mt: 0.5 }}>
           View and manage all bills, challans, and quotations raised by marketing agents.
         </Typography>
       </Box>
 
       {/* Stats */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2,1fr)', md: 'repeat(4,1fr)' }, gap: 2, mb: 3 }}>
+      <Box sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: 'repeat(2,1fr)', sm: 'repeat(2,1fr)', md: 'repeat(4,1fr)' },
+        gap: { xs: 1.5, md: 2 },
+        mb: 3
+      }}>
         {[
-          { label: 'TOTAL ORDERS',  value: stats.total     || 0,  color: '#1d4ed8', sub: `${stats.bills||0} bills · ${stats.challans||0} challans` },
-          { label: 'TOTAL VALUE',   value: fmt(stats.totalValue), color: '#7c3aed', sub: `${fmt(stats.paidValue)} collected` },
+          { label: 'TOTAL ORDERS',    value: stats.total     || 0,  color: '#1d4ed8', sub: `${stats.bills||0} bills · ${stats.challans||0} challans` },
+          { label: 'TOTAL VALUE',     value: fmt(stats.totalValue), color: '#7c3aed', sub: `${fmt(stats.paidValue)} collected` },
           { label: 'PAYMENT PENDING', value: stats.pending   || 0,  color: '#dc2626', sub: 'orders pending' },
-          { label: 'QUOTATIONS',    value: stats.quotations || 0,  color: '#d97706', sub: 'to be converted' },
+          { label: 'QUOTATIONS',      value: stats.quotations || 0, color: '#d97706', sub: 'to be converted' },
         ].map(s => (
           <Paper key={s.label} elevation={0}
-            sx={{ border: '1px solid #e2e8f0', borderTop: `3px solid ${s.color}`, borderRadius: 3, p: 2.5, bgcolor: 'white' }}>
+            sx={{ border: '1px solid #e2e8f0', borderTop: `3px solid ${s.color}`, borderRadius: 3, p: { xs: 1.5, md: 2.5 }, bgcolor: 'white' }}>
             <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.1em' }}>{s.label}</Typography>
-            <Typography sx={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: 'monospace', mt: 0.5 }}>{s.value}</Typography>
+            <Typography sx={{ fontSize: { xs: 18, md: 22 }, fontWeight: 800, color: s.color, fontFamily: 'monospace', mt: 0.5 }}>{s.value}</Typography>
             <Typography sx={{ fontSize: 11, color: '#94a3b8', mt: 0.3 }}>{s.sub}</Typography>
           </Paper>
         ))}
@@ -134,7 +139,7 @@ export default function AdminMarketingOrders() {
       {/* Tabs */}
       <Box sx={{ borderBottom: '1px solid #e2e8f0', mb: 0 }}>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{
-          '& .MuiTab-root': { fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' },
+          '& .MuiTab-root': { fontSize: { xs: 11, sm: 12 }, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: { xs: 'auto', sm: 120 }, px: { xs: 1.5, sm: 2 } },
           '& .Mui-selected': { color: '#1d4ed8' },
           '& .MuiTabs-indicator': { bgcolor: '#1d4ed8', height: 3 }
         }}>
@@ -147,31 +152,33 @@ export default function AdminMarketingOrders() {
       {tab === 0 && (
         <Box sx={{ pt: 3 }}>
           {/* Filters */}
-          <Box sx={{ display: 'flex', gap: 2, mb: 2.5, flexWrap: 'wrap', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', gap: 1.5, mb: 2.5, flexWrap: 'wrap', alignItems: 'center' }}>
             <TextField size="small" placeholder="Search order, customer, agent..." value={search}
               onChange={e => setSearch(e.target.value)} onKeyDown={handleSearch}
-              sx={{ width: { xs: '100%', sm: 280 }, '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: 'white' } }} />
-            <FormControl size="small" sx={{ minWidth: 130 }}>
-              <InputLabel>Type</InputLabel>
-              <Select label="Type" value={typeF} onChange={e => setTypeF(e.target.value)} sx={{ bgcolor: 'white', borderRadius: 2 }}>
-                {ORDER_TYPES.map(t => <MenuItem key={t} value={t}>{t === 'all' ? 'All Types' : t.charAt(0).toUpperCase() + t.slice(1)}</MenuItem>)}
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ minWidth: 140 }}>
-              <InputLabel>Status</InputLabel>
-              <Select label="Status" value={statusF} onChange={e => setStatusF(e.target.value)} sx={{ bgcolor: 'white', borderRadius: 2 }}>
-                <MenuItem value="all">All Status</MenuItem>
-                {ORDER_STATUSES.map(s => <MenuItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</MenuItem>)}
-              </Select>
-            </FormControl>
-            <TextField size="small" type="date" label="From" InputLabelProps={{ shrink: true }}
-              value={fromDate} onChange={e => setFromDate(e.target.value)} sx={{ bgcolor: 'white', borderRadius: 2 }} />
-            <TextField size="small" type="date" label="To" InputLabelProps={{ shrink: true }}
-              value={toDate} onChange={e => setToDate(e.target.value)} sx={{ bgcolor: 'white', borderRadius: 2 }} />
-            <Button variant="outlined" size="small" onClick={fetchOrders}
-              sx={{ fontWeight: 700, borderRadius: 2, borderColor: '#1d4ed8', color: '#1d4ed8' }}>
-              Apply
-            </Button>
+              sx={{ width: { xs: '100%', sm: 240 }, '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: 'white' } }} />
+            <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', flex: 1 }}>
+              <FormControl size="small" sx={{ minWidth: 110 }}>
+                <InputLabel>Type</InputLabel>
+                <Select label="Type" value={typeF} onChange={e => setTypeF(e.target.value)} sx={{ bgcolor: 'white', borderRadius: 2 }}>
+                  {ORDER_TYPES.map(t => <MenuItem key={t} value={t}>{t === 'all' ? 'All Types' : t.charAt(0).toUpperCase() + t.slice(1)}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 120 }}>
+                <InputLabel>Status</InputLabel>
+                <Select label="Status" value={statusF} onChange={e => setStatusF(e.target.value)} sx={{ bgcolor: 'white', borderRadius: 2 }}>
+                  <MenuItem value="all">All Status</MenuItem>
+                  {ORDER_STATUSES.map(s => <MenuItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <TextField size="small" type="date" label="From" InputLabelProps={{ shrink: true }}
+                value={fromDate} onChange={e => setFromDate(e.target.value)} sx={{ bgcolor: 'white', borderRadius: 2 }} />
+              <TextField size="small" type="date" label="To" InputLabelProps={{ shrink: true }}
+                value={toDate} onChange={e => setToDate(e.target.value)} sx={{ bgcolor: 'white', borderRadius: 2 }} />
+              <Button variant="outlined" size="small" onClick={fetchOrders}
+                sx={{ fontWeight: 700, borderRadius: 2, borderColor: '#1d4ed8', color: '#1d4ed8', px: 2 }}>
+                Apply
+              </Button>
+            </Box>
           </Box>
 
           <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 3, overflow: 'hidden', bgcolor: 'white' }}>
@@ -182,60 +189,94 @@ export default function AdminMarketingOrders() {
                 <Typography sx={{ color: '#94a3b8', fontSize: 14 }}>No orders found.</Typography>
               </Box>
             ) : (
-              <Box sx={{ overflowX: 'auto' }}>
-                <Table>
-                  <TableHead>
-                    <TableRow sx={{ bgcolor: '#f8fafc' }}>
-                      {['Order #', 'Date', 'Agent', 'Customer', 'Type', 'Amount', 'Payment', 'Status', 'Actions'].map(h => (
-                        <TableCell key={h} sx={{ fontSize: 11, fontWeight: 700, color: '#64748b', letterSpacing: '0.05em', py: 1.5, whiteSpace: 'nowrap' }}>{h}</TableCell>
-                      ))}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {orders.map(o => {
-                      const tc = typeColor(o.orderType)
-                      const sc = statusColor(o.status)
-                      const pc = payColor(o.paymentStatus)
-                      return (
-                        <TableRow key={o._id} sx={{ '&:hover': { bgcolor: '#f8fafc' }, borderBottom: '1px solid #f1f5f9' }}>
-                          <TableCell sx={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#1d4ed8' }}>{o.orderNumber}</TableCell>
-                          <TableCell sx={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>{fmtDate(o.createdAt)}</TableCell>
-                          <TableCell sx={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>{o.agentName}</TableCell>
-                          <TableCell>
+              <>
+                {/* Mobile cards */}
+                <Box sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column', gap: 0 }}>
+                  {orders.map(o => {
+                    const tc = typeColor(o.orderType)
+                    const sc = statusColor(o.status)
+                    const pc = payColor(o.paymentStatus)
+                    return (
+                      <Box key={o._id} sx={{ p: 2, borderBottom: '1px solid #f1f5f9' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                          <Box>
+                            <Typography sx={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#1d4ed8' }}>{o.orderNumber}</Typography>
                             <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{o.customerName}</Typography>
                             {o.customerPhone && <Typography sx={{ fontSize: 11, color: '#94a3b8' }}>{o.customerPhone}</Typography>}
-                          </TableCell>
-                          <TableCell>
-                            <Chip label={o.orderType} size="small" sx={{ fontSize: 10, height: 20, bgcolor: tc.bg, color: tc.color, fontWeight: 700 }} />
-                          </TableCell>
-                          <TableCell>
-                            <Typography sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13, color: '#0f172a' }}>{fmt(o.grandTotal)}</Typography>
-                            {o.paidAmount > 0 && o.paidAmount < o.grandTotal && (
-                              <Typography sx={{ fontSize: 11, color: '#94a3b8' }}>{fmt(o.paidAmount)} paid</Typography>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Chip label={o.paymentStatus} size="small" sx={{ fontSize: 10, height: 20, bgcolor: pc.bg, color: pc.color, fontWeight: 700 }} />
-                          </TableCell>
-                          <TableCell>
-                            <Chip label={o.status} size="small" sx={{ fontSize: 10, height: 20, bgcolor: sc.bg, color: sc.color, fontWeight: 700 }} />
-                          </TableCell>
-                          <TableCell>
-                            <Box sx={{ display: 'flex', gap: 0.5 }}>
-                              <Button size="small" onClick={() => setViewOrder(o)}
-                                sx={{ fontSize: 11, fontWeight: 700, color: '#475569', minWidth: 'auto', px: 1 }}>VIEW</Button>
-                              <Button size="small" onClick={() => openEdit(o)}
-                                sx={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', minWidth: 'auto', px: 1 }}>EDIT</Button>
-                              <Button size="small" onClick={() => setDeleteTarget(o)}
-                                sx={{ fontSize: 11, fontWeight: 700, color: '#dc2626', minWidth: 'auto', px: 1 }}>DEL</Button>
-                            </Box>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </Box>
+                          </Box>
+                          <Typography sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 16, color: '#0f172a' }}>{fmt(o.grandTotal)}</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+                          <Chip label={o.orderType} size="small" sx={{ fontSize: 10, height: 20, bgcolor: tc.bg, color: tc.color, fontWeight: 700 }} />
+                          <Chip label={o.paymentStatus} size="small" sx={{ fontSize: 10, height: 20, bgcolor: pc.bg, color: pc.color, fontWeight: 700 }} />
+                          <Chip label={o.status} size="small" sx={{ fontSize: 10, height: 20, bgcolor: sc.bg, color: sc.color, fontWeight: 700 }} />
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography sx={{ fontSize: 11, color: '#94a3b8' }}>{o.agentName} · {fmtDate(o.createdAt)}</Typography>
+                          <Box sx={{ display: 'flex', gap: 0.5 }}>
+                            <Button size="small" onClick={() => setViewOrder(o)} sx={{ fontSize: 11, fontWeight: 700, color: '#475569', minWidth: 'auto', px: 1 }}>VIEW</Button>
+                            <Button size="small" onClick={() => openEdit(o)} sx={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', minWidth: 'auto', px: 1 }}>EDIT</Button>
+                            <Button size="small" onClick={() => setDeleteTarget(o)} sx={{ fontSize: 11, fontWeight: 700, color: '#dc2626', minWidth: 'auto', px: 1 }}>DEL</Button>
+                          </Box>
+                        </Box>
+                      </Box>
+                    )
+                  })}
+                </Box>
+
+                {/* Desktop table */}
+                <Box sx={{ display: { xs: 'none', md: 'block' }, overflowX: 'auto' }}>
+                  <Table>
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                        {['Order #', 'Date', 'Agent', 'Customer', 'Type', 'Amount', 'Payment', 'Status', 'Actions'].map(h => (
+                          <TableCell key={h} sx={{ fontSize: 11, fontWeight: 700, color: '#64748b', letterSpacing: '0.05em', py: 1.5, whiteSpace: 'nowrap' }}>{h}</TableCell>
+                        ))}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {orders.map(o => {
+                        const tc = typeColor(o.orderType)
+                        const sc = statusColor(o.status)
+                        const pc = payColor(o.paymentStatus)
+                        return (
+                          <TableRow key={o._id} sx={{ '&:hover': { bgcolor: '#f8fafc' }, borderBottom: '1px solid #f1f5f9' }}>
+                            <TableCell sx={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#1d4ed8' }}>{o.orderNumber}</TableCell>
+                            <TableCell sx={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>{fmtDate(o.createdAt)}</TableCell>
+                            <TableCell sx={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>{o.agentName}</TableCell>
+                            <TableCell>
+                              <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{o.customerName}</Typography>
+                              {o.customerPhone && <Typography sx={{ fontSize: 11, color: '#94a3b8' }}>{o.customerPhone}</Typography>}
+                            </TableCell>
+                            <TableCell>
+                              <Chip label={o.orderType} size="small" sx={{ fontSize: 10, height: 20, bgcolor: tc.bg, color: tc.color, fontWeight: 700 }} />
+                            </TableCell>
+                            <TableCell>
+                              <Typography sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13, color: '#0f172a' }}>{fmt(o.grandTotal)}</Typography>
+                              {o.paidAmount > 0 && o.paidAmount < o.grandTotal && (
+                                <Typography sx={{ fontSize: 11, color: '#94a3b8' }}>{fmt(o.paidAmount)} paid</Typography>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Chip label={o.paymentStatus} size="small" sx={{ fontSize: 10, height: 20, bgcolor: pc.bg, color: pc.color, fontWeight: 700 }} />
+                            </TableCell>
+                            <TableCell>
+                              <Chip label={o.status} size="small" sx={{ fontSize: 10, height: 20, bgcolor: sc.bg, color: sc.color, fontWeight: 700 }} />
+                            </TableCell>
+                            <TableCell>
+                              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                <Button size="small" onClick={() => setViewOrder(o)} sx={{ fontSize: 11, fontWeight: 700, color: '#475569', minWidth: 'auto', px: 1 }}>VIEW</Button>
+                                <Button size="small" onClick={() => openEdit(o)} sx={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', minWidth: 'auto', px: 1 }}>EDIT</Button>
+                                <Button size="small" onClick={() => setDeleteTarget(o)} sx={{ fontSize: 11, fontWeight: 700, color: '#dc2626', minWidth: 'auto', px: 1 }}>DEL</Button>
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </Box>
+              </>
             )}
           </Paper>
         </Box>
@@ -253,15 +294,15 @@ export default function AdminMarketingOrders() {
             const total     = s.totalValue || 0
             const pct       = total > 0 ? Math.round((collected / total) * 100) : 0
             return (
-              <Paper key={i} elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 3, p: 3, bgcolor: 'white' }}>
+              <Paper key={i} elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 3, p: { xs: 2, md: 3 }, bgcolor: 'white' }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2, mb: 2 }}>
                   <Box>
-                    <Typography sx={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>{s._id.agentName}</Typography>
+                    <Typography sx={{ fontWeight: 700, fontSize: { xs: 14, md: 16 }, color: '#0f172a' }}>{s._id.agentName}</Typography>
                     <Typography sx={{ fontSize: 12, color: '#94a3b8' }}>Marketing Agent</Typography>
                   </Box>
-                  <Typography sx={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 20, color: '#1d4ed8' }}>{fmt(total)}</Typography>
+                  <Typography sx={{ fontFamily: 'monospace', fontWeight: 800, fontSize: { xs: 16, md: 20 }, color: '#1d4ed8' }}>{fmt(total)}</Typography>
                 </Box>
-                <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', mb: 2 }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(3,1fr)', sm: 'repeat(6,1fr)' }, gap: 1.5, mb: 2 }}>
                   {[
                     { label: 'TOTAL ORDERS', value: s.totalOrders },
                     { label: 'BILLS',        value: s.bills },
@@ -271,8 +312,8 @@ export default function AdminMarketingOrders() {
                     { label: 'PENDING',      value: fmt(total - collected) },
                   ].map(x => (
                     <Box key={x.label}>
-                      <Typography sx={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.07em' }}>{x.label}</Typography>
-                      <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155', fontFamily: 'monospace' }}>{x.value}</Typography>
+                      <Typography sx={{ fontSize: 9, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.07em' }}>{x.label}</Typography>
+                      <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#334155', fontFamily: 'monospace' }}>{x.value}</Typography>
                     </Box>
                   ))}
                 </Box>
@@ -291,24 +332,25 @@ export default function AdminMarketingOrders() {
         </Box>
       )}
 
-      {/*  VIEW ORDER DIALOG */}
-      <Dialog open={!!viewOrder} onClose={() => setViewOrder(null)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+      {/* VIEW ORDER DIALOG */}
+      <Dialog open={!!viewOrder} onClose={() => setViewOrder(null)} maxWidth="sm" fullWidth
+        PaperProps={{ sx: { borderRadius: { xs: 0, sm: 3 }, m: { xs: 0, sm: 2 }, maxHeight: { xs: '100vh', sm: '90vh' } } }}>
         {viewOrder && (
           <>
-            <DialogTitle sx={{ fontWeight: 800, fontSize: 17, borderBottom: '1px solid #f1f5f9', pb: 2, display: 'flex', justifyContent: 'space-between' }}>
+            <DialogTitle sx={{ fontWeight: 800, fontSize: 16, borderBottom: '1px solid #f1f5f9', pb: 2, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
               {viewOrder.orderNumber}
               <Chip label={viewOrder.orderType} size="small"
                 sx={{ fontSize: 10, height: 20, ...typeColor(viewOrder.orderType), fontWeight: 700 }} />
             </DialogTitle>
             <DialogContent sx={{ pt: 3 }}>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2 }}>
                 {[
-                  { label: 'Agent',     value: viewOrder.agentName },
-                  { label: 'Date',      value: fmtDate(viewOrder.createdAt) },
-                  { label: 'Customer',  value: viewOrder.customerName },
-                  { label: 'Phone',     value: viewOrder.customerPhone || '—' },
-                  { label: 'Area',      value: viewOrder.visitArea || '—' },
-                  { label: 'Payment',   value: viewOrder.paymentMode },
+                  { label: 'Agent',    value: viewOrder.agentName },
+                  { label: 'Date',     value: fmtDate(viewOrder.createdAt) },
+                  { label: 'Customer', value: viewOrder.customerName },
+                  { label: 'Phone',    value: viewOrder.customerPhone || '—' },
+                  { label: 'Area',     value: viewOrder.visitArea || '—' },
+                  { label: 'Payment',  value: viewOrder.paymentMode },
                 ].map(x => (
                   <Box key={x.label}>
                     <Typography sx={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.07em' }}>{x.label.toUpperCase()}</Typography>
@@ -329,7 +371,7 @@ export default function AdminMarketingOrders() {
               ))}
               <Box sx={{ mt: 2, p: 2, bgcolor: '#f8fafc', borderRadius: 2 }}>
                 {[
-                  { label: 'Subtotal',  value: fmt(viewOrder.subtotal) },
+                  { label: 'Subtotal', value: fmt(viewOrder.subtotal) },
                   viewOrder.discountAmt > 0 && { label: 'Discount', value: `-${fmt(viewOrder.discountAmt)}` },
                   viewOrder.taxAmt > 0 && { label: `Tax (${viewOrder.taxPercent}%)`, value: fmt(viewOrder.taxAmt) },
                 ].filter(Boolean).map(x => (
@@ -349,7 +391,7 @@ export default function AdminMarketingOrders() {
                 </Box>
               )}
             </DialogContent>
-            <DialogActions sx={{ px: 3, pb: 2.5 }}>
+            <DialogActions sx={{ px: 3, pb: 2.5, flexWrap: 'wrap', gap: 1 }}>
               <Button onClick={() => setViewOrder(null)} sx={{ color: '#64748b', fontWeight: 600 }}>Close</Button>
               <Button variant="outlined" onClick={() => { setViewOrder(null); openEdit(viewOrder) }}
                 sx={{ fontWeight: 700, borderRadius: 2, borderColor: '#1d4ed8', color: '#1d4ed8' }}>Edit</Button>
@@ -358,11 +400,12 @@ export default function AdminMarketingOrders() {
         )}
       </Dialog>
 
-      {/*  EDIT STATUS DIALOG  */}
-      <Dialog open={!!editOrder} onClose={() => setEditOrder(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+      {/* EDIT STATUS DIALOG */}
+      <Dialog open={!!editOrder} onClose={() => setEditOrder(null)} maxWidth="xs" fullWidth
+        PaperProps={{ sx: { borderRadius: { xs: 0, sm: 3 }, m: { xs: 0, sm: 2 } } }}>
         {editOrder && (
           <>
-            <DialogTitle sx={{ fontWeight: 800, fontSize: 16, borderBottom: '1px solid #f1f5f9', pb: 2 }}>
+            <DialogTitle sx={{ fontWeight: 800, fontSize: 15, borderBottom: '1px solid #f1f5f9', pb: 2 }}>
               Update Order — {editOrder.orderNumber}
             </DialogTitle>
             <DialogContent sx={{ pt: 3 }}>
@@ -396,9 +439,10 @@ export default function AdminMarketingOrders() {
         )}
       </Dialog>
 
-      {/*  DELETE  */}
-      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
-        <DialogTitle sx={{ fontWeight: 800, fontSize: 16, color: '#dc2626' }}>Delete Order</DialogTitle>
+      {/* DELETE */}
+      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth
+        PaperProps={{ sx: { borderRadius: { xs: 0, sm: 3 }, m: { xs: 0, sm: 2 } } }}>
+        <DialogTitle sx={{ fontWeight: 800, fontSize: 15, color: '#dc2626' }}>Delete Order</DialogTitle>
         <DialogContent>
           <Typography sx={{ fontSize: 14, color: '#334155' }}>
             Delete order <strong>{deleteTarget?.orderNumber}</strong>? This cannot be undone.

@@ -11,7 +11,8 @@ import {
   getModuleResults,
   getAgentModules,
   getAgentModuleById,
-  submitAttempt
+  submitAttempt,
+  markVideoComplete 
 } from "../controllers/Trainingcontroller.js";
 
 import { protectAgent } from "../middleware/marketingAgenTauthMiddleware.js";
@@ -33,5 +34,6 @@ router.get("/admin/:id/results",          getModuleResults);
 router.get("/agent/modules",              protectAgent, getAgentModules);
 router.get("/agent/modules/:id",          protectAgent, getAgentModuleById);
 router.post("/agent/modules/:id/attempt", protectAgent, submitAttempt);
+router.post("/agent/modules/:id/complete", protectAgent, markVideoComplete);
 
 export default router;

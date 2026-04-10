@@ -21,7 +21,7 @@ export default function CategoriesSlider() {
   const navigate  = useNavigate();
   const swiperRef = useRef(null);
 
-  // ⭐ Main Category Click
+  // Main Category Click
   const handleCategoryClick = (cat) => {
     navigate(`/categories/${cat._id}?type=main`);
   };
@@ -35,7 +35,7 @@ export default function CategoriesSlider() {
       .finally(() => setLoading(false));
   }, []);
 
-  // ── Skeleton ──────────────────────────────────────────────
+  // ── Skeleton 
   if (loading) {
     return (
       <div className="py-3 px-6 bg-white flex gap-3 overflow-hidden">
@@ -73,15 +73,14 @@ export default function CategoriesSlider() {
         onSwiper={(sw) => (swiperRef.current = sw)}
         autoplay={{ delay: 2800, disableOnInteraction: false, pauseOnMouseEnter: true }}
         loop={data.length > 8}
-        // ✅ Fine-grained breakpoints so items never get too small
         breakpoints={{
-          0:    { slidesPerView: 4,  spaceBetween: 4  },  // tiny phones  (<400)
-          400:  { slidesPerView: 5,  spaceBetween: 6  },  // phones       (400–540)
-          540:  { slidesPerView: 6,  spaceBetween: 8  },  // large phones (540–640)
-          640:  { slidesPerView: 7,  spaceBetween: 8  },  // tablets      (640–768)
-          768:  { slidesPerView: 8,  spaceBetween: 10 },  // tablets land (768–1024)
-          1024: { slidesPerView: 10, spaceBetween: 10 },  // desktop      (1024–1280)
-          1280: { slidesPerView: 12, spaceBetween: 10 },  // wide         (1280+)
+          0:    { slidesPerView: 4,  spaceBetween: 4  },  
+          400:  { slidesPerView: 5,  spaceBetween: 6  },  
+          540:  { slidesPerView: 6,  spaceBetween: 8  }, 
+          640:  { slidesPerView: 7,  spaceBetween: 8  },  
+          768:  { slidesPerView: 8,  spaceBetween: 10 }, 
+          1024: { slidesPerView: 10, spaceBetween: 10 },  
+          1280: { slidesPerView: 12, spaceBetween: 10 },  
         }}
         className="!px-7"   // padding so edge items don't hide under arrows
       >

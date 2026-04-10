@@ -303,7 +303,7 @@ export default function TrainingMeeting() {
         })}
       </Box>
 
-      {/* ══════════ ADD / EDIT DIALOG ══════════ */}
+      {/* ADD / EDIT DIALOG  */}
       <Dialog open={addDialog} onClose={closeDialog} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
         <DialogTitle sx={{ fontWeight: 800, fontSize: 18, color: '#0f172a', borderBottom: '1px solid #f1f5f9', pb: 2 }}>
           {editTarget ? 'Edit Training Module' : 'Add Training Module'}
@@ -325,9 +325,9 @@ export default function TrainingMeeting() {
 
             <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
               {[
-                { value: 'all',      label: 'All agents',    icon: '👥', desc: `${allAgents.length} agents` },
-                { value: 'specific', label: 'Specific agents', icon: '👤', desc: 'Choose by name' },
-                { value: 'area',     label: 'By area',       icon: '📍', desc: 'Choose by assigned area' },
+                { value: 'all',      label: 'All agents', desc: `${allAgents.length} agents` },
+                { value: 'specific', label: 'Specific agents', desc: 'Choose by name' },
+                { value: 'area',     label: 'By area', desc: 'Choose by assigned area' },
               ].map(opt => (
                 <Box key={opt.value} onClick={() => setForm(f => ({ ...f, assignmentType: opt.value, assignedAgents: [], assignedAreas: [] }))}
                   sx={{ flex: 1, minWidth: 140, p: 2, borderRadius: 2, cursor: 'pointer', textAlign: 'center',

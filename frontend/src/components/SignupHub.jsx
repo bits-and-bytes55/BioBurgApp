@@ -84,7 +84,7 @@ const Sidebar = styled(Paper)(({ theme }) => ({
   },
 }));
 
-const MainContent = styled(Box)(({ theme }) => ({
+const MainContent = styled(Box)(() => ({
   flexGrow: 1,
   display: "flex",
   flexDirection: "column",
@@ -102,7 +102,7 @@ const ContentArea = styled(Box)(({ theme }) => ({
   },
 }));
 
-const DashboardCard = styled(Card)(({ theme }) => ({
+const DashboardCard = styled(Card)(() => ({
   height: "100%",
   borderRadius: 12,
   border: "1px solid #e2e8f0",
@@ -162,10 +162,8 @@ const Header = styled(Paper)(({ theme }) => ({
 export default function SignupHub() {
   const [activeCategory, setActiveCategory] = useState("dashboard");
   const [expandedCategories, setExpandedCategories] = useState({
-    corporate: false,
-    user: true,
-    staff: false,
-  });
+  user: true, b2b: false, bsp: false, jobs: false, corporate: false, staff: false,
+});
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -179,7 +177,7 @@ export default function SignupHub() {
     },
     {
       id: "user",
-      title: "Customer Registration",
+      title: "Register With Us",
       icon: <Person />,
       items: [
         {
@@ -189,20 +187,19 @@ export default function SignupHub() {
           icon: <Person />,
           to: "/userregister",
         },
-        // { id: "", title: "(B2B) Business To Business Register", description: "Patients & Caregivers", icon: <Person />, to: "/userregister" },
+      ]
+    },
+    {
+      id: "b2b",
+      title: "Business To Business (B2B)",
+      icon: <Person />,
+      items: [
         {
           id: "bulk",
           title: "Bulk Manufacturing",
           description: "Contract Manufacturing",
           icon: <Business />,
           to: "/register/bulk-manufacturing",
-        },
-        {
-          id: "doctor-consultation",
-          title: "Online Dr. Consultation",
-          description: "Doctors & Practitioners",
-          icon: <MedicalServices />,
-          to: "/register/doctor",
         },
         {
           id: "hospital",
@@ -217,20 +214,6 @@ export default function SignupHub() {
           description: "Pharmacy & Drugstores",
           icon: <LocalPharmacy />,
           to: "/register/pharmacy",
-        },
-        {
-          id: "partner",
-          title: "Partners Registartion",
-          description: "Labs and Diagnostic Centers",
-          icon: <Biotech />,
-          to: "/register/radiology-diagnostics",
-        },
-        {
-          id: "manufacturer",
-          title: "Pharma Manufacturer Registration",
-          description: "Production units and formulation partners",
-          icon: <Science />,
-          to: "/register/pharma-manufacturer",
         },
         {
           id: "franchise",
@@ -261,13 +244,6 @@ export default function SignupHub() {
           disabled: true,
         },
         {
-          id: "sponsor",
-          title: "Sponsor Pharma Brand",
-          description: "Coming Soon",
-          icon: <Work />,
-          disabled: true,
-        },
-        {
           id: "insurance",
           title: "Insurance Partner's",
           description: "Coming Soon",
@@ -281,6 +257,50 @@ export default function SignupHub() {
           icon: <Work />,
           disabled: true,
         },
+      ],
+    },
+
+    {
+      id: "bsp",
+      title: "Business Sponsor Partners",
+      icon: <MedicalServices />,
+      items: [
+        {
+          id: "doctor-consultation",
+          title: "Online Dr. Consultation",
+          description: "Doctors & Practitioners",
+          icon: <MedicalServices />,
+          to: "/register/doctor",
+        },
+        {
+          id: "manufacturer",
+          title: "Pharma Manufacturer Registration",
+          description: "Production units and formulation partners",
+          icon: <Science />,
+          to: "/register/pharma-manufacturer",
+        },
+        {
+          id: "radiology-corporate",
+          title: "Bioburg Partner Registration",
+          description: "Diagnostic Center Registration",
+          icon: <Biotech />,
+          to: "/register/radiology-diagnostics",
+        },
+        {
+          id: "sponsor",
+          title: "Sponsor Pharma Brand",
+          description: "Coming Soon",
+          icon: <Work />,
+          disabled: true,
+        },
+      ]
+    },
+
+    {
+      id: "jobs",
+      title: "Jobs And Careers",
+      icon: <Work />,
+      items: [
         {
           id: "jobs",
           title: "Jobs and Careers",
@@ -295,7 +315,7 @@ export default function SignupHub() {
           icon: <Work />,
           to: "/register/exservice",
         },
-      ],
+      ]
     },
     {
       id: "corporate",
@@ -303,60 +323,11 @@ export default function SignupHub() {
       icon: <Business />,
       items: [
         {
-          id: "bulk-corporate",
-          title: "Bulk Manufacturing",
-          description: "Contract Manufacturing Partners",
-          icon: <Business />,
-          to: "/register/bulk-manufacturing",
-        },
-        {
-          id: "franchise-corporate",
-          title: "Bioburg Franchise",
-          description: "Franchise Partner Registration",
-          icon: <AssignmentInd />,
-          to: "/franchise-application",
-        },
-        {
-          id: "manufacturer-corporate",
-          title: "Pharma Manufacturer Registration",
-          description: "Production units and formulation partners",
-          icon: <Science />,
-          to: "/register/pharma-manufacturer",
-        },
-        {
-          id: "vendor-corporate",
-          title: "Bioburg Vendors",
-          description: "Pharmacy & Distribution",
-          icon: <LocalPharmacy />,
-          to: "/register/vendor",
-        },
-        {
-          id: "radiology-corporate",
-          title: "Radiology Diagnostics Centre",
-          description: "Diagnostic Center Registration",
-          icon: <Biotech />,
-          to: "/register/radiology-diagnostics",
-        },
-      ],
-    },
-    {
-      id: "staff",
-      title: "Staff / Partner",
-      icon: <Group />,
-      items: [
-        {
           id: "marketing-agent",
           title: "Marketing Official's",
           description: "Marketing Agent Register",
           icon: <Work />,
           to: "/agent/register",
-        },
-        {
-          id: "delivery-agent",
-          title: "Delivery Official's",
-          description: "Delivery Agent Register",
-          icon: <Work />,
-          to: "/delivery-agent/register",
         },
         {
           id: "delivery-man",
@@ -370,27 +341,18 @@ export default function SignupHub() {
   ];
 
   const handleCategoryClick = (categoryId) => {
-    if (
-      categoryId === "dashboard" ||
-      categoryId === "management" ||
-      categoryId === "tables" ||
-      categoryId === "typography" ||
-      categoryId === "icons" ||
-      categoryId === "maps" ||
-      categoryId === "notifications"
-    ) {
-      setActiveCategory(categoryId);
-    } else {
-      setExpandedCategories((prev) => ({
-        ...prev,
-        [categoryId]: !prev[categoryId],
-      }));
-      setActiveCategory(categoryId);
-    }
-    if (isMobile) {
-      setSidebarOpen(false);
-    }
-  };
+  if (categoryId === "dashboard") {
+    setActiveCategory(categoryId);
+  } else {
+    setExpandedCategories((prev) => ({
+      ...prev,
+      [categoryId]: !prev[categoryId],
+    }));
+    setActiveCategory(categoryId);
+  }
+  if (isMobile) setSidebarOpen(false);
+};
+ 
 
   const renderContent = () => {
     const category = categories.find((c) => c.id === activeCategory);
@@ -452,9 +414,7 @@ export default function SignupHub() {
           </Box>
         );
 
-      case "user":
-      case "corporate":
-      case "staff":
+      case "user": case "b2b": case "bsp": case "jobs": case "corporate": case "staff":
         return (
           <Box>
             <Box

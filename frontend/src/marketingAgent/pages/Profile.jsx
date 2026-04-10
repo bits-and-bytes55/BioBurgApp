@@ -20,13 +20,20 @@ import { getAgentProfile } from "../../components/services/agentApi";
 
 const AgentProfile = () => {
   const [agent, setAgent] = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    getAgentProfile().then((res) => {
-      setAgent(res.data.data);
-    });
+    getAgentProfile()
+      .then((res) => {
+        setAgent(res.data.data);
+      })
+      .catch((err) => {
+        console.error("Failed to load profile:", err);
+        setError("Failed to load profile. Please try again.");
+      });
   }, []);
 
+  if (error) return <Typography color="error">{error}</Typography>;
   if (!agent) return <Typography>Loading...</Typography>;
 
   return (

@@ -4,6 +4,7 @@ import User from "../models/User.js";
 import Hospital from "../models/Hospital.js";
 import Manufacturer from "../models/Manufacturer.js";
 import Franchise from "../models/Franchise.js";
+import MarketingAgent from "../models/MarketingAgent.model.js"; 
 
 let Vendor, Doctor, Pharmacy;
 try { ({ default: Vendor }  = await import("../models/Vendor.js"));   } catch (_) {}
@@ -183,4 +184,37 @@ export const adminMiddleware = (req, res, next) => {
     return res.status(403).json({ success: false, message: "Admin access required" });
   }
   next();
+};
+
+
+export const protectAgent = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization || req.headers.Authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ success: false, message: "No token provided" });
+    }
+
+    const token   = authHeader.split(" ")[1];
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    const agentId = payload.id || payload._id;
+
+    const agent = await MarketingAgent.findById(agentId).select("-password");
+    if (!agent) {
+      return res.status(401).json({ success: false, message: "Agent not found" });
+    }
+
+    if (!agent.isApproved) {
+      return res.status(403).json({ success: false, message: "Agent not approved yet" });
+    }
+
+    req.user    = agent;     
+    req.agent   = agent;     
+    req.agentId = agent._id;
+    next();
+  } catch (err) {
+    if (err.name === "TokenExpiredError") {
+      return res.status(401).json({ success: false, message: "Token expired" });
+    }
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
 };

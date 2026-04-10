@@ -15,8 +15,8 @@ const jobSchema = new mongoose.Schema({
       longitude: Number,
       accuracy: Number,
       speed: Number,
-      recordedAt: { type: Date, default: Date.now }
-    }
+      recordedAt: { type: Date, default: Date.now },
+    },
   ],
 
   state: String,
@@ -33,34 +33,49 @@ const jobSchema = new mongoose.Schema({
   mobile: String,
   whatsapp: String,
 
+  // Start-of-job proof
+  startProofImage: {
+    url: String,
+    public_id: String,
+    uploadedAt: Date,
+  },
   startKmPhoto: { url: String, public_id: String },
   closeKmPhoto: { url: String, public_id: String },
   hospitalImage: { url: String, public_id: String },
 
+  visits: [
+    {
+      place: String,
+      area: String,
+      address: String,
+      createdAt: { type: Date, default: Date.now },
+    },
+  ],
+
   jobStatus: {
     type: String,
     enum: ["started", "closed", "force_closed"],
-    default: "started"
-  }
+    default: "started",
+  },
 });
 
 const responseSchema = new mongoose.Schema(
   {
-    placeName:        { type: String, required: true },
-    placeType:        { type: String, default: "Hospital" },
-    address:          String,
-    contactPerson:    { type: String, required: true },
-    contactRole:      String,
-    phone:            String,
-    responseStatus:   { type: String, default: "Responded - Positive" },
+    placeName: { type: String, required: true },
+    placeType: { type: String, default: "Hospital" },
+    address: String,
+    contactPerson: { type: String, required: true },
+    contactRole: String,
+    phone: String,
+    responseStatus: { type: String, default: "Responded - Positive" },
     productDiscussed: String,
-    remarks:          String,
-    nextAction:       { type: String, default: "None Required" },
-    followUpDate:     String,
-    hasOrder:         { type: Boolean, default: false },
-    orderValue:       String
+    remarks: String,
+    nextAction: { type: String, default: "None Required" },
+    followUpDate: String,
+    hasOrder: { type: Boolean, default: false },
+    orderValue: String,
   },
-  { timestamps: true }   
+  { timestamps: true }
 );
 
 const marketingAgentSchema = new mongoose.Schema(
@@ -71,12 +86,26 @@ const marketingAgentSchema = new mongoose.Schema(
     password: String,
     assignedArea: String,
     role: { type: String, default: "marketing_agent" },
-    
+
     vendor: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "Vendor",
-  required: false
-},
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Vendor",
+      required: false,
+    },
+
+    // Admin-configurable requirements per agent
+    jobStartRequirements: {
+      requireLocation: { type: Boolean, default: true },
+      requireImage: { type: Boolean, default: false },
+    },
+
+    // Geofencing: center coords + radius set by admin
+    geofence: {
+      latitude: Number,
+      longitude: Number,
+      radiusKm: { type: Number, default: 50 },
+      enabled: { type: Boolean, default: false },
+    },
 
     isOnJob: { type: Boolean, default: false },
 
@@ -85,14 +114,15 @@ const marketingAgentSchema = new mongoose.Schema(
       longitude: Number,
       accuracy: Number,
       speed: Number,
-      updatedAt: Date
+      updatedAt: Date,
     },
 
     gpsViolationCount: { type: Number, default: 0 },
     isGpsBlocked: { type: Boolean, default: false },
+    isApproved: { type: Boolean, default: false },
 
     jobHistory: [jobSchema],
-    responses: [responseSchema] 
+    responses: [responseSchema],
   },
   { timestamps: true }
 );

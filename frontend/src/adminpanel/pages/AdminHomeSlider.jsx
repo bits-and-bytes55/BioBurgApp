@@ -22,9 +22,6 @@ const DIMENSION_PRESETS = [
   { label: "Story",       w: 1080, h: 1920 },
 ];
 
-// ─────────────────────────────────────────────────────────────
-// CropModal  –  fixed pixel-accurate crop
-// ─────────────────────────────────────────────────────────────
 function CropModal({ open, imageUrl, onClose, onSave }) {
   const containerRef = useRef(null);
   const imgRef       = useRef(null);
@@ -33,7 +30,7 @@ function CropModal({ open, imageUrl, onClose, onSave }) {
 
   // crop box in DISPLAY pixels (relative to the rendered <img> element)
   const [crop, setCrop]     = useState({ x: 60, y: 40, w: 300, h: 160 });
-  const [imgRect, setImgRect] = useState(null); // bounding rect of the img tag
+  const [setImgRect] = useState(null); // bounding rect of the img tag
   const [imgLoaded, setImgLoaded] = useState(false);
 
   useEffect(() => {
@@ -298,9 +295,6 @@ function CropModal({ open, imageUrl, onClose, onSave }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// DimensionModal  –  fixed: applies immediately with live preview
-// ─────────────────────────────────────────────────────────────
 function DimensionModal({ open, slider, onClose, onSave }) {
   const [preset,    setPreset]    = useState("");
   const [customW,   setCustomW]   = useState(1920);
@@ -443,9 +437,6 @@ function DimensionModal({ open, slider, onClose, onSave }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// SliderCard  –  fixed MUI v6 Grid (no xs/sm/md/lg)
-// ─────────────────────────────────────────────────────────────
 function SliderCard({ slide, index, onDelete, onToggle, onCrop, onDimension }) {
   return (
     <Box sx={{
@@ -533,13 +524,8 @@ function SliderCard({ slide, index, onDelete, onToggle, onCrop, onDimension }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// Main
-// ─────────────────────────────────────────────────────────────
 export default function AdminHomeSlider() {
   const [sliders,        setSliders]        = useState([]);
-  // localOverrides: { [_id]: { width, height, objectFit, image, isActive } }
-  // These WIN over server data so refetches don't overwrite unsaved changes
   const [localOverrides, setLocalOverrides] = useState({});
   const [image,          setImage]          = useState("");
   const [fileName,       setFileName]       = useState("");
@@ -598,7 +584,7 @@ export default function AdminHomeSlider() {
     setUploading(true);
     try {
       await axios.post(`${BASE_API}/api/home-sliders/add`, { image });
-      notify("✅ Slider uploaded!");
+      notify("Slider uploaded!");
       setImage(""); setFileName("");
       fetchSliders();
     } catch (e) {
@@ -616,7 +602,7 @@ export default function AdminHomeSlider() {
       // Remove from local sliders state immediately
       setSliders(prev => prev.filter(s => s._id !== targetId));
       setLocalOverrides(prev => { const n = {...prev}; delete n[targetId]; return n; });
-      notify("🗑️ Slider deleted.");
+      notify("Slider deleted.");
     } catch {
       notify("Delete failed.", "error");
     } finally { setDeleting(false); }
@@ -629,7 +615,7 @@ export default function AdminHomeSlider() {
     setOverride(slide._id, { isActive: newVal });
     try {
       await axios.patch(`${BASE_API}/api/home-sliders/${slide._id}/toggle`);
-      notify(newVal ? "✅ Activated!" : "⏸️ Deactivated!");
+      notify(newVal ? "Activated!" : "Deactivated!");
     } catch {
       // Revert
       setOverride(slide._id, { isActive: slide.isActive });
@@ -639,7 +625,6 @@ export default function AdminHomeSlider() {
 
   const handleSaveDimensions = async ({ width, height, objectFit }) => {
     const targetId = dimTarget._id;
-    // ✅ Set override immediately — survives any subsequent fetchSliders
     setOverride(targetId, { width, height, objectFit });
     setDimTarget(null);
     try {
@@ -666,11 +651,10 @@ export default function AdminHomeSlider() {
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64 = reader.result;
-      // ✅ Override image immediately — card thumbnail updates instantly
       setOverride(targetId, { image: base64 });
       try {
         const res = await axios.patch(`${BASE_API}/api/home-sliders/${targetId}/crop`, { image: base64 });
-        notify("✂️ Crop applied!");
+        notify("Crop applied!");
         // Replace base64 override with cloudinary URL if returned
         if (res.data?.image) {
           setOverride(targetId, { image: res.data.image });

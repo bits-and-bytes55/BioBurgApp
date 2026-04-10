@@ -5,7 +5,7 @@ const apiUpload = axios.create({
   timeout: 60000, // images need more time
 });
 
-// ❗ Content-Type NEVER set here
+//  Content-Type NEVER set here
 apiUpload.interceptors.request.use((config) => {
   const token = localStorage.getItem("adminToken");
   if (token) {

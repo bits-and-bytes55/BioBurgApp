@@ -1,11 +1,11 @@
 // controllers/pointsAdminController.js
-
 import mongoose from "mongoose";
 import AgentPoints from "../models/Agentpoints.js";
 import PointsConfig from "../models/Pointsconfig.js";
 import PayoutRequest from "../models/Payoutrequest.js";
+import MarketingAgent from "../models/MarketingAgent.model.js";
 
-// ── GET /api/points/admin/config 
+//GET /api/points/admin/config 
 export const getPointsConfigs = async (req, res) => {
   try {
     const configs = await PointsConfig.find().sort({ taskKey: 1 }).lean();
@@ -15,7 +15,7 @@ export const getPointsConfigs = async (req, res) => {
   }
 };
 
-// ── POST /api/points/admin/config 
+// POST /api/points/admin/config 
 export const upsertPointsConfig = async (req, res) => {
   try {
     const { taskKey, taskLabel, points, description, isActive } = req.body;
@@ -139,7 +139,15 @@ export const manuallyAwardPoints = async (req, res) => {
 //  GET /api/points/admin/agents 
 export const getAgentPointsSummaries = async (req, res) => {
   try {
-    const summaries = await AgentPoints.aggregate([
+    // 1. Get ALL approved agents
+    const agents = await MarketingAgent.find({ isApproved: true })
+      .select("_id name phone email")
+      .lean();
+
+    // 2. Get points data for those agents
+    const agentIds = agents.map((a) => a._id);
+    const pointsSummaries = await AgentPoints.aggregate([
+      { $match: { agentId: { $in: agentIds } } },
       {
         $group: {
           _id: "$agentId",
@@ -150,36 +158,36 @@ export const getAgentPointsSummaries = async (req, res) => {
           totalRedeemed: {
             $sum: { $cond: [{ $lt: ["$points", 0] }, { $abs: "$points" }, 0] },
           },
-          entries: { $sum: 1 },
           lastActivity: { $max: "$createdAt" },
         },
       },
-      {
-        $lookup: {
-          from: "marketingagents",
-          localField: "_id",
-          foreignField: "_id",
-          as: "agent",
-        },
-      },
-      { $unwind: { path: "$agent", preserveNullAndEmpty: true } },
-      {
-        $project: {
-          agentId: "$_id",
-          name: "$agent.name",
-          phone: "$agent.phone",
-          email: "$agent.email",
-          totalPoints: 1,
-          totalEarned: 1,
-          totalRedeemed: 1,
-          entries: 1,
-          lastActivity: 1,
-        },
-      },
-      { $sort: { totalPoints: -1 } },
     ]);
 
-    return res.json({ success: true, data: summaries });
+    // 3. Map points data by agentId for quick lookup
+    const pointsMap = {};
+    pointsSummaries.forEach((s) => {
+      pointsMap[s._id.toString()] = s;
+    });
+
+    // 4. Merge — agents with no points get zeros
+    const result = agents.map((a) => {
+      const pts = pointsMap[a._id.toString()];
+      return {
+        agentId: a._id,
+        name: a.name,
+        phone: a.phone,
+        email: a.email,
+        totalPoints: pts?.totalPoints ?? 0,
+        totalEarned: pts?.totalEarned ?? 0,
+        totalRedeemed: pts?.totalRedeemed ?? 0,
+        lastActivity: pts?.lastActivity ?? null,
+      };
+    });
+
+    // 5. Sort by points descending
+    result.sort((a, b) => b.totalPoints - a.totalPoints);
+
+    return res.json({ success: true, data: result });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }

@@ -31,14 +31,14 @@ const JobApplicationSchema = new mongoose.Schema(
     coverLetter:       { type: String },
     resumeUrl:         { type: String },
 
-    // ── Legacy status ─────────────────────────────────────────────────────
+    //  Legacy status 
     status: {
       type: String,
       enum: ["pending","reviewing","shortlisted","rejected","hired"],
       default: "pending",
     },
 
-    // ── 6-stage pipeline ─────────────────────────────────────────────────
+    //  6-stage pipeline 
     stage: {
       type: String,
       enum: ["application_filled","online_test","result","interview","offer_letter","joining"],
@@ -47,14 +47,14 @@ const JobApplicationSchema = new mongoose.Schema(
 
     adminNote: { type: String, default: "" },
 
-    // ── Email log ─────────────────────────────────────────────────────────
+    //  Email log 
     emailsSent: [{
       stage:   String,
       sentAt:  { type: Date, default: Date.now },
       subject: String,
     }],
 
-    // ── Online Test ───────────────────────────────────────────────────────
+    //  Online Test 
     testToken:       { type: String, unique: true, sparse: true }, // UUID link token
     testSentAt:      { type: Date },
     testStartedAt:   { type: Date },
@@ -66,7 +66,7 @@ const JobApplicationSchema = new mongoose.Schema(
     testResult:      { type: String, enum: ["pass","fail","pending","not_sent"], default: "not_sent" },
     resultEmailSent: { type: Boolean, default: false },
 
-    // ── Interview ─────────────────────────────────────────────────────────
+    //  Interview 
     interviewLink:       { type: String },
     interviewScheduled:  { type: Date },
     interviewEmailSent:  { type: Boolean, default: false },
