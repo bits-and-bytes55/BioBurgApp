@@ -1,18 +1,18 @@
 import express from "express";
 import {
-  saveDailyPlan,
-  getAllDailyPlans,
-  getDailyPlanByDate,
-  updateDailyPlan,
-  deleteDailyPlan
+  upsertPlan,
+  getPlan,
+  getDailyPlan,
+  deletePlan,
 } from "../controllers/dailyPlanController.js";
+
 import { protectAgent } from "../middleware/marketingAgenTauthMiddleware.js";
+
 const router = express.Router();
 
-router.post("/create", protectAgent, saveDailyPlan);          // create
-router.get("/", protectAgent, getAllDailyPlans);        // list
-router.get("/:date", protectAgent, getDailyPlanByDate); // read
-router.put("/:date", protectAgent, updateDailyPlan);    // update
-router.delete("/:date", protectAgent, deleteDailyPlan); // delete
+router.post("/:planType/upsert", protectAgent, upsertPlan);
+router.get("/:planType/:startDate/:endDate", protectAgent, getPlan);
+router.get("/:date", protectAgent, getDailyPlan);
+router.delete("/:planType/:startDate/:endDate", protectAgent, deletePlan);
 
 export default router;

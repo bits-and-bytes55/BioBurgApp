@@ -112,6 +112,8 @@ export default function BulkManufacturingForm() {
 
     // Account
     username: "",
+    password: "",
+    confirmPassword: "",
 
     // Files
     importLicenseFile: null,
@@ -130,18 +132,33 @@ export default function BulkManufacturingForm() {
   };
 
   const handleFileChange = (e) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.files[0] }));
-  };
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) {
+    alert(`"${file.name}" is too large. Maximum file size is 2MB.`);
+    e.target.value = "";
+    return;
+  }
+  setFormData((prev) => ({ ...prev, [e.target.name]: file }));
+};
 
   // Navigation
   const handleNext = () => {
-    if (activeStep === steps.length - 1) {
-      void handleSubmit();
-    } else {
-      setActiveStep((prev) => prev + 1);
-      window.scrollTo(0, 0);
+  if (activeStep === steps.length - 1) {
+    if (formData.password !== formData.confirmPassword) {
+      setSubmitError("Passwords do not match. Please re-check.");
+      return;
     }
-  };
+    if (formData.password.length < 8) {
+      setSubmitError("Password must be at least 8 characters.");
+      return;
+    }
+    void handleSubmit();
+  } else {
+    setActiveStep((prev) => prev + 1);
+    window.scrollTo(0, 0);
+  }
+};
 
   const handleBack = () => {
     setActiveStep((prev) => prev - 1);
@@ -181,6 +198,7 @@ export default function BulkManufacturingForm() {
         "paymentMethod",
         "currency",
         "username",
+        "password",
       ].forEach((key) => {
         payload.append(key, formData[key] || "");
       });
@@ -200,8 +218,13 @@ export default function BulkManufacturingForm() {
       });
 
       await axios.post(`${API_URL}/bulk-manufacturing`, payload, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 120000,
+      onUploadProgress: (progressEvent) => {
+      const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+      console.log(`Upload progress: ${percent}%`);
+  },
+});
 
       setSubmitted(true);
       window.scrollTo(0, 0);
@@ -441,29 +464,64 @@ export default function BulkManufacturingForm() {
   );
 
   const renderStep5 = () => (
-    <SectionCard
-      title="Portal Access Preference"
-      required
-      subtitle="After admin review, the BioBurg team can provision your bulk manufacturing portal access using this preferred username."
-    >
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            This stage creates only your request. Login access is issued after compliance review and approval.
-        </Typography>
-        <Grid container spacing={2}>
-            <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Preferred Username"
-                  variant="standard"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleInputChange}
-                  required
-                />
-            </Grid>
-        </Grid>
-    </SectionCard>
-  );
+  <SectionCard
+    title="Portal Access Preference"
+    required
+    subtitle="After admin review, the BioBurg team will activate your account using the credentials set below."
+  >
+    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+      This stage creates only your request. Login access is activated after compliance review and approval.
+    </Typography>
+    <Grid container spacing={2}>
+      <Grid item xs={12}>
+        <TextField
+          fullWidth
+          label="Preferred Username"
+          variant="standard"
+          name="username"
+          value={formData.username}
+          onChange={handleInputChange}
+          required
+        />
+      </Grid>
+      <Grid item xs={12} md={6}>
+        <TextField
+          fullWidth
+          label="Set Password"
+          variant="standard"
+          type="password"
+          name="password"
+          value={formData.password}
+          onChange={handleInputChange}
+          required
+          helperText="Min. 8 characters"
+        />
+      </Grid>
+      <Grid item xs={12} md={6}>
+        <TextField
+          fullWidth
+          label="Confirm Password"
+          variant="standard"
+          type="password"
+          name="confirmPassword"
+          value={formData.confirmPassword}
+          onChange={handleInputChange}
+          required
+          error={
+            formData.confirmPassword.length > 0 &&
+            formData.password !== formData.confirmPassword
+          }
+          helperText={
+            formData.confirmPassword.length > 0 &&
+            formData.password !== formData.confirmPassword
+              ? "Passwords do not match"
+              : ""
+          }
+        />
+      </Grid>
+    </Grid>
+  </SectionCard>
+);
 
   // Success Screen
   if (submitted) {

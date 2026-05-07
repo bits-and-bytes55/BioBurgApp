@@ -16,12 +16,12 @@ export const approveFranchise = async (req, res) => {
       return res.status(400).json({ message: "Already approved" });
     }
 
-    // ✅ Update existing Franchise model
+    // Update existing Franchise model
     franchise.status = "APPROVED";
     franchise.zoneId = zoneId;
     await franchise.save();
 
-    // ✅ Create login account (only once)
+    //  Create login account (only once)
     const exists = await FranchiseAccount.findOne({
       franchiseApplicationId: franchise._id
     });

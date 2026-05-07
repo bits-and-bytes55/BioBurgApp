@@ -57,6 +57,7 @@ const bulkManufacturingRequestSchema = new mongoose.Schema(
     currency: { type: String, default: "" },
 
     requestedUsername: { type: String, default: "" },
+    requestedPassword: { type: String, default: "" },
 
     documents: {
       importLicenseFile: { type: String, default: "" },

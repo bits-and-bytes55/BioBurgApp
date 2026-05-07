@@ -12,11 +12,11 @@ import { protect, adminMiddleware } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// ── PUBLIC routes (no auth needed) ───────────────────────────────
+//PUBLIC routes
 router.get("/public", getPublicJobs);          
 router.get("/public/:id", getPublicJobById);   
 
-// ── ADMIN routes (auth required) ─────────────────────────────────
+//ADMIN routes
 router.post("/", protect, adminMiddleware, createJob);
 router.get("/", protect, adminMiddleware, getAllJobs);
 router.put("/:id", protect, adminMiddleware, updateJob);

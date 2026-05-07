@@ -38,7 +38,7 @@ const specializations = [
 
 const steps = ['Hospital Details & Documents', 'Contact Information', 'Services & Security'];
 
-// ── Math CAPTCHA ──────────────────────────────────────────────────────────────
+//  Math CAPTCHA 
 function useCaptcha() {
   const [a, setA] = useState(0);
   const [b, setB] = useState(0);
@@ -78,9 +78,7 @@ function CaptchaBox({ a, b, input, setInput, valid, refresh }) {
   );
 }
 
-// ── Image upload field ────────────────────────────────────────────────────────
-// Uses your existing controller: POST /api/upload  body: { file: "data:image/..." }
-// Returns: { url, public_id }
+//  Image upload field 
 function DocUpload({ label, required, value, onChange, uploading, docKey }) {
   const handleFile = async (e) => {
     const file = e.target.files[0];
@@ -169,7 +167,6 @@ function DocUpload({ label, required, value, onChange, uploading, docKey }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 export default function HospitalRegistration() {
   const navigate = useNavigate();
   const captcha  = useCaptcha();

@@ -4,18 +4,6 @@ import toast from "react-hot-toast";
 
 const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
-const ROLES = [
-  { value: "marketing_agent",  label: "Marketing Agent" },
-  { value: "delivery_agent",   label: "Delivery Agent" },
-  { value: "sales_manager",    label: "Sales Manager" },
-  { value: "hr",               label: "HR" },
-  { value: "accountant",       label: "Accountant" },
-  { value: "operations",       label: "Operations" },
-  { value: "admin",            label: "Admin" },
-  { value: "intern",           label: "Intern" },
-  { value: "other",            label: "Other" },
-];
-
 const EMP_TYPES = [
   { value: "full_time",  label: "Full Time" },
   { value: "part_time",  label: "Part Time" },
@@ -34,64 +22,55 @@ const adminHeaders = () => ({
 });
 
 const EMPTY_FORM = {
-  fullName: "", email: "", phone: "", role: "marketing_agent",
-  customRole: "", department: "", designation: "", joiningDate: "",
+  fullName: "", email: "", phone: "",
+  role: "",
+  department: "", designation: "", joiningDate: "",
   salary: "", employmentType: "full_time", status: "active",
   city: "", state: "", adminNote: "",
 };
 
 export default function JobHistoryPage() {
-  const [employees, setEmployees]   = useState([]);
-  const [stats, setStats]           = useState({});
-  const [total, setTotal]           = useState(0);
-  const [loading, setLoading]       = useState(true);
-  const [hiredApps, setHiredApps]   = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [stats, setStats]         = useState({});
+  const [total, setTotal]         = useState(0);
+  const [loading, setLoading]     = useState(true);
+  const [hiredApps, setHiredApps] = useState([]);
   const [showImport, setShowImport] = useState(false);
   const [importing, setImporting]   = useState(null);
 
-  const [search, setSearch]         = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
+  const [search, setSearch]             = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [page, setPage]             = useState(1);
+  const [page, setPage]                 = useState(1);
   const LIMIT = 20;
 
-  const [modal, setModal]       = useState(null); // null | "add" | "edit"
+  const [modal, setModal]           = useState(null);
   const [editTarget, setEditTarget] = useState(null);
-  const [form, setForm]         = useState(EMPTY_FORM);
-  const [saving, setSaving]     = useState(false);
-  const [detail, setDetail]     = useState(null);
+  const [form, setForm]             = useState(EMPTY_FORM);
+  const [saving, setSaving]         = useState(false);
+  const [detail, setDetail]         = useState(null);
 
   const fetchEmployees = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
         page, limit: LIMIT,
-        ...(roleFilter !== "all"   && { role: roleFilter }),
+        role: "marketing_agent",
         ...(statusFilter !== "all" && { status: statusFilter }),
         ...(search && { search }),
       });
-      const res = await axios.get(`${API}/api/employees?${params}`, {
-        headers: adminHeaders(),
-      });
+      const res = await axios.get(`${API}/api/employees?${params}`, { headers: adminHeaders() });
       setEmployees(res.data.data || []);
       setTotal(res.data.total || 0);
       setStats(res.data.stats || {});
-    } catch {
-      toast.error("Failed to load employees");
-    } finally {
-      setLoading(false);
-    }
-  }, [page, roleFilter, statusFilter, search]);
+    } catch { toast.error("Failed to load employees"); }
+    finally { setLoading(false); }
+  }, [page, statusFilter, search]);
 
   const fetchHiredApps = async () => {
     try {
-      const res = await axios.get(`${API}/api/employees/hired-applications`, {
-        headers: adminHeaders(),
-      });
+      const res = await axios.get(`${API}/api/employees/hired-applications`, { headers: adminHeaders() });
       setHiredApps(res.data.data || []);
-    } catch {
-      toast.error("Failed to load hired applications");
-    }
+    } catch { toast.error("Failed to load hired applications"); }
   };
 
   useEffect(() => { fetchEmployees(); }, [fetchEmployees]);
@@ -100,43 +79,43 @@ export default function JobHistoryPage() {
   const openEdit = (emp) => {
     setForm({
       fullName: emp.fullName, email: emp.email, phone: emp.phone,
-      role: emp.role, customRole: emp.customRole || "",
+      role: emp.customRole || emp.role || "",
       department: emp.department || "", designation: emp.designation || "",
       joiningDate: emp.joiningDate ? emp.joiningDate.slice(0, 10) : "",
       salary: emp.salary || "", employmentType: emp.employmentType || "full_time",
       status: emp.status, city: emp.city || "", state: emp.state || "",
       adminNote: emp.adminNote || "",
     });
-    setEditTarget(emp);
-    setModal("edit");
+    setEditTarget(emp); setModal("edit");
   };
 
   const handleSave = async () => {
-    if (!form.fullName || !form.email || !form.phone || !form.role) {
-      toast.error("Fill required fields"); return;
+    if (!form.fullName || !form.email || !form.phone) {
+      toast.error("Full name, email and phone are required"); return;
     }
     setSaving(true);
     try {
+      const payload = {
+        ...form,
+        role: "marketing_agent",
+        customRole: form.role,
+        designation: form.designation || form.role,
+      };
       if (modal === "add") {
-        await axios.post(`${API}/api/employees`, form, { headers: adminHeaders() });
+        await axios.post(`${API}/api/employees`, payload, { headers: adminHeaders() });
         toast.success("Employee added!");
       } else {
-        await axios.patch(`${API}/api/employees/${editTarget._id}`, form, {
-          headers: adminHeaders(),
-        });
+        await axios.patch(`${API}/api/employees/${editTarget._id}`, payload, { headers: adminHeaders() });
         toast.success("Employee updated!");
       }
       setModal(null); setEditTarget(null);
       fetchEmployees();
-    } catch (err) {
-      toast.error(err?.response?.data?.message || "Failed");
-    } finally {
-      setSaving(false);
-    }
+    } catch (err) { toast.error(err?.response?.data?.message || "Failed"); }
+    finally { setSaving(false); }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Delete this employee?")) return;
+    if (!window.confirm("Delete this employee record?")) return;
     try {
       await axios.delete(`${API}/api/employees/${id}`, { headers: adminHeaders() });
       toast.success("Deleted"); fetchEmployees();
@@ -146,112 +125,406 @@ export default function JobHistoryPage() {
   const handleImport = async (appId) => {
     setImporting(appId);
     try {
-      await axios.post(`${API}/api/employees/import/${appId}`, {}, {
-        headers: adminHeaders(),
-      });
-      toast.success("Imported as employee!");
-      fetchHiredApps(); fetchEmployees();
-    } catch (err) {
-      toast.error(err?.response?.data?.message || "Import failed");
-    } finally {
-      setImporting(null);
-    }
+      await axios.post(`${API}/api/employees/import/${appId}`, {}, { headers: adminHeaders() });
+      toast.success("Imported as employee!"); fetchHiredApps(); fetchEmployees();
+    } catch (err) { toast.error(err?.response?.data?.message || "Import failed"); }
+    finally { setImporting(null); }
   };
 
-  const handleQuickRoleChange = async (emp, newRole) => {
+  const handleQuickField = async (emp, field, value) => {
     try {
-      await axios.patch(`${API}/api/employees/${emp._id}`,
-        { role: newRole }, { headers: adminHeaders() });
-      toast.success("Role updated!");
+      const payload = field === "customRole"
+        ? { role: "marketing_agent", customRole: value, designation: value }
+        : { [field]: value };
+      await axios.patch(`${API}/api/employees/${emp._id}`, payload, { headers: adminHeaders() });
       fetchEmployees();
-    } catch { toast.error("Failed to update role"); }
-  };
-
-  const handleQuickStatusChange = async (emp, newStatus) => {
-    try {
-      await axios.patch(`${API}/api/employees/${emp._id}`,
-        { status: newStatus }, { headers: adminHeaders() });
-      toast.success("Status updated!");
-      fetchEmployees();
-    } catch { toast.error("Failed to update status"); }
+    } catch { toast.error("Update failed"); }
   };
 
   const totalPages = Math.ceil(total / LIMIT);
-  const roleLabel  = (r, custom) => r === "other" ? (custom || "Other") : (ROLES.find(x => x.value === r)?.label || r);
+  const empRole = (e) => e.customRole || e.designation || e.role || "—";
 
   return (
     <>
       <style>{`
-        .eh-page { padding: 20px; font-family: 'Segoe UI', sans-serif; max-width: 1400px; }
-        .eh-stats { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-bottom: 20px; }
-        @media(min-width:600px){ .eh-stats { grid-template-columns: repeat(3,1fr); } }
-        @media(min-width:900px){ .eh-stats { grid-template-columns: repeat(5,1fr); } }
-        .eh-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
-        .eh-table-wrap { overflow-x: auto; }
-        .eh-table-wrap table { min-width: 900px; width: 100%; border-collapse: collapse; }
-        .eh-mobile { display: flex; flex-direction: column; gap: 0; }
-        .eh-card { padding: 14px; border-bottom: 1px solid #f3f4f6; }
-        .show-table { display: none; } .show-cards { display: block; }
-        @media(min-width: 900px){ .show-table { display: block; } .show-cards { display: none; } }
-        .eh-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
-        .eh-modal { background: #fff; border-radius: 16px; padding: 24px; width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
-        .eh-import-modal { background: #fff; border-radius: 16px; padding: 24px; width: 100%; max-width: 680px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
-        .eh-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        @media(max-width:500px){ .eh-form-grid { grid-template-columns: 1fr; } }
-        .eh-input { padding: 9px 12px; border-radius: 8px; border: 1.5px solid #e5e7eb; font-size: 13px; outline: none; font-family: inherit; width: 100%; box-sizing: border-box; }
-        .eh-label { font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 4px; display: block; }
-        .eh-select { padding: 9px 12px; border-radius: 8px; border: 1.5px solid #e5e7eb; font-size: 13px; background: #fff; font-family: inherit; width: 100%; }
-        .eh-btn-primary { padding: 10px 20px; background: #6366f1; color: #fff; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 14px; font-family: inherit; }
-        .eh-btn-cancel  { padding: 10px 16px; background: #f3f4f6; color: #374151; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 13px; font-family: inherit; }
-        .eh-btn-import  { padding: 6px 14px; background: #10b981; color: #fff; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 12px; font-family: inherit; }
-        .eh-btn-edit    { padding: 5px 12px; background: #EEF2FF; color: #6366f1; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 12px; }
-        .eh-btn-delete  { padding: 5px 12px; background: #FEF2F2; color: #ef4444; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 12px; }
-        .eh-btn-view    { padding: 5px 12px; background: #f0fdf4; color: #15803d; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 12px; }
-        .eh-role-select { padding: 4px 8px; border-radius: 6px; border: 1.5px solid #e5e7eb; font-size: 12px; background: #fff; cursor: pointer; }
-        .eh-status-select { padding: 4px 8px; border-radius: 6px; border: 1.5px solid #e5e7eb; font-size: 12px; background: #fff; cursor: pointer; }
+        .jh *, .jh *::before, .jh *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        .jh {
+          padding: 12px;
+          font-family: 'Segoe UI', system-ui, sans-serif;
+          color: #111827;
+          width: 100%;
+          max-width: 1400px;
+        }
+
+        /* ── Header ── */
+        .jh-header {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          margin-bottom: 16px;
+        }
+        .jh-header-title h2 { font-size: 18px; font-weight: 800; color: #111827; }
+        .jh-header-title p  { font-size: 12px; color: #6b7280; margin-top: 2px; }
+        .jh-header-actions  { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        @media (min-width: 560px) {
+          .jh { padding: 16px; }
+          .jh-header { flex-direction: row; justify-content: space-between; align-items: flex-start; }
+          .jh-header-title h2 { font-size: 20px; }
+        }
+        @media (min-width: 900px) {
+          .jh { padding: 24px; }
+          .jh-header-title h2 { font-size: 22px; }
+        }
+
+        /* ── Stats ── */
+        .jh-stats {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 8px;
+          margin-bottom: 16px;
+        }
+        @media (min-width: 400px) { .jh-stats { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 640px) { .jh-stats { grid-template-columns: repeat(5, 1fr); gap: 10px; } }
+
+        .jh-stat-card {
+          background: #fff;
+          border: 1px solid #e5e7eb;
+          border-radius: 10px;
+          padding: 10px 12px;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+          min-width: 0;
+        }
+        .jh-stat-card p:first-child {
+          font-size: 10px; color: #6b7280; font-weight: 600;
+          text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .jh-stat-card p:last-child { font-size: 20px; font-weight: 800; }
+
+        /* ── Filters ── */
+        .jh-filters {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-bottom: 14px;
+          align-items: center;
+        }
+        .jh-filters input,
+        .jh-filters select {
+          padding: 8px 12px;
+          border-radius: 8px;
+          border: 1.5px solid #e5e7eb;
+          font-size: 13px;
+          background: #fff;
+          font-family: inherit;
+          outline: none;
+          min-height: 38px;
+        }
+        .jh-filters input  { flex: 1; min-width: 140px; }
+        .jh-filters select { min-width: 130px; flex-shrink: 0; }
+
+        /* ── Main box ── */
+        .jh-box {
+          background: #fff;
+          border-radius: 14px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+          border: 1px solid #f0f0f0;
+          overflow: hidden;
+        }
+
+        /* ── Mobile cards (< 600px) ── */
+        .jh-cards { display: flex; flex-direction: column; }
+        .jh-card {
+          padding: 12px 14px;
+          border-bottom: 1px solid #f3f4f6;
+        }
+        .jh-card:last-child { border-bottom: none; }
+        .jh-card-row1 {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 8px;
+          margin-bottom: 10px;
+        }
+        .jh-card-meta { flex: 1; min-width: 0; }
+        .jh-card-meta-name {
+          font-weight: 700; font-size: 14px;
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .jh-card-meta-email  { font-size: 12px; color: #6b7280; margin-top: 2px; }
+        .jh-card-meta-id     { font-size: 11px; color: #9ca3af; margin-top: 1px; font-family: monospace; }
+        .jh-card-controls    { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+        .jh-card-actions     { display: flex; gap: 6px; flex-wrap: wrap; }
+
+        /* ── Tablet cards (600px – 1023px): two-column info layout ── */
+        .jh-tablet-card {
+          padding: 14px 16px;
+          border-bottom: 1px solid #f3f4f6;
+        }
+        .jh-tablet-card:last-child { border-bottom: none; }
+        .jh-tablet-card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 12px;
+          margin-bottom: 12px;
+          flex-wrap: wrap;
+        }
+        .jh-tablet-card-info { flex: 1; min-width: 200px; }
+        .jh-tablet-card-info-name { font-weight: 700; font-size: 15px; }
+        .jh-tablet-card-info-sub  { font-size: 12px; color: #6b7280; margin-top: 3px; }
+        .jh-tablet-card-info-id   { font-size: 11px; color: #9ca3af; margin-top: 2px; font-family: monospace; }
+        .jh-tablet-card-body {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px 16px;
+          margin-bottom: 12px;
+        }
+        .jh-tablet-card-field label { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 4px; }
+        .jh-tablet-card-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          align-items: center;
+          border-top: 1px solid #f3f4f6;
+          padding-top: 12px;
+        }
+
+        /* ── Desktop table (≥ 1024px) ── */
+        .jh-table-wrap {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          /* subtle scroll indicator */
+          background: linear-gradient(to right, white 30%, rgba(255,255,255,0)),
+                      linear-gradient(to right, rgba(255,255,255,0), white 70%) 100% 0,
+                      linear-gradient(to right, rgba(0,0,0,0.06), rgba(0,0,0,0)),
+                      linear-gradient(to left,  rgba(0,0,0,0.06), rgba(0,0,0,0)) 100% 0;
+          background-size: 40px 100%, 40px 100%, 14px 100%, 14px 100%;
+          background-repeat: no-repeat;
+          background-attachment: local, local, scroll, scroll;
+        }
+        .jh-table      { width: 100%; border-collapse: collapse; min-width: 900px; }
+        .jh-th {
+          padding: 10px 12px; text-align: left; font-size: 10px;
+          font-weight: 700; color: #6b7280; text-transform: uppercase;
+          letter-spacing: .04em; white-space: nowrap;
+          border-bottom: 1px solid #e5e7eb; background: #f9fafb;
+          position: sticky; top: 0; z-index: 1;
+        }
+        .jh-td {
+          padding: 11px 12px; font-size: 13px; color: #374151;
+          vertical-align: middle; border-bottom: 1px solid #f3f4f6;
+        }
+
+        /* ── Breakpoint toggles ── */
+        /* Mobile: < 600px */
+        .jh-mobile   { display: block; }
+        /* Tablet: 600px – 1023px */
+        .jh-tablet   { display: none; }
+        /* Desktop: ≥ 1024px */
+        .jh-desktop  { display: none; }
+
+        @media (min-width: 600px) {
+          .jh-mobile  { display: none; }
+          .jh-tablet  { display: block; }
+          .jh-desktop { display: none; }
+        }
+        @media (min-width: 1024px) {
+          .jh-mobile  { display: none; }
+          .jh-tablet  { display: none; }
+          .jh-desktop { display: block; }
+        }
+
+        /* ── Inline inputs ── */
+        .jh-inline-input {
+          padding: 5px 8px; border-radius: 7px;
+          border: 1.5px solid #e5e7eb; font-size: 12px;
+          background: #fff; font-family: inherit; outline: none; width: 100%;
+        }
+        .jh-inline-input:focus { border-color: #6366f1; }
+
+        /* ── Badges ── */
+        .jh-badge {
+          padding: 3px 9px; border-radius: 20px;
+          font-size: 11px; font-weight: 700; white-space: nowrap;
+          display: inline-block;
+        }
+
+        /* ── Buttons ── */
+        .jh-btn {
+          padding: 6px 12px; border: none; border-radius: 8px;
+          cursor: pointer; font-weight: 600; font-size: 12px;
+          font-family: inherit; white-space: nowrap;
+          min-height: 32px; display: inline-flex; align-items: center; justify-content: center;
+        }
+        .jh-btn-view    { background: #f0fdf4; color: #15803d; }
+        .jh-btn-edit    { background: #EEF2FF; color: #6366f1; }
+        .jh-btn-del     { background: #FEF2F2; color: #ef4444; }
+        .jh-btn-import  { background: #10b981; color: #fff; padding: 7px 14px; font-size: 13px; }
+        .jh-btn-primary {
+          background: #6366f1; color: #fff;
+          padding: 10px 18px; border-radius: 10px;
+          font-weight: 700; font-size: 13px; min-height: 40px;
+        }
+        .jh-btn-cancel  {
+          background: #f3f4f6; color: #374151;
+          padding: 10px 14px; border-radius: 10px;
+          font-weight: 600; font-size: 13px; min-height: 40px;
+        }
+        .jh-btn-hired   {
+          background: #FFFBEB; color: #d97706;
+          border: 1.5px solid #FDE68A;
+          padding: 9px 16px; border-radius: 10px;
+          font-weight: 700; font-size: 13px; cursor: pointer;
+          font-family: inherit; min-height: 40px;
+          display: inline-flex; align-items: center; justify-content: center;
+        }
+        .jh-btn-add {
+          background: #6366f1; color: #fff;
+          border: none; padding: 9px 16px; border-radius: 10px;
+          font-weight: 700; font-size: 13px; cursor: pointer;
+          font-family: inherit; min-height: 40px;
+          display: inline-flex; align-items: center; justify-content: center;
+        }
+
+        /* ── Pagination ── */
+        .jh-page {
+          display: flex; justify-content: center; align-items: center;
+          gap: 10px; padding: 14px; border-top: 1px solid #f3f4f6;
+          flex-wrap: wrap;
+        }
+        .jh-page button {
+          padding: 6px 14px; border-radius: 8px;
+          border: 1.5px solid #e5e7eb; background: #fff;
+          cursor: pointer; font-weight: 600; font-size: 13px;
+          min-height: 36px;
+        }
+        .jh-page button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* ── Overlay ── */
+        .jh-overlay {
+          position: fixed; inset: 0;
+          background: rgba(0,0,0,0.5);
+          display: flex; align-items: flex-end; justify-content: center;
+          z-index: 1000; padding: 0;
+        }
+        @media (min-width: 560px) {
+          .jh-overlay { align-items: center; padding: 16px; }
+        }
+
+        /* ── Modals ── */
+        .jh-modal, .jh-modal-lg {
+          background: #fff;
+          width: 100%;
+          max-height: 92vh;
+          overflow-y: auto;
+          border-radius: 16px 16px 0 0;
+          padding: 20px 16px;
+          box-shadow: 0 -4px 30px rgba(0,0,0,0.15);
+        }
+        @media (min-width: 560px) {
+          .jh-modal    { max-width: 520px; border-radius: 16px; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+          .jh-modal-lg { max-width: 660px; border-radius: 16px; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+        }
+
+        /* ── Form ── */
+        .jh-form-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 12px;
+        }
+        @media (min-width: 420px) {
+          .jh-form-grid { grid-template-columns: 1fr 1fr; }
+        }
+        .jh-label { font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 4px; display: block; }
+        .jh-input {
+          padding: 9px 12px; border-radius: 8px;
+          border: 1.5px solid #e5e7eb; font-size: 13px;
+          outline: none; font-family: inherit; width: 100%;
+          min-height: 40px;
+        }
+        .jh-input:focus { border-color: #6366f1; }
+        .jh-select {
+          padding: 9px 12px; border-radius: 8px;
+          border: 1.5px solid #e5e7eb; font-size: 13px;
+          background: #fff; font-family: inherit; width: 100%;
+          outline: none; min-height: 40px;
+        }
+        .jh-modal-footer {
+          display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap;
+        }
+        .jh-modal-footer .jh-btn-primary,
+        .jh-modal-footer .jh-btn-cancel { flex: 1; min-width: 120px; }
+
+        /* ── Detail rows ── */
+        .jh-detail-row { display: flex; padding: 7px 0; border-bottom: 1px solid #f3f4f6; gap: 8px; }
+        .jh-detail-key { width: 120px; min-width: 120px; font-size: 12px; font-weight: 700; color: #6b7280; flex-shrink: 0; }
+        .jh-detail-val { font-size: 13px; color: #111827; word-break: break-word; }
+
+        /* ── Empty / loading ── */
+        .jh-center { padding: 40px 20px; text-align: center; color: #9ca3af; }
+
+        /* ── Source pill ── */
+        .jh-pill-app    { font-size: 10px; font-weight: 700; background: #eff6ff; color: #1d4ed8; padding: 3px 8px; border-radius: 20px; display: inline-block; }
+        .jh-pill-manual { font-size: 10px; font-weight: 700; background: #f1f5f9; color: #475569; padding: 3px 8px; border-radius: 20px; display: inline-block; }
+
+        /* ── Drag handle visual for bottom sheet ── */
+        .jh-modal-handle {
+          width: 40px; height: 4px; background: #e5e7eb;
+          border-radius: 4px; margin: 0 auto 16px; display: block;
+        }
+        @media (min-width: 560px) { .jh-modal-handle { display: none; } }
+
+        /* ── Scroll hint for table on tablet ── */
+        .jh-scroll-hint {
+          font-size: 11px; color: #9ca3af; padding: 6px 14px 0;
+          display: flex; align-items: center; gap: 4px;
+        }
+        @media (min-width: 1024px) { .jh-scroll-hint { display: none; } }
       `}</style>
 
-      <div className="eh-page">
-        {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
-          <div>
-            <h2 style={{ fontSize: 22, fontWeight: 800, color: "#111827", margin: 0 }}>Job History</h2>
-            <p style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>Manage all staff, roles, and imported candidates</p>
+      <div className="jh">
+
+        {/* ── Header ── */}
+        <div className="jh-header">
+          <div className="jh-header-title">
+            <h2>Marketing Staff Directory</h2>
+            <p>Manage roles and designations for your marketing team</p>
           </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button onClick={() => { fetchHiredApps(); setShowImport(true); }}
-              style={{ padding: "10px 18px", background: "#FFFBEB", color: "#d97706", border: "1.5px solid #FDE68A", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
+          <div className="jh-header-actions">
+            <button className="jh-btn-hired" onClick={() => { fetchHiredApps(); setShowImport(true); }}>
               Import Hired
             </button>
-            <button onClick={openAdd} className="eh-btn-primary">+ Add Employee</button>
+            <button className="jh-btn-add" onClick={openAdd}>+ Add Staff</button>
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="eh-stats">
+        {/* ── Stats ── */}
+        <div className="jh-stats">
           {[
-            { label: "Total",     value: stats.total    ?? 0, color: "#6366f1" },
-            { label: "Active",    value: stats.active   ?? 0, color: "#10b981" },
-            { label: "Inactive",  value: stats.inactive ?? 0, color: "#f59e0b" },
-            { label: "Marketing", value: stats.marketing ?? 0, color: "#8b5cf6" },
-            { label: "Delivery",  value: stats.delivery ?? 0, color: "#0ea5e9" },
+            { label: "Total Staff", value: stats.total    ?? 0, color: "#6366f1" },
+            { label: "Active",      value: stats.active   ?? 0, color: "#10b981" },
+            { label: "Inactive",    value: stats.inactive ?? 0, color: "#f59e0b" },
+            { label: "Marketing",   value: stats.marketing ?? 0, color: "#8b5cf6" },
+            { label: "Delivery",    value: stats.delivery ?? 0, color: "#0ea5e9" },
           ].map(s => (
-            <div key={s.label} style={{ background: "#fff", border: "1px solid #e5e7eb", borderTopWidth: 3, borderTopColor: s.color, borderRadius: 12, padding: "12px 14px", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-              <p style={{ fontSize: 10, color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 4px" }}>{s.label}</p>
-              <p style={{ fontSize: 22, fontWeight: 800, color: s.color, margin: 0 }}>{s.value}</p>
+            <div key={s.label} className="jh-stat-card" style={{ borderTop: `3px solid ${s.color}` }}>
+              <p>{s.label}</p>
+              <p style={{ color: s.color }}>{s.value}</p>
             </div>
           ))}
         </div>
 
-        {/* Filters */}
-        <div className="eh-filters">
-          <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
-            placeholder="Search name, email, ID..." className="eh-input" style={{ flex: 1, minWidth: 200 }} />
-          <select value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(1); }} className="eh-select" style={{ width: "auto" }}>
-            <option value="all">All Roles</option>
-            {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-          </select>
-          <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="eh-select" style={{ width: "auto" }}>
+        {/* ── Filters ── */}
+        <div className="jh-filters">
+          <input
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(1); }}
+            placeholder="Search name, email, ID, role..."
+          />
+          <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
             <option value="all">All Status</option>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
@@ -259,65 +532,78 @@ export default function JobHistoryPage() {
           </select>
         </div>
 
-        {/* Table / Cards */}
-        <div style={{ background: "#fff", borderRadius: 16, boxShadow: "0 4px 20px rgba(0,0,0,0.06)", border: "1px solid #f0f0f0", overflow: "hidden" }}>
+        {/* ── Main card ── */}
+        <div className="jh-box">
           {loading ? (
-            <div style={{ padding: "40px 20px", textAlign: "center", color: "#6b7280" }}>Loading employees...</div>
+            <div className="jh-center">Loading...</div>
           ) : employees.length === 0 ? (
-            <div style={{ padding: "40px 20px", textAlign: "center", color: "#9ca3af" }}>No employees found.</div>
+            <div className="jh-center">
+              No marketing staff found. Add someone or import from hired candidates.
+            </div>
           ) : (
             <>
-              {/* Mobile Cards */}
-              <div className="show-cards">
-                <div className="eh-mobile">
+              {/* ── Mobile cards (< 600px) ── */}
+              <div className="jh-mobile">
+                <div className="jh-cards">
                   {employees.map(emp => {
                     const sc = STATUS_COLORS[emp.status] || STATUS_COLORS.active;
                     return (
-                      <div key={emp._id} className="eh-card">
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                          <div>
-                            <p style={{ fontWeight: 700, fontSize: 14, margin: 0 }}>{emp.fullName}</p>
-                            <p style={{ fontSize: 12, color: "#6b7280", margin: "2px 0 0" }}>{emp.email}</p>
-                            <p style={{ fontSize: 11, color: "#9ca3af", margin: "2px 0 0" }}>{emp.employeeId}</p>
+                      <div key={emp._id} className="jh-card">
+                        <div className="jh-card-row1">
+                          <div className="jh-card-meta">
+                            <div className="jh-card-meta-name">{emp.fullName}</div>
+                            <div className="jh-card-meta-email">{emp.email}</div>
+                            <div className="jh-card-meta-id">{emp.employeeId}</div>
                           </div>
-                          <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color, border: `1px solid ${sc.border}` }}>
+                          <span className="jh-badge" style={{ background: sc.bg, color: sc.color, border: `1px solid ${sc.border}` }}>
                             {emp.status}
                           </span>
                         </div>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-                          <select value={emp.role} onChange={e => handleQuickRoleChange(emp, e.target.value)} className="eh-role-select">
-                            {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-                          </select>
-                          <select value={emp.status} onChange={e => handleQuickStatusChange(emp, e.target.value)} className="eh-status-select">
+                        <div style={{ marginBottom: 10 }}>
+                          <label className="jh-label">Role / Designation</label>
+                          <input
+                            className="jh-inline-input"
+                            defaultValue={empRole(emp)}
+                            onBlur={e => { if (e.target.value !== empRole(emp)) handleQuickField(emp, "customRole", e.target.value); }}
+                            placeholder="e.g. Area Sales Manager"
+                          />
+                        </div>
+                        <div className="jh-card-controls">
+                          <select
+                            value={emp.status}
+                            onChange={e => handleQuickField(emp, "status", e.target.value)}
+                            className="jh-inline-input"
+                            style={{ width: "auto", minWidth: 120 }}
+                          >
                             <option value="active">Active</option>
                             <option value="inactive">Inactive</option>
                             <option value="terminated">Terminated</option>
                           </select>
-                        </div>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <button onClick={() => setDetail(emp)} className="eh-btn-view">View</button>
-                          <button onClick={() => openEdit(emp)} className="eh-btn-edit">Edit</button>
-                          <button onClick={() => handleDelete(emp._id)} className="eh-btn-delete">Delete</button>
-                        </div>
-                        {emp.sourceType === "job_application" && (
-                          <span style={{ display: "inline-block", marginTop: 6, fontSize: 10, fontWeight: 700, background: "#eff6ff", color: "#1d4ed8", padding: "2px 8px", borderRadius: 20 }}>
-                            Hired via Job Application
+                          <span style={{ fontSize: 12, color: "#6b7280" }}>
+                            {EMP_TYPES.find(t => t.value === emp.employmentType)?.label}
                           </span>
-                        )}
+                        </div>
+                        <div className="jh-card-actions">
+                          <button className="jh-btn jh-btn-view" onClick={() => setDetail(emp)}>View</button>
+                          <button className="jh-btn jh-btn-edit" onClick={() => openEdit(emp)}>Edit</button>
+                          <button className="jh-btn jh-btn-del"  onClick={() => handleDelete(emp._id)}>Delete</button>
+                          {emp.sourceType === "job_application" && <span className="jh-pill-app">Job App</span>}
+                        </div>
                       </div>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Desktop Table */}
-              <div className="show-table">
-                <div className="eh-table-wrap">
-                  <table>
+              {/* ── Tablet layout (600px – 1023px): rich cards with scrollable table ── */}
+              <div className="jh-tablet">
+                {/* Scrollable table with all columns visible via scroll */}
+                <div className="jh-table-wrap">
+                  <table className="jh-table">
                     <thead>
-                      <tr style={{ background: "#f9fafb" }}>
-                        {["ID", "Name", "Phone", "Role", "Designation", "Type", "Status", "Joined", "Source", "Actions"].map(h => (
-                          <th key={h} style={{ padding: "12px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" }}>{h}</th>
+                      <tr>
+                        {["ID", "Name & Email", "Phone", "Role / Designation", "Type", "Status", "Joined", "Source", "Actions"].map(h => (
+                          <th key={h} className="jh-th">{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -325,47 +611,126 @@ export default function JobHistoryPage() {
                       {employees.map(emp => {
                         const sc = STATUS_COLORS[emp.status] || STATUS_COLORS.active;
                         return (
-                          <tr key={emp._id} style={{ borderBottom: "1px solid #f3f4f6" }}
+                          <tr key={emp._id}
                             onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"}
                             onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                            <td style={{ padding: "12px 14px", fontSize: 12, color: "#6b7280", fontFamily: "monospace" }}>{emp.employeeId || "—"}</td>
-                            <td style={{ padding: "12px 14px" }}>
-                              <p style={{ fontWeight: 700, margin: 0, fontSize: 13 }}>{emp.fullName}</p>
-                              <p style={{ fontSize: 11, color: "#6b7280", margin: 0 }}>{emp.email}</p>
+                            <td className="jh-td" style={{ fontFamily: "monospace", fontSize: 11, color: "#6b7280", whiteSpace: "nowrap" }}>{emp.employeeId || "—"}</td>
+                            <td className="jh-td" style={{ minWidth: 160 }}>
+                              <div style={{ fontWeight: 700, fontSize: 13 }}>{emp.fullName}</div>
+                              <div style={{ fontSize: 11, color: "#6b7280" }}>{emp.email}</div>
                             </td>
-                            <td style={{ padding: "12px 14px", fontSize: 13 }}>{emp.phone}</td>
-                            <td style={{ padding: "12px 14px" }}>
-                              {/* Inline role edit */}
-                              <select value={emp.role} onChange={e => handleQuickRoleChange(emp, e.target.value)} className="eh-role-select">
-                                {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-                              </select>
+                            <td className="jh-td" style={{ whiteSpace: "nowrap" }}>{emp.phone}</td>
+                            <td className="jh-td" style={{ minWidth: 160 }}>
+                              <input
+                                className="jh-inline-input"
+                                defaultValue={empRole(emp)}
+                                onBlur={e => { if (e.target.value !== empRole(emp)) handleQuickField(emp, "customRole", e.target.value); }}
+                                placeholder="e.g. Area Sales Manager"
+                              />
                             </td>
-                            <td style={{ padding: "12px 14px", fontSize: 13, color: "#374151" }}>{emp.designation || "—"}</td>
-                            <td style={{ padding: "12px 14px", fontSize: 12, color: "#374151" }}>
-                              {EMP_TYPES.find(t => t.value === emp.employmentType)?.label || emp.employmentType}
+                            <td className="jh-td" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+                              {EMP_TYPES.find(t => t.value === emp.employmentType)?.label || "—"}
                             </td>
-                            <td style={{ padding: "12px 14px" }}>
-                              <select value={emp.status} onChange={e => handleQuickStatusChange(emp, e.target.value)}
-                                className="eh-status-select"
-                                style={{ background: sc.bg, color: sc.color, borderColor: sc.border }}>
+                            <td className="jh-td">
+                              <select
+                                value={emp.status}
+                                onChange={e => handleQuickField(emp, "status", e.target.value)}
+                                className="jh-inline-input"
+                                style={{ background: sc.bg, color: sc.color, borderColor: sc.border, minWidth: 108 }}
+                              >
                                 <option value="active">Active</option>
                                 <option value="inactive">Inactive</option>
                                 <option value="terminated">Terminated</option>
                               </select>
                             </td>
-                            <td style={{ padding: "12px 14px", fontSize: 12, color: "#9ca3af", whiteSpace: "nowrap" }}>
+                            <td className="jh-td" style={{ fontSize: 11, color: "#9ca3af", whiteSpace: "nowrap" }}>
                               {emp.joiningDate ? new Date(emp.joiningDate).toLocaleDateString("en-IN") : "—"}
                             </td>
-                            <td style={{ padding: "12px 14px" }}>
+                            <td className="jh-td">
                               {emp.sourceType === "job_application"
-                                ? <span style={{ fontSize: 10, fontWeight: 700, background: "#eff6ff", color: "#1d4ed8", padding: "3px 8px", borderRadius: 20 }}>Job App</span>
-                                : <span style={{ fontSize: 10, fontWeight: 700, background: "#f1f5f9", color: "#475569", padding: "3px 8px", borderRadius: 20 }}>Manual</span>}
+                                ? <span className="jh-pill-app">Job App</span>
+                                : <span className="jh-pill-manual">Manual</span>}
                             </td>
-                            <td style={{ padding: "12px 14px" }}>
-                              <div style={{ display: "flex", gap: 6 }}>
-                                <button onClick={() => setDetail(emp)} className="eh-btn-view">View</button>
-                                <button onClick={() => openEdit(emp)} className="eh-btn-edit">Edit</button>
-                                <button onClick={() => handleDelete(emp._id)} className="eh-btn-delete">Del</button>
+                            <td className="jh-td">
+                              <div style={{ display: "flex", gap: 5, whiteSpace: "nowrap" }}>
+                                <button className="jh-btn jh-btn-view" onClick={() => setDetail(emp)}>View</button>
+                                <button className="jh-btn jh-btn-edit" onClick={() => openEdit(emp)}>Edit</button>
+                                <button className="jh-btn jh-btn-del"  onClick={() => handleDelete(emp._id)}>Del</button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Scroll hint for iPad users */}
+                <div className="jh-scroll-hint">
+                  ← Scroll horizontally to see all columns →
+                </div>
+              </div>
+
+              {/* ── Desktop table (≥ 1024px) ── */}
+              <div className="jh-desktop">
+                <div className="jh-table-wrap">
+                  <table className="jh-table">
+                    <thead>
+                      <tr>
+                        {["ID", "Name & Email", "Phone", "Role / Designation", "Type", "Status", "Joined", "Source", "Actions"].map(h => (
+                          <th key={h} className="jh-th">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {employees.map(emp => {
+                        const sc = STATUS_COLORS[emp.status] || STATUS_COLORS.active;
+                        return (
+                          <tr key={emp._id}
+                            onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"}
+                            onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                            <td className="jh-td" style={{ fontFamily: "monospace", fontSize: 11, color: "#6b7280" }}>{emp.employeeId || "—"}</td>
+                            <td className="jh-td">
+                              <div style={{ fontWeight: 700, fontSize: 13 }}>{emp.fullName}</div>
+                              <div style={{ fontSize: 11, color: "#6b7280" }}>{emp.email}</div>
+                            </td>
+                            <td className="jh-td">{emp.phone}</td>
+                            <td className="jh-td">
+                              <input
+                                className="jh-inline-input"
+                                defaultValue={empRole(emp)}
+                                onBlur={e => { if (e.target.value !== empRole(emp)) handleQuickField(emp, "customRole", e.target.value); }}
+                                placeholder="e.g. Area Sales Manager"
+                                style={{ maxWidth: 180 }}
+                              />
+                            </td>
+                            <td className="jh-td" style={{ fontSize: 12 }}>
+                              {EMP_TYPES.find(t => t.value === emp.employmentType)?.label || "—"}
+                            </td>
+                            <td className="jh-td">
+                              <select
+                                value={emp.status}
+                                onChange={e => handleQuickField(emp, "status", e.target.value)}
+                                className="jh-inline-input"
+                                style={{ background: sc.bg, color: sc.color, borderColor: sc.border, width: 108 }}
+                              >
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                                <option value="terminated">Terminated</option>
+                              </select>
+                            </td>
+                            <td className="jh-td" style={{ fontSize: 11, color: "#9ca3af", whiteSpace: "nowrap" }}>
+                              {emp.joiningDate ? new Date(emp.joiningDate).toLocaleDateString("en-IN") : "—"}
+                            </td>
+                            <td className="jh-td">
+                              {emp.sourceType === "job_application"
+                                ? <span className="jh-pill-app">Job App</span>
+                                : <span className="jh-pill-manual">Manual</span>}
+                            </td>
+                            <td className="jh-td">
+                              <div style={{ display: "flex", gap: 5 }}>
+                                <button className="jh-btn jh-btn-view" onClick={() => setDetail(emp)}>View</button>
+                                <button className="jh-btn jh-btn-edit" onClick={() => openEdit(emp)}>Edit</button>
+                                <button className="jh-btn jh-btn-del"  onClick={() => handleDelete(emp._id)}>Del</button>
                               </div>
                             </td>
                           </tr>
@@ -380,67 +745,84 @@ export default function JobHistoryPage() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12, padding: "16px 20px", borderTop: "1px solid #f3f4f6" }}>
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid #e5e7eb", background: "#fff", cursor: "pointer", fontWeight: 600 }}>← Prev</button>
+            <div className="jh-page">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>← Prev</button>
               <span style={{ fontSize: 13, color: "#374151" }}>{page} / {totalPages} ({total})</span>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid #e5e7eb", background: "#fff", cursor: "pointer", fontWeight: 600 }}>Next →</button>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next →</button>
             </div>
           )}
         </div>
 
-        {/* ADD / EDIT MODAL */}
+        {/* ── ADD / EDIT MODAL ── */}
         {modal && (
-          <div className="eh-modal-overlay">
-            <div className="eh-modal">
-              <h3 style={{ margin: "0 0 20px", fontSize: 17, fontWeight: 800 }}>
-                {modal === "add" ? "Add Employee" : "Edit Employee"}
+          <div className="jh-overlay">
+            <div className="jh-modal">
+              <span className="jh-modal-handle" />
+              <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 18 }}>
+                {modal === "add" ? "Add Marketing Staff" : "Edit Staff Member"}
               </h3>
-              <div className="eh-form-grid">
+
+              <div className="jh-form-grid">
                 {[
-                  { label: "Full Name *", key: "fullName", type: "text" },
-                  { label: "Email *",     key: "email",    type: "email" },
-                  { label: "Phone *",     key: "phone",    type: "text" },
-                  { label: "Designation", key: "designation", type: "text" },
-                  { label: "Department",  key: "department",  type: "text" },
-                  { label: "City",        key: "city",        type: "text" },
-                  { label: "State",       key: "state",       type: "text" },
-                  { label: "Joining Date",key: "joiningDate", type: "date" },
-                  { label: "Salary (₹)", key: "salary",      type: "number" },
+                  { label: "Full Name *",  key: "fullName",    type: "text" },
+                  { label: "Email *",      key: "email",       type: "email" },
+                  { label: "Phone *",      key: "phone",       type: "text" },
+                  { label: "City",         key: "city",        type: "text" },
+                  { label: "State",        key: "state",       type: "text" },
+                  { label: "Joining Date", key: "joiningDate", type: "date" },
+                  { label: "Salary (₹)",  key: "salary",      type: "number" },
                 ].map(f => (
                   <div key={f.key}>
-                    <label className="eh-label">{f.label}</label>
-                    <input type={f.type} value={form[f.key]}
-                      onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                      className="eh-input" />
+                    <label className="jh-label">{f.label}</label>
+                    <input
+                      type={f.type}
+                      value={form[f.key]}
+                      onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                      className="jh-input"
+                    />
                   </div>
                 ))}
 
                 <div>
-                  <label className="eh-label">Role *</label>
-                  <select value={form.role} onChange={e => setForm(prev => ({ ...prev, role: e.target.value }))} className="eh-select">
-                    {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-                  </select>
+                  <label className="jh-label">Role / Designation *</label>
+                  <input
+                    type="text"
+                    value={form.role}
+                    onChange={e => setForm(p => ({ ...p, role: e.target.value }))}
+                    className="jh-input"
+                    placeholder="e.g. Area Sales Manager..."
+                  />
                 </div>
 
-                {form.role === "other" && (
-                  <div>
-                    <label className="eh-label">Custom Role</label>
-                    <input value={form.customRole} onChange={e => setForm(prev => ({ ...prev, customRole: e.target.value }))} className="eh-input" placeholder="e.g. Legal Advisor" />
-                  </div>
-                )}
+                <div>
+                  <label className="jh-label">Department</label>
+                  <input
+                    type="text"
+                    value={form.department}
+                    onChange={e => setForm(p => ({ ...p, department: e.target.value }))}
+                    className="jh-input"
+                    placeholder="e.g. North Zone Sales"
+                  />
+                </div>
 
                 <div>
-                  <label className="eh-label">Employment Type</label>
-                  <select value={form.employmentType} onChange={e => setForm(prev => ({ ...prev, employmentType: e.target.value }))} className="eh-select">
+                  <label className="jh-label">Employment Type</label>
+                  <select
+                    value={form.employmentType}
+                    onChange={e => setForm(p => ({ ...p, employmentType: e.target.value }))}
+                    className="jh-select"
+                  >
                     {EMP_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                 </div>
 
                 <div>
-                  <label className="eh-label">Status</label>
-                  <select value={form.status} onChange={e => setForm(prev => ({ ...prev, status: e.target.value }))} className="eh-select">
+                  <label className="jh-label">Status</label>
+                  <select
+                    value={form.status}
+                    onChange={e => setForm(p => ({ ...p, status: e.target.value }))}
+                    className="jh-select"
+                  >
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                     <option value="terminated">Terminated</option>
@@ -449,47 +831,58 @@ export default function JobHistoryPage() {
               </div>
 
               <div style={{ marginTop: 12 }}>
-                <label className="eh-label">Admin Note</label>
-                <textarea value={form.adminNote} onChange={e => setForm(prev => ({ ...prev, adminNote: e.target.value }))}
-                  className="eh-input" style={{ minHeight: 70, resize: "vertical" }} placeholder="Internal notes..." />
+                <label className="jh-label">Admin Note</label>
+                <textarea
+                  value={form.adminNote}
+                  onChange={e => setForm(p => ({ ...p, adminNote: e.target.value }))}
+                  className="jh-input"
+                  style={{ minHeight: 64, resize: "vertical" }}
+                  placeholder="Internal notes about this staff member..."
+                />
               </div>
 
-              <div style={{ display: "flex", gap: 10, marginTop: 20, flexWrap: "wrap" }}>
-                <button onClick={handleSave} disabled={saving} className="eh-btn-primary">
-                  {saving ? "Saving..." : modal === "add" ? "Add Employee" : "Save Changes"}
+              <div className="jh-modal-footer">
+                <button onClick={handleSave} disabled={saving} className="jh-btn jh-btn-primary" style={{ opacity: saving ? 0.7 : 1 }}>
+                  {saving ? "Saving..." : modal === "add" ? "Add Staff Member" : "Save Changes"}
                 </button>
-                <button onClick={() => { setModal(null); setEditTarget(null); }} className="eh-btn-cancel">Cancel</button>
+                <button onClick={() => { setModal(null); setEditTarget(null); }} className="jh-btn jh-btn-cancel">
+                  Cancel
+                </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* IMPORT HIRED MODAL */}
+        {/* ── IMPORT MODAL ── */}
         {showImport && (
-          <div className="eh-modal-overlay">
-            <div className="eh-import-modal">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>Import Hired Candidates</h3>
-                <button onClick={() => setShowImport(false)} className="eh-btn-cancel">✕ Close</button>
+          <div className="jh-overlay">
+            <div className="jh-modal-lg">
+              <span className="jh-modal-handle" />
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 800 }}>Import Hired Candidates</h3>
+                <button onClick={() => setShowImport(false)} className="jh-btn jh-btn-cancel" style={{ padding: "6px 12px" }}>✕</button>
               </div>
+
               {hiredApps.length === 0 ? (
-                <p style={{ color: "#9ca3af", textAlign: "center", padding: "30px 0" }}>No hired candidates found in job applications.</p>
+                <p style={{ color: "#9ca3af", textAlign: "center", padding: "30px 0", fontSize: 14 }}>
+                  No hired candidates found. Mark applications as "hired" in the Jobs section first.
+                </p>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {hiredApps.map(app => (
-                    <div key={app._id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", border: "1px solid #e5e7eb", borderRadius: 10, flexWrap: "wrap", gap: 10 }}>
-                      <div>
-                        <p style={{ fontWeight: 700, margin: 0, fontSize: 14 }}>{app.fullName}</p>
-                        <p style={{ fontSize: 12, color: "#6b7280", margin: "2px 0 0" }}>{app.email} · {app.phone}</p>
-                        <p style={{ fontSize: 12, color: "#6366f1", margin: "2px 0 0", fontWeight: 600 }}>Applied for: {app.applyingFor}</p>
+                    <div key={app._id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", border: "1px solid #e5e7eb", borderRadius: 10, flexWrap: "wrap", gap: 10 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>{app.fullName}</div>
+                        <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{app.email} · {app.phone}</div>
+                        <div style={{ fontSize: 12, color: "#6366f1", marginTop: 2, fontWeight: 600 }}>Applied for: {app.applyingFor}</div>
                       </div>
                       {app.alreadyImported ? (
-                        <span style={{ fontSize: 12, fontWeight: 700, background: "#f0fdf4", color: "#15803d", padding: "4px 12px", borderRadius: 20, border: "1px solid #bbf7d0" }}>
+                        <span className="jh-badge" style={{ background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", fontSize: 12 }}>
                           ✓ Already imported
                         </span>
                       ) : (
-                        <button onClick={() => handleImport(app._id)} disabled={importing === app._id} className="eh-btn-import">
-                          {importing === app._id ? "Importing..." : "Import as Employee"}
+                        <button onClick={() => handleImport(app._id)} disabled={importing === app._id} className="jh-btn jh-btn-import">
+                          {importing === app._id ? "Importing..." : "Import as Staff"}
                         </button>
                       )}
                     </div>
@@ -500,44 +893,50 @@ export default function JobHistoryPage() {
           </div>
         )}
 
-        {/* DETAIL MODAL */}
+        {/* ── DETAIL MODAL ── */}
         {detail && (
-          <div className="eh-modal-overlay" onClick={() => setDetail(null)}>
-            <div className="eh-modal" onClick={e => e.stopPropagation()}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <h3 style={{ margin: 0, fontSize: 16 }}>👤 Employee Detail</h3>
-                <button onClick={() => setDetail(null)} className="eh-btn-cancel">✕ Close</button>
+          <div className="jh-overlay" onClick={() => setDetail(null)}>
+            <div className="jh-modal" onClick={e => e.stopPropagation()}>
+              <span className="jh-modal-handle" />
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+                <h3 style={{ fontSize: 15, fontWeight: 800 }}>Staff Details</h3>
+                <button onClick={() => setDetail(null)} className="jh-btn jh-btn-cancel" style={{ padding: "6px 12px" }}>✕</button>
               </div>
+
               {[
                 ["Employee ID",  detail.employeeId || "—"],
                 ["Full Name",    detail.fullName],
                 ["Email",        detail.email],
                 ["Phone",        detail.phone],
-                ["Role",         roleLabel(detail.role, detail.customRole)],
-                ["Designation",  detail.designation || "—"],
-                ["Department",   detail.department  || "—"],
+                ["Role",         empRole(detail)],
+                ["Department",   detail.department || "—"],
                 ["Employment",   EMP_TYPES.find(t => t.value === detail.employmentType)?.label || "—"],
                 ["Status",       detail.status],
                 ["Salary",       detail.salary ? `₹${Number(detail.salary).toLocaleString("en-IN")}` : "—"],
-                ["City",         detail.city  || "—"],
+                ["City",         detail.city || "—"],
                 ["State",        detail.state || "—"],
-                ["Joined",       detail.joiningDate ? new Date(detail.joiningDate).toLocaleDateString("en-IN") : "—"],
-                ["Source",       detail.sourceType === "job_application" ? "Job Application" : "Manual"],
+                ["Joining Date", detail.joiningDate ? new Date(detail.joiningDate).toLocaleDateString("en-IN") : "—"],
+                ["Source",       detail.sourceType === "job_application" ? "Hired via Job Application" : "Manually Added"],
                 ["Added On",     new Date(detail.createdAt).toLocaleDateString("en-IN")],
                 ["Note",         detail.adminNote || "—"],
               ].map(([k, v]) => (
-                <div key={k} style={{ display: "flex", padding: "8px 0", borderBottom: "1px solid #f3f4f6", gap: 8 }}>
-                  <span style={{ width: 130, minWidth: 130, fontSize: 12, fontWeight: 700, color: "#6b7280", flexShrink: 0 }}>{k}</span>
-                  <span style={{ fontSize: 13, color: "#111827", wordBreak: "break-word" }}>{v}</span>
+                <div key={k} className="jh-detail-row">
+                  <span className="jh-detail-key">{k}</span>
+                  <span className="jh-detail-val">{v}</span>
                 </div>
               ))}
-              <button onClick={() => { openEdit(detail); setDetail(null); }}
-                style={{ ...{}, marginTop: 16, width: "100%" }} className="eh-btn-primary">
-                Edit This Employee
+
+              <button
+                onClick={() => { openEdit(detail); setDetail(null); }}
+                className="jh-btn jh-btn-primary"
+                style={{ marginTop: 16, width: "100%", fontSize: 14 }}
+              >
+                Edit This Staff Member
               </button>
             </div>
           </div>
         )}
+
       </div>
     </>
   );

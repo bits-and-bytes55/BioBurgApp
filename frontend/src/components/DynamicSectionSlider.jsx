@@ -287,11 +287,11 @@ export default function DynamicSectionSlider(props) {
                     >
                       {discount > 0 && (
                         <div
-                          className="absolute top-8 left-3 bg-gradient-to-r from-red-500 to-orange-500
-                                        text-white text-xs font-bold px-3 py-1.5 rounded-full
+                          className="absolute top-1 left-1 bg-gradient-to-r from-red-500 to-orange-500
+                                        text-white text-xs font-bold px-2 py-1.5 rounded-full
                                         shadow-lg z-10 flex items-center gap-1.5"
                         >
-                          <LocalOfferIcon sx={{ fontSize: 12 }} />
+                          <LocalOfferIcon sx={{ fontSize: 8 }} />
                           <span>{discount}% OFF</span>
                         </div>
                       )}

@@ -30,6 +30,7 @@ import {
   ArticleOutlined as ArticleIcon,
   RateReviewOutlined as TestimonialIcon,
   Logout as LogoutIcon,
+  Badge as BadgeIcon,
 } from "@mui/icons-material";
 import QuestionAnswerIcon from "@mui/icons-material/QuestionAnswer";
 import TrendingUpOutlinedIcon from "@mui/icons-material/TrendingUpOutlined";
@@ -96,7 +97,11 @@ import MarketingAllAgents from "./MarketingAgent/AllAgents";
 import DeliveryLeads from "../DeliveryAgent/pages/Leads";
 import Training from "./MarketingAgent/Training&Meeting";
 import AdminMarketingOrders from "./MarketingAgent/MarketingOrders"
+import AdminVisualAds from "./MarketingAgent/AdminVisualAds";
+import AdminProductFeedback from "./MarketingAgent/Adminpf";
 import AdminPopupVideoManager from "../adminpanel/pages/AdminPopupVideoManager";
+import AdminCalendar from "./MarketingAgent/adminCalendar";
+
 // diagnostics admin imports
 import AdminLabs from "./diagnostics/AdminLabs";
 import AdminRadiologyCenters from "./diagnostics/AdminRadiologyCenters";
@@ -176,6 +181,9 @@ import JobsSupportTickets from "./jobsandcarrers/Jobssupporttickets";
 // D2C orders
 import D2COrders from "./pages/D2Corders";
 import D2CAllUsers from "./pages/D2CALLUsers";
+
+// Idcards 
+import AdminEmployeeIDCards from "./EmployeeIdCards";
 
 const BASE_API = API_BASE_URL;
 
@@ -426,11 +434,13 @@ const Dashboard = () => {
     { id: "banners", label: "Ad Banners", icon: <PhotoLibraryIcon /> },
     { id: "home-slider", label: "Home Slider", icon: <PhotoLibraryIcon /> },
     { id: "testimonials", label: "Testimonials", icon: <TestimonialIcon /> },
+    
     {
       id: "user-question",
       label: "User Question",
       icon: <QuestionAnswerIcon />,
     },
+    { id: "IdCards", label: "Employee Id Cards", icon: <BadgeIcon /> },
   ];
 
   // SIDEBAR CONTENT
@@ -897,6 +907,18 @@ const Dashboard = () => {
             sx={subMenuBtnSx}>
               Points & Payout
               </Button>
+              <Button 
+            onClick={() => setActiveSection("visual-ads")}
+            sx={subMenuBtnSx}>
+              Visual / Digital Ads
+              </Button>
+              <Button
+  onClick={() => setActiveSection("marketing-product-feedback")}
+  sx={subMenuBtnSx}
+>
+  Products Feedback
+</Button>
+<Button onClick={() => setActiveSection("admin-calendar")} sx={subMenuBtnSx}>Calendar</Button>
           </Box>
         </Collapse>
 
@@ -2502,6 +2524,7 @@ const Dashboard = () => {
         {activeSection === "home-slider" && <AdminHomeSlider />}
         {activeSection === "health-articles" && <HealthArticleForm />}
         {activeSection === "popupvideomanager" && <AdminPopupVideoManager />}
+        {activeSection === "IdCards" && <AdminEmployeeIDCards />}
 
         {activeSection === "testimonials" && (
           <Paper className="p-6 rounded-xl bg-white shadow-md">
@@ -2528,6 +2551,9 @@ const Dashboard = () => {
         {activeSection === "marketing-orders" && <AdminMarketingOrders/>}
         {activeSection === "marketing-leads" && <AdminLeads />}
         {activeSection === "marketing-points-payout" && <AdminPointsPayout />}
+        {activeSection === "marketing-product-feedback" && <AdminProductFeedback />}
+        {activeSection === "visual-ads" && <AdminVisualAds />}
+        {activeSection === "admin-calendar" && <AdminCalendar />}
 
         {/* ================= Delivery ZONE ================= */}
         {activeSection === "delivery-overview" && <DeliveryOverview />}

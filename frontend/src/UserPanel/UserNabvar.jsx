@@ -31,7 +31,7 @@ import HowToRegIcon from '@mui/icons-material/HowToReg'
 import { logout as authLogout } from '../../utils/auth'
 import { useCart } from '../context/useCart'
 
-// ================= Styling =================
+// Styling 
 const PrimaryNav = styled(AppBar)(({ theme }) => ({
   backgroundColor: theme.palette.primary.main,
   color: '#fff',
@@ -76,7 +76,7 @@ const CartButton = styled(IconButton)({
   color: '#fff'
 })
 
-// ======================== MAIN NAVBAR ========================
+//  MAIN NAVBAR 
 export default function Navbar () {
   const navigate = useNavigate()
 
@@ -101,7 +101,7 @@ export default function Navbar () {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
 
-  // ================= DRAWER CONTENT =================
+  // DRAWER CONTENT 
   const drawerContent = (
     <Box sx={{ width: 260 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 1.5 }}>
@@ -169,7 +169,7 @@ export default function Navbar () {
     </Box>
   )
 
-  // ================= RENDER =================
+  // RENDER 
   return (
     <>
       <PrimaryNav position='static'>

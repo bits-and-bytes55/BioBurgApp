@@ -1,3 +1,4 @@
+// backend/config/socket.js
 import { Server } from "socket.io";
 
 let io;
@@ -29,3 +30,6 @@ export const emitOrderUpdate = (orderId, data) => {
     io.to(orderId).emit("orderStatusUpdated", data);
   }
 };
+
+// ← added: lets any controller broadcast on the shared io instance
+export const getIO = () => io;

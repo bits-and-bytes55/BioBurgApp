@@ -14,7 +14,7 @@ const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
-// ── Multer setup ──────────────────────────────────────────────────────────────
+//  Multer setup 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = path.join(__dirname, "../uploads/resumes");

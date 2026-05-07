@@ -392,8 +392,49 @@ const filterCouponsForRole = (coupons = [], userRole = "customer") =>
     if (!c.roles || c.roles.length === 0) return true;
     return c.roles.includes(userRole);
   });
+  
+const buildMrAndCustomFields = (data, existingProduct) => {
+  const result = {};
+ 
+  // ── MR rates L1–L14 ───────────────────────────────────────────────────────
+  for (let i = 1; i <= 14; i++) {
+    const rk = `mrL${i}Rate`;
+    const dk = `mrL${i}Discount`;
+    result[rk] = toNumber(hasOwn(data, rk) ? data[rk] : existingProduct?.[rk] ?? 0);
+    result[dk] = toNumber(hasOwn(data, dk) ? data[dk] : existingProduct?.[dk] ?? 0);
+  }
+ 
+  // ── Custom roles ──────────────────────────────────────────────────────────
+  if (hasOwn(data, "customRoles")) {
+    const rawCustom = safeParse(data.customRoles, []);
+    result.customRoles = Array.isArray(rawCustom)
+      ? rawCustom.map((r) => ({
+          key:      String(r.key     || ""),
+          label:    String(r.label   || ""),
+          color:    String(r.color   || "#37474f"),
+          bg:       String(r.bg      || "#eceff1"),
+          icon:     String(r.icon    || r.iconKey || "tag"),
+          rateKey:  String(r.rateKey || (r.key + "Rate")),
+          isCustom: true,
+          rate:     toNumber(r.rate     ?? data[r.rateKey] ?? 0),
+          discount: toNumber(r.discount ?? 0),
+        }))
+      : [];
+  } else {
+    result.customRoles = existingProduct?.customRoles || [];
+  }
+ 
+  return result;
+};
 
-// ─── normalizeProductForResponse ──────────────────────────────────────────────
+  const normalizeMrRates = (raw) => {
+  const result = {};
+  for (let i = 1; i <= 14; i++) {
+    result[`mrL${i}Rate`]     = raw[`mrL${i}Rate`]     ?? 0;
+    result[`mrL${i}Discount`] = raw[`mrL${i}Discount`] ?? 0;
+  }
+  return result;
+};
 
 const normalizeProductForResponse = (product, userRole = "customer") => {
   const raw = typeof product?.toObject === "function" ? product.toObject() : { ...(product || {}) };
@@ -476,6 +517,8 @@ const normalizeProductForResponse = (product, userRole = "customer") => {
     video:                raw.video?.url ? raw.video : null,
     coupons:              filterCouponsForRole(raw.coupons || [], userRole),
     rolePrice:            getPriceForRole(raw, userRole),
+    customRoles:  raw.customRoles || [],         
+    ...normalizeMrRates(raw),     
   };
 };
 
@@ -596,14 +639,105 @@ export const buildProductFields = async (
 
   // ── EXPLICIT RATES — prefer incoming, fall back to existing ───────────────
   // We set ALL alias fields here so the pre-save hook sees the correct values.
-  const saleRatePTR       = toNumber(resolveField(data, ["saleRatePTR","ptr","rateB2C"],                                          existingProduct?.saleRatePTR     ?? existingProduct?.ptr            ?? existingProduct?.rateB2C      ?? 0));
-  const wholesaleSaleRate = toNumber(resolveField(data, ["wholesaleSaleRate","wsr","rateWholesale"],                               existingProduct?.wholesaleSaleRate ?? existingProduct?.wsr           ?? existingProduct?.rateWholesale ?? 0));
-  const hospitalSaleRate  = toNumber(resolveField(data, ["hospitalSaleRate","saleRateHPSR","hpsr","hospitalRate","rateHospital"], existingProduct?.hospitalSaleRate ?? existingProduct?.saleRateHPSR   ?? existingProduct?.hpsr         ?? existingProduct?.rateHospital ?? 0));
-  const pharmacySaleRate  = toNumber(resolveField(data, ["pharmacySaleRate","pharmacyRate","ratePharmacy"],                       existingProduct?.pharmacySaleRate ?? existingProduct?.ratePharmacy   ?? 0));
-  const vendorRate        = toNumber(resolveField(data, ["vendorRate","rateVendor"],                                              existingProduct?.vendorRate       ?? existingProduct?.rateVendor     ?? 0));
-  const franchiseRate     = toNumber(resolveField(data, ["franchiseRate","rateFranchise"],                                        existingProduct?.franchiseRate    ?? existingProduct?.rateFranchise  ?? 0));
-  const manufacturerRate  = toNumber(resolveField(data, ["manufacturerRate","rateManufacturer"],                                  existingProduct?.manufacturerRate ?? existingProduct?.rateManufacturer ?? 0));
-  const rateB2B           = toNumber(resolveField(data, ["rateB2B","b2bRate"],                                                    existingProduct?.rateB2B          ?? 0));
+  const saleRatePTR = (() => {
+  const v = toNumber(resolveField(data, ["saleRatePTR","ptr","rateB2C"],
+    existingProduct?.saleRatePTR ?? existingProduct?.ptr ?? existingProduct?.rateB2C ?? 0));
+  if (v > 0) return v;
+  // fall back: derive from discount if rate not yet stored
+  const d = toNumber(resolveField(data, ["discountB2C","b2cDiscount"],
+    existingProduct?.discountB2C ?? existingProduct?.b2cDiscount ?? 0));
+  const m = toNumber(resolveField(data, "mrp", existingProduct?.mrp ?? 0));
+  return d > 0 && m > 0 ? parseFloat((m*(1-d/100)).toFixed(4)) : 0;
+})();
+ 
+const rateB2B = (() => {
+  const v = toNumber(resolveField(data, ["rateB2B","b2bRate"],
+    existingProduct?.rateB2B ?? existingProduct?.b2bRate ?? 0));
+  if (v > 0) return v;
+  const d = toNumber(resolveField(data, ["discountB2B","b2bDiscount"],
+    existingProduct?.discountB2B ?? existingProduct?.b2bDiscount ?? 0));
+  const m = toNumber(resolveField(data, "mrp", existingProduct?.mrp ?? 0));
+  return d > 0 && m > 0 ? parseFloat((m*(1-d/100)).toFixed(4)) : 0;
+})();
+ 
+const wholesaleSaleRate = (() => {
+  // Try ALL three alias fields in order
+  const candidates = ["wholesaleSaleRate","wsr","rateWholesale"];
+  for (const k of candidates) {
+    const v = toNumber(hasOwn(data, k) ? data[k] : null);
+    if (v > 0) return v;
+  }
+  for (const k of candidates) {
+    const v = toNumber(existingProduct?.[k]);
+    if (v > 0) return v;
+  }
+  const d = toNumber(resolveField(data, "discountWholesale", existingProduct?.discountWholesale ?? 0));
+  const m = toNumber(resolveField(data, "mrp", existingProduct?.mrp ?? 0));
+  return d > 0 && m > 0 ? parseFloat((m*(1-d/100)).toFixed(4)) : 0;
+})();
+ 
+const hospitalSaleRate = (() => {
+  // Try ALL four alias fields — THIS is what was causing hospital = pharmacy bug
+  const candidates = ["hospitalSaleRate","saleRateHPSR","hpsr","hospitalRate","rateHospital"];
+  for (const k of candidates) {
+    const v = toNumber(hasOwn(data, k) ? data[k] : null);
+    if (v > 0) return v;
+  }
+  for (const k of candidates) {
+    const v = toNumber(existingProduct?.[k]);
+    if (v > 0) return v;
+  }
+  const d = toNumber(resolveField(data, ["discountHospital","hospitalDiscount","hospitalPharmacyDiscount"],
+    existingProduct?.discountHospital ?? existingProduct?.hospitalPharmacyDiscount ?? 0));
+  const m = toNumber(resolveField(data, "mrp", existingProduct?.mrp ?? 0));
+  return d > 0 && m > 0 ? parseFloat((m*(1-d/100)).toFixed(4)) : 0;
+})();
+ 
+const pharmacySaleRate = (() => {
+  // Independent resolution — separate from hospitalSaleRate
+  const candidates = ["pharmacySaleRate","pharmacyRate","ratePharmacy"];
+  for (const k of candidates) {
+    const v = toNumber(hasOwn(data, k) ? data[k] : null);
+    if (v > 0) return v;
+  }
+  for (const k of candidates) {
+    const v = toNumber(existingProduct?.[k]);
+    if (v > 0) return v;
+  }
+  const d = toNumber(resolveField(data, ["discountPharmacy","pharmacyDiscount"],
+    existingProduct?.discountPharmacy ?? 0));
+  const m = toNumber(resolveField(data, "mrp", existingProduct?.mrp ?? 0));
+  return d > 0 && m > 0 ? parseFloat((m*(1-d/100)).toFixed(4)) : 0;
+})();
+ 
+const vendorRate = (() => {
+  const v = toNumber(resolveField(data, ["vendorRate","rateVendor"],
+    existingProduct?.vendorRate ?? existingProduct?.rateVendor ?? 0));
+  if (v > 0) return v;
+  const d = toNumber(resolveField(data, ["discountVendor","vendorDiscount"], existingProduct?.discountVendor ?? 0));
+  const m = toNumber(resolveField(data, "mrp", existingProduct?.mrp ?? 0));
+  return d > 0 && m > 0 ? parseFloat((m*(1-d/100)).toFixed(4)) : 0;
+})();
+ 
+const franchiseRate = (() => {
+  const v = toNumber(resolveField(data, ["franchiseRate","rateFranchise"],
+    existingProduct?.franchiseRate ?? existingProduct?.rateFranchise ?? 0));
+  if (v > 0) return v;
+  const d = toNumber(resolveField(data, ["discountFranchise","franchiseDiscount"], existingProduct?.discountFranchise ?? 0));
+  const m = toNumber(resolveField(data, "mrp", existingProduct?.mrp ?? 0));
+  return d > 0 && m > 0 ? parseFloat((m*(1-d/100)).toFixed(4)) : 0;
+})();
+ 
+const manufacturerRate = (() => {
+  const v = toNumber(resolveField(data, ["manufacturerRate","rateManufacturer"],
+    existingProduct?.manufacturerRate ?? existingProduct?.rateManufacturer ?? 0));
+  if (v > 0) return v;
+  const d = toNumber(resolveField(data, ["discountManufacturer","manufacturerDiscount"], existingProduct?.discountManufacturer ?? 0));
+  const m = toNumber(resolveField(data, "mrp", existingProduct?.mrp ?? 0));
+  return d > 0 && m > 0 ? parseFloat((m*(1-d/100)).toFixed(4)) : 0;
+})();
+ 
+ 
 
   // ── QR ────────────────────────────────────────────────────────────────────
   const qrProductId   = productId || existingProduct?._id || new mongoose.Types.ObjectId();
@@ -643,7 +777,8 @@ export const buildProductFields = async (
     vendorRate,        rateVendor: vendorRate,
     franchiseRate,     rateFranchise: franchiseRate,
     manufacturerRate,  rateManufacturer: manufacturerRate,
-    rateB2B,
+    rateB2B,           b2bRate: rateB2B,          
+    ...buildMrAndCustomFields(data, existingProduct),
 
     // All discount aliases
     discountB2C,       b2cDiscount: discountB2C,

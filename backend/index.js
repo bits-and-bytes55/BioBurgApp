@@ -103,6 +103,19 @@ import trainingRoutes from "./routes/TrainingRoutes.js";
 import saleOrderRoutes from "./routes/Saleorderroutes.js";
 import pointsPayoutRoutes from "./routes/Pointspayoutroutes.js";
 import employeeRoutes from "./routes/employeeRoutes.js";
+import geoTrackingRoutes from "./routes/geoTrackingRoutes.js";
+import routePlanningRoutes from "./routes/routePlanningRoutes.js";
+import attendanceRoutes from "./routes/attendanceRoutes.js";
+import dailyExpensesRoutes from "./routes/dailyExpensesRoutes.js";
+import campaignRoutes from "./routes/campaignRoute.js";
+import adminVisualAdsRoutes from "./routes/adminVisualAds.routes.js";
+import calendarEventRoutes from "./routes/calendarEvent.js";
+import followUpRoutes from "./routes/pendingFollowup.js"
+import employeeIdRoutes from "./routes/employeeIdCardRoutes.js";
+import targetRoutes from "./routes/targetRoutes.js";
+import topPerformerRoutes from "./routes/topPerformerRoutes.js";
+import giftRoutes from "./routes/giftRoutes.js";
+import productFeedbackRoutes from "./routes/pfRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -172,7 +185,9 @@ const resumePath = path.join(safeUploadPath, "resumes");
 if (!fs.existsSync(resumePath)) {
   fs.mkdirSync(resumePath, { recursive: true });
 }
-app.use("/api/agent", marketingAgentRoutes);
+app.use("/agent/campaigns", campaignRoutes);
+app.use("/api/marketing-agent", marketingAgentRoutes);
+app.use("/api/agent", marketingAgentRoutes); 
 app.use("/api/sale-orders", saleOrderRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/delivery/admin", deliveryAdminRoutes);
@@ -181,11 +196,22 @@ app.use("/api/delivery/old", deliveryAgentRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api", policyRoutes);
 
-app.use("/api/agent/daily-plan", dailyPlanRoutes);
+app.use('/api/daily-plan', dailyPlanRoutes);
+app.use("/api/calendar", calendarEventRoutes);
+app.use("/api/follow-ups", followUpRoutes);
 app.use("/api/marketing-agent", saleBillRoutes);
 app.use("/api/training", trainingRoutes);
 app.use("/api/points", pointsPayoutRoutes);
 app.use("/api/employees", employeeRoutes);
+app.use("/api/geo-tracking", geoTrackingRoutes);
+app.use("/api/route-planning", routePlanningRoutes);
+app.use("/api/attendance", attendanceRoutes);
+app.use("/api/expenses", dailyExpensesRoutes);
+app.use("/api/employee-id-cards", employeeIdRoutes);
+app.use("/api/targets", targetRoutes);
+app.use("/api/top-performers", topPerformerRoutes);
+app.use("/api/agent/gifts", giftRoutes);
+app.use("/api/public", productFeedbackRoutes);
 
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin", adminRegistrationsRoutes);
@@ -201,6 +227,7 @@ app.use("/api/admin/orders", orderAdminRoutes);
 app.use("/api/admin/pathology", adminPathologyRoutes);
 app.use("/api/admin/manufacturers", adminManufacturerRoutes);
 app.use("/api/admin/bulk-manufacturing", adminBulkManufacturingRoutes);
+app.use("/api/admin/visual-ads", adminVisualAdsRoutes);
 app.use("/api/admin-order", adminOrdersRoutes);
 app.use("/api/products", productDetailsRoutes);
 app.use("/api/popup-video", popupVideoRoutes);

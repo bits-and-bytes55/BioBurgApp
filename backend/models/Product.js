@@ -113,6 +113,22 @@ const ComboSchema = new mongoose.Schema(
   { _id: true }
 );
 
+const CustomRoleRateSchema = new mongoose.Schema(
+  {
+    key:      { type: String, required: true },   // e.g. "government_supply"
+    label:    { type: String, required: true },   // e.g. "Government Supply"
+    color:    { type: String, default: "#37474f" },
+    bg:       { type: String, default: "#eceff1" },
+    icon:     { type: String, default: "tag" },
+    rateKey:  { type: String, required: true },   // e.g. "government_supplyRate"
+    isCustom: { type: Boolean, default: true },
+    rate:     { type: Number, default: 0 },       // stored sale rate ₹
+    discount: { type: Number, default: 0 },       // derived discount %
+  },
+  { _id: false }
+);
+ 
+
 // ─── Main schema ───────────────────────────────────────────────────────────────
 
 const ProductSchema = new mongoose.Schema(
@@ -192,6 +208,39 @@ const ProductSchema = new mongoose.Schema(
     rateWholesale:    { type: Number, default: 0 },
     rateVendor:       { type: Number, default: 0 },
     rateFranchise:    { type: Number, default: 0 },
+    mrL1Rate:  { type: Number, default: 0 },
+    mrL2Rate:  { type: Number, default: 0 },
+    mrL3Rate:  { type: Number, default: 0 },
+    mrL4Rate:  { type: Number, default: 0 },
+    mrL5Rate:  { type: Number, default: 0 },
+    mrL6Rate:  { type: Number, default: 0 },
+    mrL7Rate:  { type: Number, default: 0 },
+    mrL8Rate:  { type: Number, default: 0 },
+    mrL9Rate:  { type: Number, default: 0 },
+    mrL10Rate: { type: Number, default: 0 },
+    mrL11Rate: { type: Number, default: 0 },
+    mrL12Rate: { type: Number, default: 0 },
+    mrL13Rate: { type: Number, default: 0 },
+    mrL14Rate: { type: Number, default: 0 },
+ 
+    // ── Marketing-Agent derived discount % (for reporting/queries) ────────
+    mrL1Discount:  { type: Number, default: 0 },
+    mrL2Discount:  { type: Number, default: 0 },
+    mrL3Discount:  { type: Number, default: 0 },
+    mrL4Discount:  { type: Number, default: 0 },
+    mrL5Discount:  { type: Number, default: 0 },
+    mrL6Discount:  { type: Number, default: 0 },
+    mrL7Discount:  { type: Number, default: 0 },
+    mrL8Discount:  { type: Number, default: 0 },
+    mrL9Discount:  { type: Number, default: 0 },
+    mrL10Discount: { type: Number, default: 0 },
+    mrL11Discount: { type: Number, default: 0 },
+    mrL12Discount: { type: Number, default: 0 },
+    mrL13Discount: { type: Number, default: 0 },
+    mrL14Discount: { type: Number, default: 0 },
+ 
+    // ── Custom role rate categories (added via "+ Add More Categories") ───
+    customRoles: { type: [CustomRoleRateSchema], default: [] },
     rateManufacturer: { type: Number, default: 0 },
 
     // GST — nested object AND flat fields so both work
@@ -289,50 +338,77 @@ const ProductSchema = new mongoose.Schema(
 
 const syncLegacyAliases = (p) => {
   if (!p) return;
-
+ 
   // genericName ↔ genericCompositions
-  if (!p.genericName        && p.genericCompositions) p.genericName        = p.genericCompositions;
+  if (!p.genericName         && p.genericCompositions) p.genericName         = p.genericCompositions;
   if (!p.genericCompositions && p.genericName)         p.genericCompositions = p.genericName;
-
+ 
   // packagingType ↔ packageType
-  if (!p.packagingType && p.packageType) p.packagingType = p.packageType;
-  if (!p.packageType && p.packagingType) p.packageType   = p.packagingType;
-
+  if (!p.packagingType && p.packageType)  p.packagingType = p.packageType;
+  if (!p.packageType   && p.packagingType) p.packageType  = p.packagingType;
+ 
   // batchDateEffect ↔ dateOfEffect
   if (!p.batchDateEffect && p.dateOfEffect) p.batchDateEffect = p.dateOfEffect;
-  if (!p.dateOfEffect && p.batchDateEffect) p.dateOfEffect    = p.batchDateEffect;
-
-  // discountB2C ↔ b2cDiscount  (use >= 0 check to allow 0 values)
+  if (!p.dateOfEffect    && p.batchDateEffect) p.dateOfEffect  = p.batchDateEffect;
+ 
+  // discountB2C ↔ b2cDiscount
   if (p.discountB2C == null && p.b2cDiscount != null) p.discountB2C = p.b2cDiscount;
   if (p.b2cDiscount == null && p.discountB2C != null) p.b2cDiscount = p.discountB2C;
-
+ 
   // discountB2B ↔ b2bDiscount
   if (p.discountB2B == null && p.b2bDiscount != null) p.discountB2B = p.b2bDiscount;
   if (p.b2bDiscount == null && p.discountB2B != null) p.b2bDiscount = p.discountB2B;
-
+ 
   // discountHospital ↔ hospitalPharmacyDiscount
-  if (!p.discountHospital          && p.hospitalPharmacyDiscount) p.discountHospital          = p.hospitalPharmacyDiscount;
-  if (!p.hospitalPharmacyDiscount  && p.discountHospital)         p.hospitalPharmacyDiscount  = p.discountHospital;
-
+  if (!p.discountHospital         && p.hospitalPharmacyDiscount) p.discountHospital         = p.hospitalPharmacyDiscount;
+  if (!p.hospitalPharmacyDiscount && p.discountHospital)         p.hospitalPharmacyDiscount = p.discountHospital;
+ 
   // description ↔ fullDescription
-  if (!p.description    && p.fullDescription) p.description    = p.fullDescription;
-  if (!p.fullDescription && p.description)    p.fullDescription = p.description;
-
+  if (!p.description     && p.fullDescription) p.description     = p.fullDescription;
+  if (!p.fullDescription && p.description)     p.fullDescription = p.description;
+ 
   // moreInformation ↔ shortDescription
   if (!p.moreInformation  && p.shortDescription) p.moreInformation  = p.shortDescription;
   if (!p.shortDescription && p.moreInformation)  p.shortDescription = p.moreInformation;
-
+ 
   // currentStatus1 ↔ statusActive
-  if (!p.currentStatus1 && p.statusActive)  p.currentStatus1 = p.statusActive;
+  if (!p.currentStatus1 && p.statusActive)   p.currentStatus1 = p.statusActive;
   if (!p.statusActive   && p.currentStatus1) p.statusActive   = p.currentStatus1;
-
+ 
   // currentStatus2 ↔ statusAppear
-  if (!p.currentStatus2 && p.statusAppear)  p.currentStatus2 = p.statusAppear;
+  if (!p.currentStatus2 && p.statusAppear)   p.currentStatus2 = p.statusAppear;
   if (!p.statusAppear   && p.currentStatus2) p.statusAppear   = p.currentStatus2;
-
+ 
   // productRating ↔ rating
   if (!p.productRating && p.rating)        p.productRating = p.rating;
   if (!p.rating        && p.productRating) p.rating        = p.productRating;
+ 
+  // ── NEW FIXES ─────────────────────────────────────────────────────────────
+ 
+  // wholesaleSaleRate / wsr / rateWholesale — three-way sync
+  const wv = p.wholesaleSaleRate || p.wsr || p.rateWholesale || 0;
+  if (wv) {
+    if (!p.wholesaleSaleRate) p.wholesaleSaleRate = wv;
+    if (!p.wsr)               p.wsr               = wv;
+    if (!p.rateWholesale)     p.rateWholesale     = wv;
+  }
+ 
+  // hospitalSaleRate / saleRateHPSR / hpsr / rateHospital — four-way sync
+  const hv = p.hospitalSaleRate || p.saleRateHPSR || p.hpsr || p.rateHospital || 0;
+  if (hv) {
+    if (!p.hospitalSaleRate) p.hospitalSaleRate = hv;
+    if (!p.saleRateHPSR)     p.saleRateHPSR     = hv;
+    if (!p.hpsr)             p.hpsr             = hv;
+    if (!p.rateHospital)     p.rateHospital     = hv;
+  }
+ 
+  // pharmacySaleRate / ratePharmacy — two-way sync
+  if (!p.ratePharmacy    && p.pharmacySaleRate) p.ratePharmacy    = p.pharmacySaleRate;
+  if (!p.pharmacySaleRate && p.ratePharmacy)    p.pharmacySaleRate = p.ratePharmacy;
+ 
+  // b2bRate / rateB2B — two-way sync
+  if (!p.rateB2B && p.b2bRate) p.rateB2B = p.b2bRate;
+  if (!p.b2bRate && p.rateB2B) p.b2bRate = p.rateB2B;
 };
 
 // ─── calculateRateForSave ─────────────────────────────────────────────────────
@@ -450,6 +526,45 @@ ProductSchema.pre("save", function (next) {
     this.gst.cgst = this.gst.cgst || this.gst_cgst || 0;
     this.gst.sgst = this.gst.sgst || this.gst_sgst || 0;
   }
+
+  const mrpForMR = Number(this.mrp) || 0;
+  for (let i = 1; i <= 14; i++) {
+    const rateKey = 'mrL' + i + 'Rate';
+    const discKey = 'mrL' + i + 'Discount';
+    const rate    = Number(this[rateKey]) || 0;
+    if (rate > 0 && mrpForMR > 0) {
+      // rate is explicit → derive and store discount % for reporting
+      this[discKey] = parseFloat(((mrpForMR - rate) / mrpForMR * 100).toFixed(4));
+    } else if (Number(this[discKey]) > 0 && mrpForMR > 0) {
+      // discount was provided (legacy) → derive the rate
+      this[rateKey] = parseFloat((mrpForMR * (1 - this[discKey] / 100)).toFixed(4));
+    }
+  }
+ 
+  // ── Sync custom role rates — derive discount % ─────────────────────────
+  if (Array.isArray(this.customRoles)) {
+    this.customRoles = this.customRoles.map(role => {
+      const rate = Number(role.rate) || 0;
+      const disc = Number(role.discount) || 0;
+      if (rate > 0 && mrpForMR > 0) {
+        return {
+          ...role,
+          rate,
+          discount: parseFloat(((mrpForMR - rate) / mrpForMR * 100).toFixed(4)),
+        };
+      }
+      if (disc > 0 && mrpForMR > 0 && !rate) {
+        return {
+          ...role,
+          discount: disc,
+          rate: parseFloat((mrpForMR * (1 - disc / 100)).toFixed(4)),
+        };
+      }
+      return role;
+    });
+    this.markModified('customRoles');
+  }
+  
 
   next();
 });

@@ -213,30 +213,42 @@ const createOrSyncAccountForRequest = async (request, actor = "Admin") => {
   let generatedPassword = "";
   let accountCreated = false;
 
-  if (!account) {
-    const username = await ensureUniqueUsername(
-      request.requestedUsername,
-      request.email,
-    );
+  // Replace only this block inside createOrSyncAccountForRequest:
+
+if (!account) {
+  const username = await ensureUniqueUsername(request.requestedUsername, request.email);
+
+  // Use user's pre-set password if available, else generate temp
+  let passwordToUse;
+  let isTemporary = false;
+
+  if (request.requestedPassword) {
+    passwordToUse = request.requestedPassword; // already hashed
+  } else {
     generatedPassword = createTemporaryPassword();
-    const hashedPassword = await bcrypt.hash(generatedPassword, 10);
+    passwordToUse = await bcrypt.hash(generatedPassword, 10);
+    isTemporary = true;
+  }
 
-    account = await BulkManufacturingAccount.create({
-      requestId: request._id,
-      username,
-      email: String(request.email || "").trim().toLowerCase(),
-      password: hashedPassword,
-      companyName: request.companyName || "",
-      contactName: request.fullName || "",
-      designation: request.designation || "",
-      mobile: request.mobile || "",
-      whatsapp: request.whatsapp || "",
-      country: request.country || "",
-      website: request.website || "",
-      status: "ACTIVE",
-    });
+  account = await BulkManufacturingAccount.create({
+    requestId: request._id,
+    username,
+    email: String(request.email || "").trim().toLowerCase(),
+    password: passwordToUse,
+    companyName: request.companyName || "",
+    contactName: request.fullName || "",
+    designation: request.designation || "",
+    mobile: request.mobile || "",
+    whatsapp: request.whatsapp || "",
+    country: request.country || "",
+    website: request.website || "",
+    status: "ACTIVE",
+  });
 
-    accountCreated = true;
+  accountCreated = true;
+  if (!isTemporary) {
+    generatedPassword = "";
+  }
   } else {
     account.email = String(request.email || account.email || "")
       .trim()
@@ -312,73 +324,43 @@ const buildBulkOrderSearchFilter = (search) => {
 export const createBulkManufacturingRequest = async (req, res) => {
   try {
     const {
-      fullName,
-      mobile,
-      email,
-      companyName,
-      country,
-      orgType,
-      products,
-      quantity,
-      destinationCountry,
-      purpose,
-      paymentMethod,
-      documents = {},
-      username,
+      fullName, mobile, email, companyName, country, orgType,
+      products, quantity, destinationCountry, purpose, paymentMethod,
+      documents = {}, username,
+      password,
       ...rest
     } = req.body;
 
-    if (
-      !fullName ||
-      !mobile ||
-      !email ||
-      !companyName ||
-      !country ||
-      !orgType ||
-      !products ||
-      !quantity ||
-      !destinationCountry ||
-      !purpose ||
-      !paymentMethod
-    ) {
-      return res.status(400).json({
-        message:
-          "Please fill all required bulk manufacturing registration fields.",
-      });
+    if (!fullName || !mobile || !email || !companyName || !country ||
+        !orgType || !products || !quantity || !destinationCountry ||
+        !purpose || !paymentMethod) {
+      return res.status(400).json({ message: "Please fill all required bulk manufacturing registration fields." });
     }
 
-    const normalizedDocuments = buildDocuments(
-      normalizeDocumentsInput(documents),
-      req.files,
-    );
+    // Hash the user's chosen password if provided
+    let hashedPassword = "";
+    if (password && String(password).trim().length >= 8) {
+      hashedPassword = await bcrypt.hash(String(password).trim(), 10);
+    }
+
+    const normalizedDocuments = buildDocuments(normalizeDocumentsInput(documents), req.files);
 
     const request = await BulkManufacturingRequest.create({
-      fullName,
-      mobile,
-      email,
-      companyName,
-      country,
-      orgType,
-      products,
-      quantity,
-      destinationCountry,
-      purpose,
-      paymentMethod,
+      fullName, mobile, email, companyName, country, orgType,
+      products, quantity, destinationCountry, purpose, paymentMethod,
       requestedUsername: username || "",
+      requestedPassword: hashedPassword, 
       documents: normalizedDocuments,
       ...rest,
     });
 
     return res.status(201).json({
-      message:
-        "Bulk manufacturing request submitted successfully. Our team will review it shortly.",
+      message: "Bulk manufacturing request submitted successfully. Our team will review it shortly.",
       requestId: request._id,
     });
   } catch (error) {
     console.error("Bulk manufacturing request create error:", error);
-    return res.status(500).json({
-      message: "Unable to submit bulk manufacturing request right now.",
-    });
+    return res.status(500).json({ message: "Unable to submit bulk manufacturing request right now." });
   }
 };
 

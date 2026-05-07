@@ -100,25 +100,43 @@ import JobActivity from "./marketingAgent/pages/JobActivity.jsx";
 import Responses from "./marketingAgent/pages/Responses.jsx";
 import TrainingMeeting from "./marketingAgent/pages/Training&Metting.jsx";
 import Leads from "./marketingAgent/pages/Leads.jsx";
-import Campaigns from "./marketingAgent/pages/Campaigns.jsx";
-import Vendors from "./marketingAgent/pages/Vendors.jsx";
-import Reports from "./marketingAgent/pages/Reports.jsx";
 import Commission from "./marketingAgent/pages/Commission.jsx";
 import AgentLayout from "./marketingAgent/layout/AgentLayout.jsx";
 import Profile from "./marketingAgent/pages/Profile.jsx";
 import StartJob from "./marketingAgent/pages/StartJob.jsx";
 import JobHistory from "./marketingAgent/pages/JobHistory.jsx";
 import AgentCreateOrder  from "./marketingAgent/pages/Order.jsx"
-import AgentOrderHistory from "./marketingAgent/pages/Orderhistory.jsx"
-import DaliyWorkingPlane from "./marketingAgent/pages/DaliyWorkingPlane.jsx";
-import MarkAttendance from "./marketingAgent/pages/AttendenceSystem.jsx";
 import Products from "./marketingAgent/pages/Products.jsx";
 import Invoices from "./marketingAgent/pages/Invoices.jsx";
 import PaymentHistory from "./marketingAgent/pages/PaymentHistory.jsx";
+import BioBurgPayments from "./marketingAgent/pages/bioburgpayments.jsx";
 import PointsAndPayout from "./marketingAgent/pages/Points&Payout.jsx";
-import CreateOrders from "./marketingAgent/pages/CreateOrders.jsx";
-import CreateBill from "./marketingAgent/pages/CreateBill.jsx";
-import CreateChallan from "./marketingAgent/pages/CreateChallan.jsx";
+import NewDCR        from "./marketingAgent/pages/Newdcr.jsx";
+import DCRHistory    from "./marketingAgent/pages/Dcrhistory.jsx";
+import EndOfDay      from "./marketingAgent/pages/Endofday.jsx";
+import WorkingPlan   from "./marketingAgent/pages/Workingplan.jsx";
+import GeoTracking   from "./marketingAgent/pages/Geotracking.jsx";
+import DailyExpenses from "./marketingAgent/pages/Dailyexpenses.jsx";
+import Presentations from "./marketingAgent/pages/Presentations.jsx"
+import TargetManagement from "./marketingAgent/pages/Targetmanagement.jsx";
+import Reports       from "./marketingAgent/pages/Reports.jsx";
+import Gallery       from "./marketingAgent/pages/Gallery.jsx";
+import CompanyCalendar from "./marketingAgent/pages/Companycalendar.jsx";
+import Routeplanning from "./marketingAgent/pages/Routeplanning.jsx";
+import WorkPerformance from "./marketingAgent/pages/workPerformance.jsx";
+import CampaignManagement from "./marketingAgent/pages/campaignManagement.jsx";
+import VisualAds from "./marketingAgent/pages/VisualAds";
+import MarketingChart from "./marketingAgent/pages/MarketingChart.jsx";
+import MRPerfromanceChart from "./marketingAgent/pages/MRPerformanceChart.jsx";
+import Appointment   from "./marketingAgent/pages/satffappointment.jsx";
+import StaffList     from "./marketingAgent/pages/stafflist.jsx";
+import WorkingStatus from "./marketingAgent/pages/statffworkingstatus.jsx";
+import SupportTickets from "./marketingAgent/pages/supportTickets.jsx";
+import WorkflowStatus from "./marketingAgent/pages/workflowStatus.jsx";
+import PendingFollowUps from "./marketingAgent/pages/pendingFollowups.jsx";
+import TopPerformers from "./marketingAgent/pages/topPerformers.jsx";
+import GiftManagement from "./marketingAgent/pages/giftManagement.jsx";
+import ProductsFeedback from "./marketingAgent/pages/productFeedback.jsx";
 
 // Delivery Agent
 import DeliveryAgentLogin from "./DeliveryAgent/DeliveryAgentLogin";
@@ -199,6 +217,7 @@ import PopupVideoPlayer from "./components/PopupVideoPlayer";
 import ConsultationPage from "./components/ConsultationPage";
 import RadiologyDiagnosticsTest from "./components/RadiologyDiagnosticTest";
 import Pathologylabpage from "./components/Pathologyregister";
+
 function LayoutWrapper({ children }) {
   const location = useLocation();
   const { isLoggedIn } = useAuth();
@@ -453,48 +472,141 @@ function App() {
               <Route path="/agent/login" element={<AgentLogin />} />
               <Route path="/agent/register" element={<AgentRegister />} />
               <Route
-                path="/agent"
-                element={
-                  <AgentProtectedRoute>
-                    <AgentLayout />
-                  </AgentProtectedRoute>
-                }
-              >
-                <Route path="dashboard" element={<AgentDashboard />} />
-                <Route path="/agent/job-activity" element={<JobActivity />} />
-                <Route path="/agent/responses" element={<Responses />} />
-                <Route path="mark-attendance" element={<MarkAttendance />} />
-                <Route path="points-payout" element={<PointsAndPayout />} />
-                <Route path="training-meeting" element={<TrainingMeeting />} />
-                <Route path="leads" element={<Leads />} />
-                <Route path="enquiries" element={<Vendors />} />
-                <Route path="job-history" element={<JobHistory />} />
-                <Route path="orders">
-                <Route index  element={<AgentOrderHistory />} />          
-                <Route path="history" element={<AgentOrderHistory />} />   
-                <Route path="invoices" element={<Invoices />} />
-                <Route path="payments" element={<PaymentHistory />} />   
-                <Route path="create"  element={<AgentCreateOrder  />} />          
-                <Route path="create-bill"    element={<AgentCreateOrder />} />    
-                <Route path="create-challan" element={<AgentCreateOrder />} />
-                </Route>
+  path="/agent"
+  element={
+    <AgentProtectedRoute>
+      <AgentLayout />
+    </AgentProtectedRoute>
+  }
+>
+  <Route path="marketing" element={<CampaignManagement/>}></Route> 
+  <Route path="leads"     element={<Leads />} />
+  <Route path="visual-ads" element={<VisualAds />} />
+  <Route path="workflow-status" element={<WorkflowStatus/>} />
+  <Route path="support-tickets" element={<SupportTickets/>} />
+  <Route path="marketing-chart" element={<MarketingChart/>} />
+  <Route path="mr-chart" element={<MRPerfromanceChart/>} />
+
+  {/* ── Main ── */}
+  <Route index element={<Navigate to="dashboard" replace />} />
+  <Route path="dashboard"           element={<AgentDashboard />} />
  
-                <Route path="products" element={<Products />} />
-                <Route path="orders">
-                  <Route path="create-bill" element={<CreateBill />} />
-                  <Route path="create-challan" element={<CreateChallan />} />
-                </Route>
-                <Route path="campaigns" element={<Campaigns />} />
-                <Route path="reports" element={<Reports />} />
-                <Route path="commission" element={<Commission />} />
-                <Route path="profile" element={<Profile />} />
-                <Route path="start-job" element={<StartJob />} />
-                <Route
-                  path="dailyworkingplan"
-                  element={<DaliyWorkingPlane />}
-                />
-                <Route path="mark-attendance" element={<MarkAttendance />} />
-              </Route>
+  {/* ── Field Work ── */}
+  <Route path="job-activity"        element={<JobActivity />} />
+  <Route path="start-job"           element={<StartJob />} />
+  <Route path="job-history"         element={<JobHistory />} />
+  <Route path="responses"           element={<Responses />} />
+  <Route path="daily-expenses"      element={<DailyExpenses />} />
+  <Route path="geo-tracking"        element={<GeoTracking />} />
+ 
+  {/* DCR */}
+  <Route path="dcr">
+    <Route path="new"               element={<NewDCR />} />
+    <Route path="history"           element={<DCRHistory />} />
+    <Route path="eod"               element={<EndOfDay />} />
+  </Route>
+ 
+  {/* Working Plans */}
+  <Route path="plan">
+    <Route path="daily"       element={<WorkingPlan planTypeKey="daily"       />} />
+    <Route path="weekly"      element={<WorkingPlan planTypeKey="weekly"      />} />
+    <Route path="fortnightly" element={<WorkingPlan planTypeKey="fortnightly" />} />
+    <Route path="monthly"     element={<WorkingPlan planTypeKey="monthly"     />} />
+    <Route path="pjp"         element={<WorkingPlan planTypeKey="station"     />} />
+    <Route path="stp"         element={<WorkingPlan planTypeKey="outstations" />} />
+  </Route>
+ 
+ 
+  {/* ── Products ── */}
+  <Route path="products"            element={<Products />} />
+  <Route path="giftmanagement"      element={<GiftManagement />} />
+  <Route path="feedback"      element={<ProductsFeedback />} />
+  <Route path="edetailing">
+    <Route path="presentations"     element={<Presentations />} />
+    {/* slide analytics, 3D aids — add pages here */}
+  </Route>
+ 
+  {/* ── Orders & Billing ── */}
+  <Route path="orders">
+    <Route path="create-bill"       element={<AgentCreateOrder />} />
+  </Route>
+
+      <Route path="billing/invoices"        element={<Invoices />} />
+      <Route path="hr/payment-history"      element={<PaymentHistory />} />
+      <Route path="billing/bioburg-payments" element={<BioBurgPayments />} />
+ 
+  {/* ── Marketing ── */}
+  <Route path="commission"          element={<Commission />} />
+ 
+  {/* ── Targets & Incentives ── */}
+  <Route path="targets">
+    <Route path="monthly"           element={<TargetManagement />} />
+    <Route path="leaderboard"       element={<TopPerformers />} />
+  </Route>
+  {/* <Route path="incentives">
+    <Route path="calculation"       element={<Incentives />} />
+    <Route path="promotion"         element={<Incentives />} />
+  </Route> */}
+ 
+  {/* ── Growth ── */}
+  <Route path="points-payout"       element={<PointsAndPayout />} />
+ 
+
+ <Route path="hr">
+  <Route path="appointment"   element={<Appointment />} />
+  <Route path="staff-list"    element={<StaffList />} />
+  <Route path="working-status" element={<WorkingStatus />} />
+  {/* Payroll */}
+  <Route path="payslips"        element={<Reports />} />
+  <Route path="payment-history" element={<PaymentHistory />} />
+  {/* Other HR */}
+  <Route path="recruitment"     element={<Reports />} />
+  <Route path="hierarchy"       element={<Reports />} />
+</Route>
+
+  {/* ── Reports ── */}
+  <Route path="reports">
+    <Route path="dcr"               element={<Reports />} />
+    <Route path="monthly-sales"     element={<Reports />} />
+    <Route path="product-sales"     element={<Reports />} />
+    <Route path="doctor-coverage"   element={<Reports />} />
+    <Route path="chemist-coverage"  element={<Reports />} />
+    <Route path="mr-performance"    element={<Reports />} />
+    <Route path="incentives"        element={<Reports />} />
+    <Route path="samples"           element={<Reports />} />
+    <Route path="work-profile"      element={<Reports />} />
+    <Route path="marketing-chart"   element={<Reports />} />
+    <Route path="mr-chart"          element={<Reports />} />
+  </Route>
+ 
+  {/* ── Gallery & Media ── */}
+  <Route path="gallery">
+    <Route path="photos"            element={<Gallery />} />
+    <Route path="videos"            element={<Gallery />} />
+    <Route path="awards"            element={<Gallery />} />
+    <Route path="social"            element={<Gallery />} />
+    <Route path="field-upload"      element={<Gallery />} />
+  </Route>
+  <Route path="news"                element={<Gallery />} />
+ 
+  {/* ── Calendar ── */}
+  <Route path="calendar">
+    <Route path="company"           element={<CompanyCalendar />} />
+    <Route path="follow-ups"           element={<PendingFollowUps />} />
+  </Route>
+
+  {/* Routing  */}
+    <Route path="route-planning"          element={<Routeplanning />} /> 
+
+    {/* Work Performance */}
+    <Route path="work-performance"        element={<WorkPerformance/>} />
+ 
+  {/* ── Learning ── */}
+  <Route path="training-meeting"    element={<TrainingMeeting />} />
+ 
+  {/* ── Account ── */}
+  <Route path="profile"             element={<Profile />} />
+</Route>
 
               {/* DELIVERY AGENT */}
               <Route

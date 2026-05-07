@@ -10,7 +10,6 @@ import {
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { loginAs } from "../../utils/auth"; 
 import { API_BASE_URL } from "../config/api";
@@ -22,7 +21,6 @@ const AdminLogin = () => {
   const [form, setForm] = useState({ username: "", password: "" });
   const [showPass, setShowPass] = useState(false);
 
-  const navigate = useNavigate();
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -35,28 +33,27 @@ const AdminLogin = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    const error = validateForm();
-    if (error) {
-      toast.error(error);
-      return;
-    }
+  const error = validateForm();
+  if (error) {
+    toast.error(error);
+    return;
+  }
 
-    try {
-      const res = await axios.post(`${BASE_API}/api/admin/login`, form);
+  try {
+    const res = await axios.post(`${BASE_API}/api/admin/login`, form);
+    localStorage.setItem("adminToken", res.data.token);
+    loginAs("admin", res.data.token);
 
-      // Save Admin Token
-      loginAs("admin", res.data.token); 
-      localStorage.setItem("adminToken", res.data.token);
-      console.log("Admin Token:", res.data.token)
-      navigate("/admin/dashboard");
-      toast.success("Login Successful!");
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Invalid Credentials!");
-      console.log(error)
-    }
-  };
+    window.location.href = "/admin/dashboard";
+    toast.success("Login Successful!");
+
+  } catch (error) {
+    toast.error(error.response?.data?.message || "Invalid Credentials!");
+    console.log(error);
+  }
+};
 
   return (
     <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>

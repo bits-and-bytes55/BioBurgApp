@@ -1,29 +1,30 @@
 import express from "express";
 import {
-  createOrder,
-  getMyOrders,
-  getMyOrderById,
-  getAllOrders,
-  getOrderByIdAdmin,
-  updateOrderAdmin,
-  deleteOrderAdmin,
-  getAgentOrderSummary
+  createSaleOrder,
+  getAgentOrders,
+  getSaleOrderById,
+  recordPayment,
+  voidOrder,
+  getPaymentHistory,
+  getBioburgPayments,
+  createBioburgPayment,
 } from "../controllers/Saleordercontroller.js";
-
-import { protectAgent } from "../middleware/marketingAgenTauthMiddleware.js";
+import { protectAgent } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-/* ── AGENT ── /api/sale-orders/agent/... ── */
-router.post("/agent/create",       protectAgent, createOrder);
-router.get("/agent/my-orders",     protectAgent, getMyOrders);
-router.get("/agent/:id",           protectAgent, getMyOrderById);
+/*  Agent routes (protected)  */
+router.use("/agent", protectAgent);
 
-/* ── ADMIN ── /api/sale-orders/admin/... ── */
-router.get("/admin/all",           getAllOrders);
-router.get("/admin/agent-summary", getAgentOrderSummary);
-router.get("/admin/:id",           getOrderByIdAdmin);
-router.patch("/admin/:id",         updateOrderAdmin);
-router.delete("/admin/:id",        deleteOrderAdmin);
+router.post  ("/agent/create",            createSaleOrder);
+router.get   ("/agent/list",              getAgentOrders);
+router.get   ("/agent/payments/history",  getPaymentHistory);
+router.get   ("/agent/bioburg-payments",  getBioburgPayments);
+router.get   ("/agent/:id",               getSaleOrderById);
+router.patch ("/agent/:id/payment",       recordPayment);
+router.patch ("/agent/:id/void",          voidOrder);
+
+/*  Admin routes (add your own admin auth middleware)  */
+router.post("/admin/bioburg-payments", createBioburgPayment);
 
 export default router;

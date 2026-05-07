@@ -22,7 +22,7 @@ const ALLOWED_FORMATS = [
   "webm",
 ];
 
-const storage = new CloudinaryStorage({
+export const storage = new CloudinaryStorage({
   cloudinary,
   params: async (req, file) => {
     const mimeType = String(file.mimetype || "");

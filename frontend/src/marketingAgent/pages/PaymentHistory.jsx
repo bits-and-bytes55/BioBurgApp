@@ -1,351 +1,364 @@
 import { useState, useEffect } from 'react'
-import {
-  Box, Typography, Button, Paper, Chip, CircularProgress,
-  TextField, FormControl, InputLabel, Select, MenuItem,
-  Table, TableBody, TableCell, TableHead, TableRow,
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Divider, Alert, Snackbar, LinearProgress
-} from '@mui/material'
 import axios from 'axios'
+import {
+  Box, Typography, Paper, Button, Chip, TextField, InputAdornment,
+  Table, TableBody, TableCell, TableHead, TableRow, CircularProgress,
+  Select, MenuItem, FormControl, InputLabel, Divider, Alert, Snackbar,
+  Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Tooltip
+} from '@mui/material'
+import {
+  AccountBalance, TrendingUp, Warning, CheckCircle,
+  Close, Receipt, Add, Search
+} from '@mui/icons-material'
 
 const BASE     = import.meta.env.VITE_API_BASE_URL
 const API      = `${BASE}/api/sale-orders/agent`
 const getToken = () => localStorage.getItem('agentToken')
-const auth     = () => ({ Authorization: `Bearer ${getToken()}` })
+const authHdr  = () => ({ Authorization: `Bearer ${getToken()}` })
+const fmt      = n => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
 
-const fmt     = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`
-const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
-
-const PAY_META = {
-  paid:    { label: 'Paid',    color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
-  partial: { label: 'Partial', color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
-  pending: { label: 'Pending', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
+const STATUS_META = {
+  paid:    { color: '#16a34a', bg: '#dcfce7', label: 'Paid'    },
+  partial: { color: '#d97706', bg: '#fef3c7', label: 'Partial' },
+  pending: { color: '#dc2626', bg: '#fee2e2', label: 'Pending' },
 }
 
-const MODE_ICONS = {
-  cash:   '',
-  upi:    '',
-  credit: '',
-  cheque: '',
-  online: '',
-  other:  '',
+const MODE_COLORS = {
+  cash:   '#16a34a', upi:    '#7c3aed', credit:  '#d97706',
+  cheque: '#0891b2', online: '#1d4ed8', other:   '#64748b',
 }
 
 export default function PaymentHistory() {
-  const [orders,   setOrders]   = useState([])
-  const [loading,  setLoading]  = useState(true)
-  const [payF,     setPayF]     = useState('all')
-  const [modeF,    setModeF]    = useState('all')
-  const [fromDate, setFromDate] = useState('')
-  const [toDate,   setToDate]   = useState('')
-  const [search,   setSearch]   = useState('')
-  const [detail,   setDetail]   = useState(null)
-  const [snack,    setSnack]    = useState({ open: false, msg: '', sev: 'error' })
+  const [orders,  setOrders]  = useState([])
+  const [summary, setSummary] = useState({ totalGrand: 0, totalPaid: 0, totalDue: 0, countOrders: 0 })
+  const [loading, setLoading] = useState(true)
+  const [page,    setPage]    = useState(1)
+  const [total,   setTotal]   = useState(0)
 
-  const toast = (msg, sev = 'error') => setSnack({ open: true, msg, sev })
+  // Filters
+  const [statusF, setStatusF] = useState('')
+  const [modeF,   setModeF]   = useState('')
+  const [fromD,   setFromD]   = useState('')
+  const [toD,     setToD]     = useState('')
 
-  const fetchOrders = async () => {
+  // Record payment dialog
+  const [payDialog, setPayDialog] = useState(false)
+  const [selOrder,  setSelOrder]  = useState(null)
+  const [payAmt,    setPayAmt]    = useState('')
+  const [payMode,   setPayMode]   = useState('cash')
+  const [payNote,   setPayNote]   = useState('')
+  const [saving,    setSaving]    = useState(false)
+
+  const [snack, setSnack] = useState({ open: false, msg: '', severity: 'info' })
+  const toast = (msg, severity = 'success') => setSnack({ open: true, msg, severity })
+
+  const load = async (p = 1) => {
     setLoading(true)
     try {
-      const params = {}
-      if (payF !== 'all') params.paymentStatus = payF
-      if (fromDate) params.from = fromDate
-      if (toDate)   params.to   = toDate
-      const { data } = await axios.get(`${API}/my-orders`, { headers: auth(), params })
-      if (data.success) setOrders(data.orders || [])
-    } catch { toast('Failed to load payment history') }
+      const params = new URLSearchParams({ page: p, limit: 30 })
+      if (statusF) params.set('status', statusF)
+      if (modeF)   params.set('mode',   modeF)
+      if (fromD)   params.set('from',   fromD)
+      if (toD)     params.set('to',     toD)
+
+      const { data } = await axios.get(`${API}/payments/history?${params}`, { headers: authHdr() })
+      if (data.success) {
+        setOrders(data.orders)
+        setSummary(data.summary)
+        setTotal(data.total)
+      }
+    } catch { toast('Failed to load payment history', 'error') }
     setLoading(false)
   }
 
-  useEffect(() => { fetchOrders() }, [payF])
+  useEffect(() => { load(1); setPage(1) }, [statusF, modeF, fromD, toD])
 
-  /* ── filtered + mode filter (client side) ── */
-  const filtered = orders.filter(o => {
-    if (modeF !== 'all' && o.paymentMode !== modeF) return false
-    if (search && !(
-      o.orderNumber?.toLowerCase().includes(search.toLowerCase()) ||
-      o.customerName?.toLowerCase().includes(search.toLowerCase())
-    )) return false
-    return true
-  })
+  const openPayment = (order) => {
+    setSelOrder(order)
+    setPayAmt(order.dueAmount > 0 ? String(order.dueAmount) : '')
+    setPayMode(order.paymentMode || 'cash')
+    setPayNote('')
+    setPayDialog(true)
+  }
 
-  /* ── summary stats ── */
-  const totalValue    = filtered.reduce((s, o) => s + (o.grandTotal  || 0), 0)
-  const totalCollected= filtered.reduce((s, o) => s + (o.paidAmount  || 0), 0)
-  const totalPending  = filtered.reduce((s, o) => s + Math.max(0, (o.grandTotal || 0) - (o.paidAmount || 0)), 0)
-  const collectedPct  = totalValue > 0 ? Math.round((totalCollected / totalValue) * 100) : 0
+  const submitPayment = async () => {
+    if (!payAmt || Number(payAmt) <= 0) return toast('Enter a valid amount', 'warning')
+    setSaving(true)
+    try {
+      await axios.patch(`${API}/${selOrder._id}/payment`, {
+        amount: Number(payAmt), mode: payMode, note: payNote,
+      }, { headers: authHdr() })
+      toast('Payment recorded successfully')
+      setPayDialog(false)
+      load(page)
+    } catch (e) { toast(e.response?.data?.message || 'Failed', 'error') }
+    setSaving(false)
+  }
 
-  /* ── mode breakdown ── */
-  const modeBreakdown = filtered.reduce((acc, o) => {
-    const mode = o.paymentMode || 'other'
-    if (!acc[mode]) acc[mode] = { count: 0, amount: 0 }
-    acc[mode].count  += 1
-    acc[mode].amount += (o.paidAmount || 0)
-    return acc
-  }, {})
+  const summaryCards = [
+    {
+      label: 'Total Invoiced', value: fmt(summary.totalGrand),
+      icon: <TrendingUp />, color: '#1d4ed8', bg: '#eff6ff',
+    },
+    {
+      label: 'Amount Collected', value: fmt(summary.totalPaid),
+      icon: <CheckCircle />, color: '#16a34a', bg: '#f0fdf4',
+    },
+    {
+      label: 'Outstanding Due', value: fmt(summary.totalDue),
+      icon: <Warning />, color: '#dc2626', bg: '#fef2f2',
+    },
+    {
+      label: 'Total Orders', value: summary.countOrders,
+      icon: <Receipt />, color: '#7c3aed', bg: '#f5f3ff',
+    },
+  ]
 
-  const allModes = [...new Set(orders.map(o => o.paymentMode).filter(Boolean))]
+  const collectionRate = summary.totalGrand > 0
+    ? ((summary.totalPaid / summary.totalGrand) * 100).toFixed(1)
+    : 0
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc', p: { xs: 2, md: 3 } }}>
 
-      {/* Header */}
+      {/* ── HEADER ── */}
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>
+        <Typography sx={{ fontWeight: 900, fontSize: 24, color: '#0f172a', letterSpacing: '-0.02em' }}>
           Payment History
         </Typography>
-        <Typography sx={{ color: '#64748b', fontSize: 14, mt: 0.5 }}>
-          Track collections, outstanding dues, and payment mode breakdowns.
+        <Typography sx={{ fontSize: 13, color: '#64748b', mt: 0.3 }}>
+          Track all customer payments and dues
         </Typography>
       </Box>
 
-      {/* Summary Cards */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2,1fr)', md: 'repeat(4,1fr)' }, gap: 2, mb: 3 }}>
-        {[
-          { label: 'TOTAL BILLED',   value: fmt(totalValue),     color: '#1d4ed8', sub: `${filtered.length} orders` },
-          { label: 'COLLECTED',      value: fmt(totalCollected),  color: '#16a34a', sub: `${collectedPct}% of total` },
-          { label: 'OUTSTANDING',    value: fmt(totalPending),    color: '#dc2626', sub: `Balance due` },
-          { label: 'COLLECTION RATE',value: `${collectedPct}%`,  color: collectedPct >= 80 ? '#16a34a' : collectedPct >= 50 ? '#d97706' : '#dc2626', sub: 'of billed amount' },
-        ].map(s => (
-          <Paper key={s.label} elevation={0}
-            sx={{ border: '1px solid #e2e8f0', borderTop: `3px solid ${s.color}`, borderRadius: 3, p: 2.5, bgcolor: 'white' }}>
-            <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.1em' }}>{s.label}</Typography>
-            <Typography sx={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: 'monospace', mt: 0.5 }}>{s.value}</Typography>
-            <Typography sx={{ fontSize: 11, color: '#94a3b8', mt: 0.25 }}>{s.sub}</Typography>
+      {/* ── SUMMARY CARDS ── */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
+        {summaryCards.map(card => (
+          <Paper key={card.label} elevation={0} sx={{
+            border: '1px solid #e2e8f0', borderRadius: 3, p: 2.5,
+            display: 'flex', alignItems: 'center', gap: 2,
+          }}>
+            <Box sx={{
+              width: 44, height: 44, borderRadius: '12px',
+              bgcolor: card.bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: card.color, flexShrink: 0,
+            }}>
+              {card.icon}
+            </Box>
+            <Box>
+              <Typography sx={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                {card.label}
+              </Typography>
+              <Typography sx={{ fontSize: 18, fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', fontFamily: 'monospace' }}>
+                {card.value}
+              </Typography>
+            </Box>
           </Paper>
         ))}
       </Box>
 
-      {/* Collection progress bar */}
-      <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 3, p: 2.5, mb: 3, bgcolor: 'white' }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-          <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155' }}>Collection Progress</Typography>
-          <Typography sx={{ fontSize: 13, fontWeight: 700, color: collectedPct >= 80 ? '#16a34a' : '#d97706' }}>{collectedPct}%</Typography>
+      {/* Collection rate bar */}
+      <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 3, p: 2.5, mb: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#334155' }}>Collection Rate</Typography>
+          <Typography sx={{ fontSize: 15, fontWeight: 800, color: '#1d4ed8' }}>{collectionRate}%</Typography>
         </Box>
-        <LinearProgress variant="determinate" value={collectedPct}
-          sx={{ height: 8, borderRadius: 4, bgcolor: '#f1f5f9',
-            '& .MuiLinearProgress-bar': { bgcolor: collectedPct >= 80 ? '#16a34a' : collectedPct >= 50 ? '#d97706' : '#dc2626', borderRadius: 4 } }} />
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.75 }}>
-          <Typography sx={{ fontSize: 11, color: '#94a3b8' }}>Collected: {fmt(totalCollected)}</Typography>
-          <Typography sx={{ fontSize: 11, color: '#94a3b8' }}>Pending: {fmt(totalPending)}</Typography>
+        <Box sx={{ height: 8, bgcolor: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
+          <Box sx={{
+            height: '100%', borderRadius: 4,
+            width: `${collectionRate}%`,
+            background: collectionRate >= 80 ? 'linear-gradient(90deg, #16a34a, #4ade80)'
+                      : collectionRate >= 50 ? 'linear-gradient(90deg, #d97706, #fbbf24)'
+                      : 'linear-gradient(90deg, #dc2626, #f87171)',
+            transition: 'width 0.6s ease',
+          }} />
         </Box>
+        <Typography sx={{ fontSize: 11, color: '#94a3b8', mt: 0.7 }}>
+          {fmt(summary.totalPaid)} collected of {fmt(summary.totalGrand)} total
+        </Typography>
       </Paper>
 
-      {/* Mode breakdown chips */}
-      {Object.keys(modeBreakdown).length > 0 && (
-        <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 3, p: 2, mb: 3, bgcolor: 'white' }}>
-          <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#64748b', mb: 1.5, letterSpacing: '0.05em' }}>PAYMENT MODE BREAKDOWN</Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
-            {Object.entries(modeBreakdown).map(([mode, data]) => (
-              <Box key={mode} sx={{ display: 'flex', alignItems: 'center', gap: 1,
-                px: 2, py: 1, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 2 }}>
-                <Typography sx={{ fontSize: 16 }}>{MODE_ICONS[mode] || '🔄'}</Typography>
-                <Box>
-                  <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#334155', textTransform: 'capitalize' }}>{mode}</Typography>
-                  <Typography sx={{ fontSize: 11, color: '#94a3b8' }}>{data.count} orders · {fmt(data.amount)}</Typography>
-                </Box>
-              </Box>
-            ))}
-          </Box>
-        </Paper>
-      )}
-
-      {/* Filters */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 2.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField size="small" placeholder="Search order # or customer..."
-          value={search} onChange={e => setSearch(e.target.value)}
-          sx={{ bgcolor: 'white', minWidth: 230, '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
-        <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel>Payment Status</InputLabel>
-          <Select label="Payment Status" value={payF} onChange={e => setPayF(e.target.value)} sx={{ bgcolor: 'white', borderRadius: 2 }}>
-            <MenuItem value="all">All Statuses</MenuItem>
-            {Object.entries(PAY_META).map(([k, v]) => <MenuItem key={k} value={k}>{v.label}</MenuItem>)}
+      {/* ── FILTERS ── */}
+      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+        <FormControl size="small" sx={{ minWidth: 140 }}>
+          <InputLabel>Status</InputLabel>
+          <Select label="Status" value={statusF} onChange={e => setStatusF(e.target.value)}
+            sx={{ bgcolor: 'white', borderRadius: 2 }}>
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="paid">Paid</MenuItem>
+            <MenuItem value="partial">Partial</MenuItem>
+            <MenuItem value="pending">Pending</MenuItem>
           </Select>
         </FormControl>
         <FormControl size="small" sx={{ minWidth: 140 }}>
           <InputLabel>Mode</InputLabel>
-          <Select label="Mode" value={modeF} onChange={e => setModeF(e.target.value)} sx={{ bgcolor: 'white', borderRadius: 2 }}>
-            <MenuItem value="all">All Modes</MenuItem>
-            {allModes.map(m => <MenuItem key={m} value={m} sx={{ textTransform: 'capitalize' }}>{m}</MenuItem>)}
+          <Select label="Mode" value={modeF} onChange={e => setModeF(e.target.value)}
+            sx={{ bgcolor: 'white', borderRadius: 2 }}>
+            <MenuItem value="">All Modes</MenuItem>
+            {['cash', 'upi', 'credit', 'cheque', 'online', 'other'].map(m => (
+              <MenuItem key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</MenuItem>
+            ))}
           </Select>
         </FormControl>
         <TextField size="small" type="date" label="From" InputLabelProps={{ shrink: true }}
-          value={fromDate} onChange={e => setFromDate(e.target.value)} sx={{ bgcolor: 'white' }} />
+          value={fromD} onChange={e => setFromD(e.target.value)}
+          sx={{ bgcolor: 'white', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
         <TextField size="small" type="date" label="To" InputLabelProps={{ shrink: true }}
-          value={toDate} onChange={e => setToDate(e.target.value)} sx={{ bgcolor: 'white' }} />
-        <Button variant="outlined" size="small" onClick={fetchOrders}
-          sx={{ fontWeight: 700, borderRadius: 2, borderColor: '#1d4ed8', color: '#1d4ed8', height: 40 }}>
-          Apply
-        </Button>
+          value={toD} onChange={e => setToD(e.target.value)}
+          sx={{ bgcolor: 'white', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+        {(statusF || modeF || fromD || toD) && (
+          <Button size="small" onClick={() => { setStatusF(''); setModeF(''); setFromD(''); setToD('') }}
+            sx={{ color: '#dc2626', fontWeight: 600 }}>
+            Clear Filters
+          </Button>
+        )}
       </Box>
 
-      {/* Table */}
-      <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 3, overflow: 'hidden', bgcolor: 'white' }}>
+      {/* ── TABLE ── */}
+      <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 3, overflow: 'hidden' }}>
         {loading ? (
-          <Box sx={{ py: 8, display: 'flex', justifyContent: 'center' }}>
-            <CircularProgress sx={{ color: '#1d4ed8' }} />
-          </Box>
-        ) : filtered.length === 0 ? (
+          <Box sx={{ py: 8, display: 'flex', justifyContent: 'center' }}><CircularProgress sx={{ color: '#1d4ed8' }} /></Box>
+        ) : orders.length === 0 ? (
           <Box sx={{ py: 8, textAlign: 'center' }}>
-            <Typography sx={{ color: '#94a3b8', fontSize: 14 }}>No payment records found.</Typography>
+            <AccountBalance sx={{ fontSize: 48, color: '#cbd5e1', mb: 2 }} />
+            <Typography sx={{ color: '#94a3b8', fontWeight: 600 }}>No payment records found</Typography>
           </Box>
         ) : (
           <Box sx={{ overflowX: 'auto' }}>
             <Table>
               <TableHead>
                 <TableRow sx={{ bgcolor: '#f8fafc' }}>
-                  {['Order #', 'Date', 'Customer', 'Mode', 'Grand Total', 'Paid', 'Balance', 'Status', ''].map(h => (
-                    <TableCell key={h} sx={{ fontSize: 11, fontWeight: 700, color: '#64748b', letterSpacing: '0.05em', py: 1.5, whiteSpace: 'nowrap' }}>{h}</TableCell>
+                  {['Invoice #', 'Customer', 'Date', 'Total', 'Paid', 'Due', 'Mode', 'Status', 'Actions'].map(h => (
+                    <TableCell key={h} sx={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', py: 1.5, whiteSpace: 'nowrap' }}>
+                      {h}
+                    </TableCell>
                   ))}
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filtered.map(o => {
-                  const pm      = PAY_META[o.paymentStatus] || PAY_META.pending
-                  const balance = Math.max(0, (o.grandTotal || 0) - (o.paidAmount || 0))
-                  const pct     = o.grandTotal > 0 ? Math.round(((o.paidAmount || 0) / o.grandTotal) * 100) : 0
+                {orders.map(o => {
+                  const sm = STATUS_META[o.paymentStatus] || STATUS_META.pending
                   return (
-                    <TableRow key={o._id}
-                      sx={{ '&:hover': { bgcolor: '#f8fafc' }, borderBottom: '1px solid #f1f5f9' }}>
-                      <TableCell sx={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#1d4ed8' }}>
-                        {o.orderNumber}
+                    <TableRow key={o._id} sx={{ '&:hover': { bgcolor: '#f8fafc' } }}>
+                      <TableCell>
+                        <Typography sx={{ fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color: '#1d4ed8' }}>
+                          {o.orderNumber}
+                        </Typography>
+                        <Typography sx={{ fontSize: 10, color: '#94a3b8', textTransform: 'capitalize' }}>{o.orderType}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{o.customerName}</Typography>
+                        {o.visitArea && <Typography sx={{ fontSize: 10, color: '#94a3b8' }}>{o.visitArea}</Typography>}
                       </TableCell>
                       <TableCell sx={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>
-                        {fmtDate(o.createdAt)}
+                        {new Date(o.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </TableCell>
+                      <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13 }}>{fmt(o.grandTotal)}</TableCell>
+                      <TableCell sx={{ fontFamily: 'monospace', fontSize: 13, color: '#16a34a', fontWeight: 700 }}>{fmt(o.paidAmount)}</TableCell>
+                      <TableCell>
+                        <Typography sx={{ fontFamily: 'monospace', fontSize: 13, color: o.dueAmount > 0 ? '#dc2626' : '#16a34a', fontWeight: 700 }}>
+                          {fmt(o.dueAmount)}
+                        </Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{o.customerName}</Typography>
-                        {o.visitArea && <Typography sx={{ fontSize: 11, color: '#94a3b8' }}>{o.visitArea}</Typography>}
+                        <Chip label={o.paymentMode?.toUpperCase()} size="small"
+                          sx={{
+                            fontSize: 9, height: 20, fontWeight: 700,
+                            bgcolor: (MODE_COLORS[o.paymentMode] || '#64748b') + '18',
+                            color: MODE_COLORS[o.paymentMode] || '#64748b',
+                          }} />
                       </TableCell>
                       <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                          <Typography sx={{ fontSize: 14 }}>{MODE_ICONS[o.paymentMode] || '🔄'}</Typography>
-                          <Typography sx={{ fontSize: 12, color: '#475569', textTransform: 'capitalize' }}>{o.paymentMode || '—'}</Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13, color: '#0f172a' }}>
-                        {fmt(o.grandTotal)}
-                      </TableCell>
-                      <TableCell sx={{ fontFamily: 'monospace', fontSize: 13, color: '#16a34a', fontWeight: 600 }}>
-                        {fmt(o.paidAmount)}
-                      </TableCell>
-                      <TableCell sx={{ fontFamily: 'monospace', fontSize: 13, color: balance > 0 ? '#dc2626' : '#94a3b8', fontWeight: balance > 0 ? 700 : 400 }}>
-                        {balance > 0 ? fmt(balance) : '—'}
+                        <Chip label={sm.label} size="small"
+                          sx={{ fontSize: 10, height: 20, bgcolor: sm.bg, color: sm.color, fontWeight: 700 }} />
                       </TableCell>
                       <TableCell>
-                        <Box>
-                          <Chip label={pm.label} size="small"
-                            sx={{ fontSize: 10, height: 20, bgcolor: pm.bg, color: pm.color, fontWeight: 700, border: `1px solid ${pm.border}`, mb: 0.5 }} />
-                          {o.paymentStatus === 'partial' && (
-                            <Box>
-                              <LinearProgress variant="determinate" value={pct}
-                                sx={{ height: 3, borderRadius: 2, bgcolor: '#f1f5f9',
-                                  '& .MuiLinearProgress-bar': { bgcolor: '#d97706' } }} />
-                              <Typography sx={{ fontSize: 10, color: '#94a3b8', mt: 0.25 }}>{pct}% paid</Typography>
-                            </Box>
-                          )}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Button size="small" onClick={() => setDetail(o)}
-                          sx={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', minWidth: 'auto', px: 1 }}>
-                          DETAILS
-                        </Button>
+                        {o.paymentStatus !== 'paid' && (
+                          <Tooltip title="Record Payment">
+                            <Button size="small" variant="outlined" startIcon={<Add sx={{ fontSize: 14 }} />}
+                              onClick={() => openPayment(o)}
+                              sx={{ fontSize: 10, py: 0.4, borderColor: '#1d4ed8', color: '#1d4ed8', fontWeight: 700, borderRadius: 1.5 }}>
+                              Pay
+                            </Button>
+                          </Tooltip>
+                        )}
                       </TableCell>
                     </TableRow>
                   )
                 })}
               </TableBody>
             </Table>
+          </Box>
+        )}
 
-            {/* Footer totals row */}
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: 2, py: 1.5,
-              bgcolor: '#f8fafc', borderTop: '2px solid #e2e8f0', gap: 4 }}>
-              <Typography sx={{ fontSize: 12, color: '#64748b' }}>
-                Showing <strong>{filtered.length}</strong> records
-              </Typography>
-              <Typography sx={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 700, color: '#1d4ed8' }}>
-                Total: {fmt(totalValue)}
-              </Typography>
-              <Typography sx={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 700, color: '#16a34a' }}>
-                Collected: {fmt(totalCollected)}
-              </Typography>
-              <Typography sx={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 700, color: '#dc2626' }}>
-                Pending: {fmt(totalPending)}
-              </Typography>
+        {total > 30 && (
+          <Box sx={{ p: 2, borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography sx={{ fontSize: 12, color: '#64748b' }}>Showing {orders.length} of {total}</Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button size="small" disabled={page === 1} onClick={() => { setPage(p => p - 1); load(page - 1) }}>Previous</Button>
+              <Button size="small" disabled={orders.length < 30} onClick={() => { setPage(p => p + 1); load(page + 1) }}>Next</Button>
             </Box>
           </Box>
         )}
       </Paper>
 
-      {/* ── Detail Dialog ── */}
-      <Dialog open={!!detail} onClose={() => setDetail(null)} maxWidth="sm" fullWidth
+      {/* ══ RECORD PAYMENT DIALOG ══ */}
+      <Dialog open={payDialog} onClose={() => setPayDialog(false)} maxWidth="xs" fullWidth
         PaperProps={{ sx: { borderRadius: 3 } }}>
-        {detail && (() => {
-          const pm      = PAY_META[detail.paymentStatus] || PAY_META.pending
-          const balance = Math.max(0, (detail.grandTotal || 0) - (detail.paidAmount || 0))
-          return (
-            <>
-              <DialogTitle sx={{ fontWeight: 800, fontSize: 17, borderBottom: '1px solid #f1f5f9', pb: 2 }}>
-                Payment Details — {detail.orderNumber}
-              </DialogTitle>
-              <DialogContent sx={{ pt: 3 }}>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5, mb: 2.5 }}>
-                  {[
-                    { label: 'Customer',  value: detail.customerName },
-                    { label: 'Date',      value: fmtDate(detail.createdAt) },
-                    { label: 'Order Type',value: detail.orderType },
-                    { label: 'Visit Area',value: detail.visitArea || '—' },
-                  ].map(x => (
-                    <Box key={x.label} sx={{ p: 1.5, bgcolor: '#f8fafc', borderRadius: 2 }}>
-                      <Typography sx={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.07em' }}>{x.label.toUpperCase()}</Typography>
-                      <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#334155', mt: 0.25, textTransform: 'capitalize' }}>{x.value}</Typography>
-                    </Box>
-                  ))}
-                </Box>
-
-                <Divider sx={{ mb: 2 }} />
-
-                {/* Payment breakdown */}
-                <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#64748b', mb: 1.5, letterSpacing: '0.05em' }}>PAYMENT BREAKDOWN</Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 1.5, bgcolor: '#f8fafc', borderRadius: 2 }}>
-                    <Typography sx={{ fontSize: 13, color: '#64748b' }}>Grand Total</Typography>
-                    <Typography sx={{ fontSize: 13, fontFamily: 'monospace', fontWeight: 700 }}>{fmt(detail.grandTotal)}</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 1.5, bgcolor: '#f0fdf4', borderRadius: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography sx={{ fontSize: 13, color: '#16a34a' }}>Amount Paid</Typography>
-                      <Typography sx={{ fontSize: 12, color: '#94a3b8', textTransform: 'capitalize' }}>
-                        ({MODE_ICONS[detail.paymentMode] || ''} {detail.paymentMode})
-                      </Typography>
-                    </Box>
-                    <Typography sx={{ fontSize: 13, fontFamily: 'monospace', fontWeight: 700, color: '#16a34a' }}>{fmt(detail.paidAmount)}</Typography>
-                  </Box>
-                  {balance > 0 && (
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 1.5, bgcolor: '#fef2f2', borderRadius: 2 }}>
-                      <Typography sx={{ fontSize: 13, color: '#dc2626', fontWeight: 600 }}>Balance Due</Typography>
-                      <Typography sx={{ fontSize: 13, fontFamily: 'monospace', fontWeight: 800, color: '#dc2626' }}>{fmt(balance)}</Typography>
-                    </Box>
-                  )}
-                </Box>
-
-                <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-                  <Chip label={`STATUS: ${pm.label.toUpperCase()}`}
-                    sx={{ fontWeight: 800, fontSize: 12, bgcolor: pm.bg, color: pm.color, border: `1px solid ${pm.border}`, px: 1 }} />
-                </Box>
-              </DialogContent>
-              <DialogActions sx={{ px: 3, pb: 2.5 }}>
-                <Button onClick={() => setDetail(null)} sx={{ color: '#64748b', fontWeight: 600 }}>Close</Button>
-              </DialogActions>
-            </>
-          )
-        })()}
+        <DialogTitle sx={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          borderBottom: '1px solid #f1f5f9', pb: 2,
+        }}>
+          <Box>
+            <Typography sx={{ fontWeight: 800, fontSize: 16 }}>Record Payment</Typography>
+            <Typography sx={{ fontSize: 12, color: '#64748b' }}>{selOrder?.orderNumber} · {selOrder?.customerName}</Typography>
+          </Box>
+          <IconButton size="small" onClick={() => setPayDialog(false)}>
+            <Close sx={{ fontSize: 18 }} />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2.5 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2, display: 'flex', justifyContent: 'space-between' }}>
+              <Box>
+                <Typography sx={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>TOTAL</Typography>
+                <Typography sx={{ fontWeight: 700, fontFamily: 'monospace' }}>{fmt(selOrder?.grandTotal)}</Typography>
+              </Box>
+              <Box>
+                <Typography sx={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>PAID</Typography>
+                <Typography sx={{ fontWeight: 700, fontFamily: 'monospace', color: '#16a34a' }}>{fmt(selOrder?.paidAmount)}</Typography>
+              </Box>
+              <Box>
+                <Typography sx={{ fontSize: 10, color: '#dc2626', fontWeight: 700 }}>DUE</Typography>
+                <Typography sx={{ fontWeight: 700, fontFamily: 'monospace', color: '#dc2626' }}>{fmt(selOrder?.dueAmount)}</Typography>
+              </Box>
+            </Box>
+            <TextField size="small" label="Amount Received (₹) *" type="number" fullWidth
+              value={payAmt} onChange={e => setPayAmt(e.target.value)} />
+            <FormControl size="small" fullWidth>
+              <InputLabel>Payment Mode</InputLabel>
+              <Select label="Payment Mode" value={payMode} onChange={e => setPayMode(e.target.value)}>
+                {['cash', 'upi', 'credit', 'cheque', 'online', 'other'].map(m => (
+                  <MenuItem key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField size="small" label="Note (optional)" fullWidth
+              value={payNote} onChange={e => setPayNote(e.target.value)} />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5, gap: 1.5 }}>
+          <Button onClick={() => setPayDialog(false)} sx={{ color: '#64748b', fontWeight: 600 }}>Cancel</Button>
+          <Button variant="contained" onClick={submitPayment} disabled={saving}
+            sx={{ bgcolor: '#16a34a', fontWeight: 700, borderRadius: 2, '&:hover': { filter: 'brightness(0.9)' } }}>
+            {saving ? <CircularProgress size={18} sx={{ color: 'white' }} /> : 'Record Payment'}
+          </Button>
+        </DialogActions>
       </Dialog>
 
-      <Snackbar open={snack.open} autoHideDuration={3500} onClose={() => setSnack(s => ({ ...s, open: false }))}
+      <Snackbar open={snack.open} autoHideDuration={3000} onClose={() => setSnack(s => ({ ...s, open: false }))}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-        <Alert severity={snack.sev} sx={{ borderRadius: 2, fontWeight: 600 }}>{snack.msg}</Alert>
+        <Alert severity={snack.severity} sx={{ borderRadius: 2, fontWeight: 600 }}>{snack.msg}</Alert>
       </Snackbar>
     </Box>
   )
