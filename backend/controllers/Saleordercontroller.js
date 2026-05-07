@@ -1,4 +1,4 @@
-import SaleOrder      from "../models/SaleOrder.js";
+import SaleOrder      from "../models/Saleorder.js";
 import BioburgPayment from "../models/Bioburgpayment.js";
 import MarketingAgent from "../models/MarketingAgent.model.js";
 
