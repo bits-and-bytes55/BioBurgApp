@@ -24,32 +24,93 @@ export const createResponse = async (req, res) => {
   try {
     const agentId = getAgentId(req);
     const {
-      placeName, placeType, address,
-      contactPerson, contactRole, phone,
-      responseStatus, productDiscussed, remarks,
-      nextAction, followUpDate,
-      hasOrder, orderValue,
-    } = req.body;
+  // Place
+  placeName,
+  placeType,
+  address,
+  state,
+  district,
+  city,
+  pincode,
 
-    if (!placeName || !contactPerson) {
+  // Contact
+  contactPerson,
+  contactRole,
+  phone,
+  alternatePhone,
+  whatsappPhone,
+  qualification,
+  designation,
+  dob,
+  anniversary,
+
+  // Visit
+  responseStatus,
+  productDiscussed,
+  remarks,
+  nextAction,
+  followUpDate,
+
+  gst,
+  licenses,
+
+  // Order
+  hasOrder,
+  orderValue,
+  linkedOrderId,
+} = req.body;
+
+    if (!placeName || !contactPerson || !phone) {
       return res.status(400).json({
         success: false,
-        message: "Place name and contact person are required",
+        message: "Place name, contact person and phone are required",
       });
     }
 
     // Save the response
-    const response = await AgentResponse.create({
-      agentId,
-      placeName, placeType, address,
-      contactPerson, contactRole, phone,
-      responseStatus, productDiscussed, remarks,
-      nextAction,
-      followUpDate: followUpDate || undefined,
-      hasOrder: !!hasOrder,
-      orderValue: hasOrder ? Number(orderValue || 0) : 0,
-    });
+  const response = await AgentResponse.create({
+  agentId,
 
+  // Place
+  placeName,
+  placeType: placeType || "Hospital",
+  address: address || "",
+  state: state || "",
+  district: district || "",
+  city: city || "",
+  pincode: pincode || "",
+  contactPerson,
+contactRole: contactRole || "",
+phone: phone || "",
+alternatePhone: alternatePhone || "",
+whatsappPhone: whatsappPhone || "",
+gst: gst || "",
+licenses: Array.isArray(licenses)
+  ? licenses.filter(Boolean)
+  : [],
+qualification: qualification || "",
+designation: designation || "",
+dob: dob || "",
+anniversary: anniversary || "",
+
+  // Visit
+  responseStatus,
+  productDiscussed: productDiscussed || "",
+  remarks: remarks || "",
+  nextAction,
+
+  followUpDate: followUpDate || undefined,
+
+  // Order
+  hasOrder: !!hasOrder,
+
+  orderValue:
+    hasOrder && !isNaN(Number(orderValue))
+      ? Number(orderValue)
+      : 0,
+
+  linkedOrderId: linkedOrderId || null,
+});
     // Auto-award points
     const baseEntry = await awardPoints(
       agentId,

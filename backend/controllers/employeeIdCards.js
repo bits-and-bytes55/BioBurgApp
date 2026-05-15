@@ -1,5 +1,7 @@
 import cloudinary from "../config/cloudinary.js";
 import EmployeeIDCard from "../models/employeeIdCards.js";
+import IDCardSettings from "../models/idCardSettings.js";
+import DeliveryAgent from "../models/DeliveryAgent.js";
 import { deleteFromCloudinary } from "../utils/cloudinaryDelete.js"; 
 
 
@@ -17,6 +19,198 @@ const uploadBase64 = async (base64DataUrl, folder, publicIdPrefix) => {
   return { url: result.secure_url, publicId: result.public_id };
 };
 
+const uploadSettingImageIfBase64 = async (value, oldPublicId, field) => {
+  if (!value) return {};
+
+  if (!value.startsWith("data:")) {
+    return { [field]: value };
+  }
+
+  if (oldPublicId) {
+    await deleteFromCloudinary(oldPublicId);
+  }
+
+  const { url, publicId } = await uploadBase64(
+    value,
+    "bioburg/id-card-settings",
+    field
+  );
+
+  return {
+    [field]: url,
+    [`${field}PublicId`]: publicId,
+  };
+};
+
+export const getIDCardSettings = async (req, res) => {
+  try {
+    let settings = await IDCardSettings.findOne();
+
+    if (!settings) {
+      settings = await IDCardSettings.create({});
+    }
+
+    return res.json({ success: true, settings });
+  } catch (err) {
+    console.error("getIDCardSettings error:", err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+export const updateIDCardSettings = async (req, res) => {
+  try {
+    let settings = await IDCardSettings.findOne();
+
+    if (!settings) {
+      settings = await IDCardSettings.create({});
+    }
+
+    const body = req.body || {};
+
+    const imageUpdates = {
+      ...(await uploadSettingImageIfBase64(body.frontLogo, settings.frontLogoPublicId, "frontLogo")),
+      ...(await uploadSettingImageIfBase64(body.backLogo, settings.backLogoPublicId, "backLogo")),
+      ...(await uploadSettingImageIfBase64(body.authorityStamp, settings.authorityStampPublicId, "authorityStamp")),
+    };
+
+    const updates = {
+      companyName: body.companyName,
+      subtitle: body.subtitle,
+      cardColors: body.cardColors,
+      mottoTitle: body.mottoTitle,
+      mottos: body.mottos,
+      termsTitle: body.termsTitle,
+      termsText: body.termsText,
+      returnTitle: body.returnTitle,
+      addressLine1: body.addressLine1,
+      addressLine2: body.addressLine2,
+      email: body.email,
+      phone: body.phone,
+      website: body.website,
+      footerNote: body.footerNote,
+      ...imageUpdates,
+    };
+
+    Object.keys(updates).forEach((key) => {
+      if (updates[key] === undefined) delete updates[key];
+    });
+
+    const updated = await IDCardSettings.findByIdAndUpdate(settings._id, updates, {
+      new: true,
+      runValidators: true,
+    });
+
+    return res.json({ success: true, settings: updated });
+  } catch (err) {
+    console.error("updateIDCardSettings error:", err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+export const getDeliveryAgentsForIDCards = async (req, res) => {
+  try {
+    const agents = await DeliveryAgent.find({
+      status: { $in: ["approved", "pending", "draft"] },
+      isActive: true,
+    })
+      .select("-password")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const cards = await EmployeeIDCard.find({
+      sourceModel: "DeliveryAgent",
+      isActive: true,
+    })
+      .select("employeeRef employeeId name cardImage cardImageBack issuedAt isActive")
+      .lean();
+
+    const issuedMap = new Map(
+      cards.map((card) => [String(card.employeeRef), card])
+    );
+
+    const data = agents.map((agent) => {
+      const issuedCard = issuedMap.get(String(agent._id)) || null;
+
+      return {
+        _id: agent._id,
+        id: agent._id,
+
+        employeeRef: agent._id,
+        employeeId: agent.agentId || String(agent._id).slice(-8).toUpperCase(),
+
+        sourceModel: "DeliveryAgent",
+        source: "Delivery Agent",
+
+        name: agent.name || "-",
+        email: agent.email || "",
+        phone: agent.phone || "",
+        photo: agent.documents?.passportPhoto || "",
+
+        designation: "Delivery Agent",
+        department: "Delivery",
+        location: agent.assignedArea || "India",
+
+        agentId: agent.agentId,
+        assignedArea: agent.assignedArea,
+        vehicleType: agent.vehicleType,
+        vehicleNumber: agent.vehicleNumber,
+        drivingLicence: agent.drivingLicence,
+        panCard: agent.panCard,
+        personalInsuranceNumber: agent.personalInsuranceNumber,
+        vehicleInsuranceNumber: agent.vehicleInsuranceNumber,
+        documents: agent.documents,
+        status: agent.status,
+
+        hasIDCard: Boolean(issuedCard),
+        alreadyIssuedCard: issuedCard,
+        idCard: issuedCard,
+
+        rawData: agent,
+        createdAt: agent.createdAt,
+      };
+    });
+
+    return res.json({
+      success: true,
+      agents: data,
+      data,
+      total: data.length,
+    });
+  } catch (err) {
+    console.error("getDeliveryAgentsForIDCards error:", err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Server error",
+    });
+  }
+};
+
+export const getDriverIDCard = async (req, res) => {
+  try {
+    const card = await EmployeeIDCard.findOne({
+      employeeRef: req.params.agentId,
+      sourceModel: "DeliveryAgent",
+      isActive: true,
+    })
+      .sort({ issuedAt: -1 })
+      .lean();
+
+    return res.json({
+      success: true,
+      card: card || null,
+      data: card || null,
+    });
+  } catch (err) {
+    console.error("getDriverIDCard error:", err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Server error",
+    });
+  }
+};
+
+
+
 //  CREATE — issue a new ID card 
 export const issueIDCard = async (req, res) => {
   try {
@@ -24,10 +218,13 @@ export const issueIDCard = async (req, res) => {
       employeeRef, sourceModel, employeeId,
       name, email, phone, source,
       designation, department, location, validTill, dateOfBirth,
-      photo,         
-      cardImage,      
-      cardImageBack, 
+      photo,
+      cardImage,
+      cardImageBack,
+      cardColors,
+      cardGlobalContent,
       issuedAt,
+
     } = req.body;
 
     if (!employeeId || !name) {
@@ -64,6 +261,8 @@ export const issueIDCard = async (req, res) => {
       cardImagePublicId:  frontUpload.publicId,
       cardImageBack:         backUpload.url,
       cardImageBackPublicId: backUpload.publicId,
+      cardColors,
+      cardGlobalContent,
       issuedAt: issuedAt ? new Date(issuedAt) : new Date(),
     });
 
@@ -120,14 +319,23 @@ export const reissueIDCard = async (req, res) => {
 
     const {
       designation, department, location, validTill, dateOfBirth,
-      photo, cardImage, cardImageBack,
+      photo, cardImage, cardImageBack, cardColors, cardGlobalContent,
+
     } = req.body;
 
     const folder = "bioburg/employee-id-cards";
-    const updates = { designation, department, location };
+const updates = {};
 
-    if (validTill)   updates.validTill   = new Date(validTill);
-    if (dateOfBirth) updates.dateOfBirth = new Date(dateOfBirth);
+if (designation !== undefined) updates.designation = designation;
+if (department !== undefined) updates.department = department;
+if (location !== undefined) updates.location = location;
+
+if (cardColors) updates.cardColors = cardColors;
+if (cardGlobalContent) updates.cardGlobalContent = cardGlobalContent;
+
+if (validTill) updates.validTill = new Date(validTill);
+if (dateOfBirth) updates.dateOfBirth = new Date(dateOfBirth);
+
 
     // Re-upload front if new base64 provided
     if (cardImage && cardImage.startsWith("data:")) {
@@ -163,7 +371,7 @@ export const reissueIDCard = async (req, res) => {
   }
 };
 
-// ── DELETE ────────────────────────────────────────────────────────────────────
+// ── DELETE 
 export const deleteIDCard = async (req, res) => {
   try {
     const card = await EmployeeIDCard.findById(req.params.id);
@@ -184,7 +392,7 @@ export const deleteIDCard = async (req, res) => {
   }
 };
 
-// ── SOFT DELETE (deactivate) ──────────────────────────────────────────────────
+//  SOFT DELETE (deactivate) 
 export const deactivateIDCard = async (req, res) => {
   try {
     const card = await EmployeeIDCard.findByIdAndUpdate(

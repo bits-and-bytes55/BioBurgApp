@@ -1,18 +1,10 @@
 import express from "express";
-
-import {
-  createProductFeedback,
-  getAllProductFeedbacks,
-} from "../controllers/pfController.js";
+import { createProductFeedback, getAllProductFeedbacks } from "../controllers/pfController.js";
+import { protectAgent } from "../middleware/marketingAgenTauthMiddleware.js";
 
 const router = express.Router();
 
-
-// PUBLIC SUBMIT
-router.post("/product-feedback", createProductFeedback);
-
-
-// OPTIONAL ADMIN FETCH
-router.get("/product-feedback", getAllProductFeedbacks);
+router.post("/product-feedback", protectAgent, createProductFeedback);
+router.get("/product-feedback",  protectAgent, getAllProductFeedbacks);
 
 export default router;

@@ -6,9 +6,21 @@ const giftDistributionSchema = new mongoose.Schema(
     agent: { type: mongoose.Schema.Types.ObjectId, ref: "MarketingAgent",  required: true },
 
     recipientName:    { type: String, required: true, trim: true },
-    recipientType:    { type: String, enum: ["Doctor","Chemist","Stockist","Hospital","Clinic","Other"], required: true },
+    recipientType: {
+  type: String,
+  enum: [
+    "Doctor", "Physician", "Chemist", "Pharmacist", "Stockist",
+    "Hospital", "Clinic", "Nursing Home", "Manager", "Purchase Manager",
+    "Receptionist", "Nurse", "Lab Technician", "Owner",
+    "Administrator", "Other"
+  ],
+  required: true
+},
     recipientContact: { type: String, default: "" },
     area:             { type: String, default: "" },
+
+    proofImage:   { url: String, public_id: String },
+    customerTier: { type: String, enum: ['A','B','C','D'] },
 
     quantity:  { type: Number, required: true, min: 1 },
     occasion:  { type: String, default: "" },

@@ -3,18 +3,28 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 
 //  Constants 
 const ACTIVITIES = [
-  'Doctor Visit - Clinic','Doctor Visit - Hospital','Doctor Visit - Chamber',
-  'Face to Face Meeting','Virtual Meeting','Products Detailing','Products Addressing',
-  'Sample Distribution','Literature Distribution','Hospital Round','Nursing Home',
-  'Clinic Chain','Diagnostic Centre','Path Lab','Radiology Centre','Blood Bank',
-  'Pharmacy College','Distributor Meeting','Stockist Visit','Retailer Visit',
-  'Medical Store','Wholesaler','Chemist Shop','Pharmacy Chain','Office Meeting',
-  'Team Meeting','Sales Review','Training Session','Coaching Session',
-  'Joint Field Work','End of Day Reporting','Virtual Team Huddle','Morning Briefing',
-  'Admin Task','HR Task','Marketing Task','Superior Assignment','Data Entry',
-  'Report Submission','Compliance Task',
+  'Doctor Visit',
+  'Hospital Visit',
+  'Clinic Visit',
+  'Chemist Visit',
+  'Distributor Meeting',
+  'Retailer Visit',
+  'Product Detailing',
+  'Sample Distribution',
+  'Team Meeting',
+  'Sales Review',
+  'Training Session',
+  'Joint Field Work',
+  'Market Survey',
+  'Order Collection',
+  'Payment Collection',
+  'Complaint Handling',
+  'Follow-up Visit',
+  'Virtual Meeting',
+  'Reporting',
+  'Admin Work',
+  'Other',
 ]
-
 const STATUSES        = ['pending','in-progress','completed','cancelled','deferred']
 const PRIORITIES      = ['low','medium','high']
 const ACTION_STATUSES = ['satisfactory','successful','progress','revisit-required','order-placed','order-collected']
@@ -44,11 +54,6 @@ const PRIORITY_COLORS = {
   high:   { bg:'#FCEBEB', color:'#A32D2D' },
 }
 
-// ─────────────────────────────────────────────────────────────
-//  FIX 1: toStr uses LOCAL timezone, not UTC
-//  Original: d.toISOString().slice(0,10)  ← wrong for UTC+5:30
-//  Fixed:    use getFullYear/getMonth/getDate (local time)
-// ─────────────────────────────────────────────────────────────
 const toStr = d => {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
@@ -74,18 +79,16 @@ const normalizeLocType = v => {
 }
 
 const emptyTask = (date='') => ({
-  id:uid(), date, activity:'', timeSlot:'', bufferFrom:'', bufferTo:'',
+  id:uid(), date, activity:'', timeSlot:'09:00', bufferFrom:'', bufferTo:'',
   dayOfWeek:'', location:'', locationType:'in-station', contactPerson:'',
   contactNumber:'', target:'', status:'pending', actionStatus:'progress',
   priority:'medium', revisitDate:'', orderDetails:'', notes:'',
   fieldCalls:0, faceToFace:0, virtualMeet:0, productDetail:0,
   coordination:0, jointWork:0, coaching:0, training:0,
-  subActivity:'', assignedBy:'',
+  subActivity:'', assignedBy:'',state:'',district:'',
+city:'',pincode:'',
 })
 
-// ─────────────────────────────────────────────────────────────
-//  FIX 2: localStorage helpers — always use local-timezone key
-// ─────────────────────────────────────────────────────────────
 const LS_PREFIX = 'wp_v2_'
 
 const lsKey = (planType, startDate) => `${LS_PREFIX}${planType}_${startDate}`
@@ -234,22 +237,20 @@ const MiniCalendar = ({ month, onPrev, onNext, onClickDay, rangeStart, rangeEnd,
 // Activity Form
 const ActivityForm = ({ task, onSave, onDelete, onCancel, extraActivities, onAddActivity }) => {
   const [form, setForm] = useState({ ...emptyTask(task?.date||todayStr()), ...task })
-  const [customAct, setCustomAct] = useState('')
-  const [showCustom, setShowCustom] = useState(false)
   const allActivities = [...new Set([...ACTIVITIES, ...extraActivities])]
   const set = (k,v) => setForm(f=>({...f,[k]:v}))
 
   const handleSave = () => {
     if (!form.activity) { alert('Please select an activity'); return }
     if (!form.date) { alert('Please select a date'); return }
-    onSave({ ...form, locationType: normalizeLocType(form.locationType) })
-  }
-
-  const addCustom = () => {
-    if (!customAct.trim()) return
-    onAddActivity(customAct.trim())
-    set('activity', customAct.trim())
-    setCustomAct(''); setShowCustom(false)
+    onSave({
+  ...form,
+  activity:
+    form.activity === 'Other'
+      ? form.customActivity || 'Other'
+      : form.activity,
+  locationType: normalizeLocType(form.locationType),
+})
   }
 
   const r2 = { display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }
@@ -277,33 +278,100 @@ const ActivityForm = ({ task, onSave, onDelete, onCancel, extraActivities, onAdd
       </div>
 
       <FF label="Activity *">
-        <div style={{ display:'flex', gap:6 }}>
-          <select value={form.activity} onChange={e=>set('activity',e.target.value)} style={{...inputSt,flex:1}}>
-            <option value="">Select activity…</option>
-            {allActivities.map(a=><option key={a}>{a}</option>)}
-          </select>
-          <button onClick={()=>setShowCustom(s=>!s)} style={{ ...btnOutline, fontSize:11 }}>+ Custom</button>
-        </div>
-        {showCustom&&(
-          <div style={{ display:'flex',gap:6,marginTop:4 }}>
-            <input value={customAct} onChange={e=>setCustomAct(e.target.value)} placeholder="New activity name…"
-              style={{...inputSt,flex:1}} onKeyDown={e=>e.key==='Enter'&&addCustom()}/>
-            <button onClick={addCustom} style={{ ...btnPrimary, fontSize:11 }}>Add</button>
-          </div>
-        )}
-      </FF>
+  <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+    <select
+      value={form.activity === 'Other' ? 'Other' : form.activity}
+      onChange={e => {
+        if (e.target.value === 'Other') {
+          set('activity', 'Other')
+        } else {
+          set('activity', e.target.value)
+        }
+      }}
+      style={{ ...inputSt, flex:1 }}
+    >
+      <option value="">Select activity…</option>
+      {allActivities.map(a => (
+        <option key={a}>{a}</option>
+      ))}
+    </select>
+
+    {form.activity === 'Other' && (
+      <input
+        type="text"
+        placeholder="Enter custom activity..."
+        value={form.customActivity || ''}
+        onChange={e => set('customActivity', e.target.value)}
+        style={inputSt}
+      />
+    )}
+  </div>
+</FF>
 
       <FF label="Sub Activity"><input value={form.subActivity} onChange={e=>set('subActivity',e.target.value)} placeholder="Optional detail" style={inputSt}/></FF>
 
       <div style={r2}>
-        <FF label="Location"><input value={form.location} onChange={e=>set('location',e.target.value)} placeholder="Place name" style={inputSt}/></FF>
-        <FF label="Location Type">
-          <select value={form.locationType} onChange={e=>set('locationType',e.target.value)} style={inputSt}>
-            <option value="in-station">In-Station</option>
-            <option value="out-station">Out-Station</option>
-          </select>
-        </FF>
-      </div>
+  <FF label="State">
+    <input
+      value={form.state || ''}
+      onChange={e => set('state', e.target.value)}
+      placeholder="State"
+      style={inputSt}
+    />
+  </FF>
+
+  <FF label="District">
+    <input
+      value={form.district || ''}
+      onChange={e => set('district', e.target.value)}
+      placeholder="District"
+      style={inputSt}
+    />
+  </FF>
+</div>
+
+<div style={r2}>
+  <FF label="Tehsil / City">
+    <input
+      value={form.city || ''}
+      onChange={e => set('city', e.target.value)}
+      placeholder="Tehsil or City"
+      style={inputSt}
+    />
+  </FF>
+
+  <FF label="Pincode">
+    <input
+      value={form.pincode || ''}
+      onChange={e => set('pincode', e.target.value)}
+      placeholder="Pincode"
+      maxLength={6}
+      style={inputSt}
+    />
+  </FF>
+</div>
+
+<div style={r2}>
+  <FF label="Full Address / Area">
+    <input
+      value={form.location || ''}
+      onChange={e => set('location', e.target.value)}
+      placeholder="Area / Market / Hospital / Landmark"
+      style={inputSt}
+    />
+  </FF>
+
+  <FF label="Location Type">
+    <select
+      value={form.locationType}
+      onChange={e => set('locationType', e.target.value)}
+      style={inputSt}
+    >
+      <option value="in-station">In-Station</option>
+      <option value="out-station">Out-Station</option>
+    </select>
+  </FF>
+</div>
 
       <div style={r2}>
         <FF label="Contact Person"><input value={form.contactPerson} onChange={e=>set('contactPerson',e.target.value)} style={inputSt}/></FF>
@@ -345,11 +413,11 @@ const ActivityForm = ({ task, onSave, onDelete, onCancel, extraActivities, onAdd
       </div>
 
       <div style={r2}>
-        <FF label="Target"><input value={form.target} onChange={e=>set('target',e.target.value)} placeholder="e.g. 5 visits" style={inputSt}/></FF>
-        <FF label="Order / Revenue (₹)"><input value={form.orderDetails} onChange={e=>set('orderDetails',e.target.value)} placeholder="Product | 5000" style={inputSt}/></FF>
+        <FF label="Assessment Points Target"><input value={form.target} onChange={e=>set('target',e.target.value)} placeholder="e.g. 5 visits" style={inputSt}/></FF>
+        <FF label="Assessment Amount Target"><input value={form.orderDetails} onChange={e=>set('orderDetails',e.target.value)} placeholder="Product | 5000" style={inputSt}/></FF>
       </div>
 
-      <FF label="Assigned By"><input value={form.assignedBy} onChange={e=>set('assignedBy',e.target.value)} placeholder="Manager / Admin / HR" style={inputSt}/></FF>
+      <FF label="Task Assigned By"><input value={form.assignedBy} onChange={e=>set('assignedBy',e.target.value)} placeholder="Manager / Admin / HR" style={inputSt}/></FF>
 
       <FF label="Notes">
         <textarea value={form.notes} onChange={e=>set('notes',e.target.value)}
@@ -358,10 +426,64 @@ const ActivityForm = ({ task, onSave, onDelete, onCancel, extraActivities, onAdd
       </FF>
 
       <div style={{ display:'flex', gap:8, paddingTop:4, flexWrap:'wrap' }}>
-        {onDelete&&<button onClick={onDelete} style={btnDanger}>Delete</button>}
-        <button onClick={onCancel} style={{ ...btnOutline, marginLeft:onDelete?0:'auto' }}>Cancel</button>
-        <button onClick={handleSave} style={btnPrimary}>Save Activity</button>
-      </div>
+  {onDelete && (
+    <button onClick={onDelete} style={btnDanger}>
+      Delete
+    </button>
+  )}
+
+  <button
+    onClick={onCancel}
+    style={{ ...btnOutline, marginLeft:onDelete ? 0 : 'auto' }}
+  >
+    Cancel
+  </button>
+
+  <button
+    onClick={handleSave}
+    style={btnPrimary}
+  >
+    Save Activity
+  </button>
+
+  {!onDelete && (
+    <button
+      onClick={() => {
+        if (!form.activity) {
+          alert('Please select an activity')
+          return
+        }
+
+        const savedTask = {
+          ...form,
+          activity:
+            form.activity === 'Other'
+              ? form.customActivity || 'Other'
+              : form.activity,
+          locationType: normalizeLocType(form.locationType),
+        }
+
+        onSave(savedTask, true)
+
+        // Reset form for next activity same date
+        setForm({
+          ...emptyTask(form.date),
+          date: form.date,
+          dayOfWeek: form.dayOfWeek,
+          locationType: form.locationType,
+        })
+      }}
+      style={{
+        ...btnOutline,
+        borderColor:'#378ADD',
+        color:'#185FA5',
+        fontWeight:600,
+      }}
+    >
+      + Save & Add More
+    </button>
+  )}
+</div>
     </div>
   )
 }
@@ -461,9 +583,7 @@ const Toast = ({ msg, type='success' }) => {
   )
 }
 
-// ══════════════════════════════════════════════════════════════
-//  MAIN COMPONENT
-// ══════════════════════════════════════════════════════════════
+
 export default function WorkingPlan({ planTypeKey }) {
   const { w } = useWindowSize()
   const mob   = w < 640
@@ -487,7 +607,7 @@ export default function WorkingPlan({ planTypeKey }) {
   const [dayViewDate,     setDayViewDate]     = useState(null)
   const [searchQ,         setSearchQ]         = useState('')
   const [filterStatus,    setFilterStatus]    = useState('all')
-  const [agentInfo,       setAgentInfo]       = useState({ name:'', id:'', region:'', manager:'' })
+  const [agentInfo,       setAgentInfo]       = useState({ name:'', id:'', region:''})
   const [loading,         setLoading]         = useState(false)
   const [saving,          setSaving]          = useState(false)
   const [planExists,      setPlanExists]      = useState(false)
@@ -514,12 +634,6 @@ export default function WorkingPlan({ planTypeKey }) {
 
   useEffect(()=>setSidebarOpen(!mob), [mob])
 
-  // ─────────────────────────────────────────────────────────────
-  //  FIX 5: Compute rangeEnd and startDate SYNCHRONOUSLY,
-  //  avoid the double-fetch caused by two separate useEffects.
-  //  Instead of: effect1 → setRangeEnd → re-render → effect2 runs twice
-  //  We compute rangeEnd inline when planType/rangeStart changes.
-  // ─────────────────────────────────────────────────────────────
   const computedRangeEnd = (() => {
     const end = new Date(rangeStart)
     end.setDate(rangeStart.getDate() + PLAN_TYPES[planType].period - 1)
@@ -528,15 +642,45 @@ export default function WorkingPlan({ planTypeKey }) {
   const startDateStr = toStr(rangeStart)
   const endDateStr   = toStr(computedRangeEnd)
 
-  // Keep rangeEnd state in sync (needed for calendar highlight)
+  useEffect(() => {
+  const fetchAgentProfile = async () => {
+    try {
+      const token = localStorage.getItem("agentToken")
+
+      const res = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/api/marketing-agent/profile`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      )
+
+      const data = await res.json()
+      const agent = data.data || data.agent || data
+
+      setAgentInfo({
+  name: agent.name || "",
+  id:
+  agent.agentId ||
+  agent.employeeId ||
+  agent.customId ||
+  `DA${String(agent._id).slice(-6).toUpperCase()}`,
+  region: agent.assignedArea || "",
+})
+    } catch (err) {
+      console.error("Failed to fetch agent profile", err)
+    }
+  }
+
+  fetchAgentProfile()
+}, [])
+
   useEffect(() => {
     setRangeEnd(computedRangeEnd)
-  }, [planType, startDateStr]) // eslint-disable-line
+  }, [planType, startDateStr]) 
 
-  // ─────────────────────────────────────────────────────────────
-  //  FIX 6: fetchPlan now uses computed dates directly
-  //  (no stale closure on rangeEnd)
-  // ─────────────────────────────────────────────────────────────
   const fetchPlan = useCallback(async (pType, sDate, eDate) => {
     setLoading(true)
 
@@ -549,7 +693,7 @@ export default function WorkingPlan({ planTypeKey }) {
       setEndOfDayReport(cached.endOfDayReport || '')
       setSuperiorNotes(cached.superiorNotes || '')
       setExtraActivities(cached.extraActivities || [])
-      setAgentInfo(cached.agentInfo || { name:'', id:'', region:'', manager:'' })
+      setAgentInfo(cached.agentInfo || { name:'', id:'', region:''})
       setPlanExists(true)
     }
 
@@ -557,10 +701,11 @@ export default function WorkingPlan({ planTypeKey }) {
       const plan = await loadPlan({ planType: pType, startDate: sDate, endDate: eDate })
       if (plan) {
         setPlanExists(true)
-        setAgentInfo({
-          name: plan.agentName || '', id: plan.agentId || '',
-          region: plan.agentRegion || '', manager: plan.reportingManager || ''
-        })
+  setAgentInfo(prev => ({
+    name: plan.agentName || prev.name,   
+    id:   plan.agentId   || prev.id,
+    region: plan.agentRegion || prev.region,
+  }))
         const serverTasks = (plan.tasks||[]).map(t=>({
           ...emptyTask(),
           ...t,
@@ -575,7 +720,7 @@ export default function WorkingPlan({ planTypeKey }) {
         setExtraActivities(plan.extraActivities || [])
         setHasUnsaved(false)
         // Update localStorage with fresh server data
-        lsSave(pType, sDate, { tasks: serverTasks, dailyTarget: plan.dailyTarget, weeklyMetrics: plan.weeklyMetrics, endOfDayReport: plan.endOfDayReport, superiorNotes: plan.superiorNotes, extraActivities: plan.extraActivities, agentInfo: { name:plan.agentName||'', id:plan.agentId||'', region:plan.agentRegion||'', manager:plan.reportingManager||'' } })
+        lsSave(pType, sDate, { tasks: serverTasks, dailyTarget: plan.dailyTarget, weeklyMetrics: plan.weeklyMetrics, endOfDayReport: plan.endOfDayReport, superiorNotes: plan.superiorNotes, extraActivities: plan.extraActivities, agentInfo: { name:plan.agentName||'', id:plan.agentId||'', region:plan.agentRegion||''} })
       } else if (!cached?.tasks?.length) {
         // Only clear if no cached data either
         setPlanExists(false)
@@ -593,33 +738,52 @@ export default function WorkingPlan({ planTypeKey }) {
     }
   }, [loadPlan])
 
-  // ── Fetch whenever planType or startDate changes
   useEffect(() => {
-    setHasUnsaved(false)
-    fetchPlan(planType, startDateStr, endDateStr)
-  }, [planType, startDateStr]) // eslint-disable-line
+  isFirstLoad.current = true   // ← reset so auto-save doesn't fire on fresh load
+  setHasUnsaved(false)
+  fetchPlan(planType, startDateStr, endDateStr)
+}, [planType, startDateStr])
 
-  // ─────────────────────────────────────────────────────────────
-  //  FIX 8: Auto-save to localStorage whenever tasks change
-  //  (debounced 800ms) — this is the main fix for data loss
-  // ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (isFirstLoad.current) return   // don't auto-save on initial load
-    if (tasks.length === 0 && !hasUnsaved) return  // nothing new to save
+  if (isFirstLoad.current) return
 
-    setHasUnsaved(true)
-    clearTimeout(autoSaveTimer.current)
+  clearTimeout(autoSaveTimer.current)
 
-    autoSaveTimer.current = setTimeout(() => {
+  // immediately show unsaved
+  setHasUnsaved(true)
+  setAutoSaveStatus('saving')
+
+  autoSaveTimer.current = setTimeout(async () => {
+    try {
       const payload = buildPayload()
+
+      // save locally first
       lsSave(planType, startDateStr, payload)
+
+      // sync backend
+      await savePlan(payload)
+
+      // success state
+      setHasUnsaved(false)
       setAutoSaveStatus('saved')
-      setTimeout(()=>setAutoSaveStatus(''), 2000)
-    }, 800)
 
-    return () => clearTimeout(autoSaveTimer.current)
-  }, [tasks, weeklyMetrics, endOfDayReport, superiorNotes, dailyTarget]) // eslint-disable-line
+      setTimeout(() => {
+        setAutoSaveStatus('')
+      }, 2000)
 
+    } catch (err) {
+      console.error('Auto-save failed:', err)
+
+      // keep local cache even if backend fails
+      setHasUnsaved(true)
+      setAutoSaveStatus('error')
+    }
+  }, 1200)
+
+  return () => clearTimeout(autoSaveTimer.current)
+
+}, [tasks,weeklyMetrics,endOfDayReport,superiorNotes,dailyTarget])  // eslint-disable-line
+ 
   // Build payload for both auto-save and server save
   const buildPayload = () => ({
     planType,
@@ -627,7 +791,7 @@ export default function WorkingPlan({ planTypeKey }) {
     endDate:   endDateStr,
     date:      startDateStr,
     agentName: agentInfo.name, agentId: agentInfo.id,
-    agentRegion: agentInfo.region, reportingManager: agentInfo.manager,
+    agentRegion: agentInfo.region,
     dailyTarget, weeklyMetrics, endOfDayReport, superiorNotes, extraActivities,
     agentInfo,
     tasks: tasks.map(t=>({ ...t, locationType: normalizeLocType(t.locationType) })),
@@ -663,11 +827,16 @@ export default function WorkingPlan({ planTypeKey }) {
   })
   const removeTask = id => setTasks(prev=>prev.filter(t=>t.id!==id))
 
-  const handleSaveTask = task => {
-    upsertTask(task)
-    flash(editTask ? 'Activity updated.' : 'Activity added.')
-    setPanelMode(null); setEditTask(null)
+  const handleSaveTask = (task, keepOpen = false) => {
+  upsertTask(task)
+
+  flash(editTask ? 'Activity updated.' : 'Activity added.')
+
+  if (!keepOpen) {
+    setPanelMode(null)
+    setEditTask(null)
   }
+}
   const handleDeleteTask = () => {
     if (!editTask||!window.confirm('Delete this activity?')) return
     removeTask(editTask.id); flash('Activity deleted.'); setPanelMode(null); setEditTask(null)
@@ -741,10 +910,28 @@ export default function WorkingPlan({ planTypeKey }) {
                 Agent Info
                 {mob&&<button onClick={()=>setSidebarOpen(false)} style={{ background:'none',border:'none',cursor:'pointer',fontSize:18,color:'#bbb',lineHeight:1 }}>×</button>}
               </div>
-              {[['name','Agent Name'],['id','Agent ID'],['region','Region'],['manager','Manager']].map(([k,ph])=>(
-                <input key={k} value={agentInfo[k]} onChange={e=>setAgentInfo(a=>({...a,[k]:e.target.value}))}
-                  placeholder={ph} style={{ ...inputSt, marginBottom:5, fontSize:11, padding:'5px 7px' }}/>
-              ))}
+              {[
+  ['name', 'Agent Name'],
+  ['id', 'Agent ID'],
+  ['region', 'Region']
+].map(([k, ph]) => (
+  <input
+    key={k}
+    value={agentInfo[k] || ''}
+    readOnly
+    placeholder={ph}
+    style={{
+      ...inputSt,
+      marginBottom: 5,
+      fontSize: 11,
+      padding: '5px 7px',
+      background: '#f3f4f6',
+      cursor: 'not-allowed',
+      color: '#555',
+    }}
+  />
+))}
+              
             </div>
 
             {/* Plan Type */}
@@ -857,10 +1044,69 @@ export default function WorkingPlan({ planTypeKey }) {
           <div style={{ minWidth:0, flex:1 }}>
             <div style={{ fontSize:mob?12:14, fontWeight:700, color:'#222' }}>
               {planLabel}
-              {planExists && !hasUnsaved && <span style={{ fontSize:9, background:'#E1F5EE', color:'#0F6E56', borderRadius:3, padding:'1px 6px', marginLeft:6, fontWeight:700 }}>SAVED</span>}
-              {/* ── FIX: show unsaved badge ── */}
-              {hasUnsaved && <span style={{ fontSize:9, background:'#FEF3C7', color:'#92400E', borderRadius:3, padding:'1px 6px', marginLeft:6, fontWeight:700 }}>UNSAVED</span>}
-              {loading && <span style={{ fontSize:9, background:'#E6F1FB', color:'#185FA5', borderRadius:3, padding:'1px 6px', marginLeft:6, fontWeight:700 }}>LOADING…</span>}
+              {loading && (
+  <span
+    style={{
+      fontSize:9,
+      background:'#E6F1FB',
+      color:'#185FA5',
+      borderRadius:3,
+      padding:'1px 6px',
+      marginLeft:6,
+      fontWeight:700
+    }}
+  >
+    LOADING...
+  </span>
+)}
+
+{autoSaveStatus === 'saving' && (
+  <span
+    style={{
+      fontSize:9,
+      background:'#E6F1FB',
+      color:'#185FA5',
+      borderRadius:3,
+      padding:'1px 6px',
+      marginLeft:6,
+      fontWeight:700
+    }}
+  >
+    SAVING...
+  </span>
+)}
+
+{autoSaveStatus === 'saved' && (
+  <span
+    style={{
+      fontSize:9,
+      background:'#E1F5EE',
+      color:'#0F6E56',
+      borderRadius:3,
+      padding:'1px 6px',
+      marginLeft:6,
+      fontWeight:700
+    }}
+  >
+    SAVED
+  </span>
+)}
+
+{autoSaveStatus === 'error' && (
+  <span
+    style={{
+      fontSize:9,
+      background:'#FCEBEB',
+      color:'#A32D2D',
+      borderRadius:3,
+      padding:'1px 6px',
+      marginLeft:6,
+      fontWeight:700
+    }}
+  >
+    OFFLINE
+  </span>
+)}
             </div>
             <div style={{ fontSize:10, color:'#999', marginTop:1 }}>
               {agentInfo.name&&<span style={{ color:'#378ADD', fontWeight:700, marginRight:6 }}>{agentInfo.name}</span>}
@@ -967,9 +1213,9 @@ export default function WorkingPlan({ planTypeKey }) {
                       <BadgeLabel label={t.priority} {...pc}/> <BadgeLabel label={t.status} {...sc}/>
                     </div>
                     <div style={{ fontSize:10, color:'#999', display:'flex', gap:8, flexWrap:'wrap' }}>
-                      {t.timeSlot&&<span>🕐 {t.timeSlot}</span>}
-                      {t.location&&<span>📍 {t.location}</span>}
-                      {t.contactPerson&&<span>👤 {t.contactPerson}</span>}
+                      {t.timeSlot&&<span>{t.timeSlot}</span>}
+                      {t.location&&<span>{t.location}</span>}
+                      {t.contactPerson&&<span>{t.contactPerson}</span>}
                     </div>
                     {t.notes&&<div style={{ fontSize:10, color:'#bbb', marginTop:4, fontStyle:'italic' }}>{t.notes.slice(0,80)}{t.notes.length>80?'…':''}</div>}
                   </div>

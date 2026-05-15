@@ -1,4 +1,4 @@
-// pages/DailyExpenses.jsx — fully connected, budget from real DB
+// pages/DailyExpenses.jsx
 import { useState, useEffect, useCallback } from 'react'
 import {
   Box, Paper, Grid, TextField, MenuItem, Button, Typography,
@@ -7,11 +7,7 @@ import {
   Tooltip, Dialog, DialogTitle, DialogContent, DialogActions,
   Divider, useMediaQuery, useTheme,
 } from '@mui/material'
-import {
-  Add, Delete, AttachMoney, Receipt, FileDownload, Refresh,
-  Save, Send, CheckCircle, History,
-  WarningAmber, ArrowBackIos, ArrowForwardIos,
-} from '@mui/icons-material'
+import { Add, Delete, AttachMoney, Receipt, FileDownload, Refresh, Save, Send, CheckCircle, Cancel, History, WarningAmber, ArrowBackIos, ArrowForwardIos } from '@mui/icons-material'
 import PageShell from './Pageshell'
 
 const BASE = import.meta.env.VITE_API_BASE_URL;
@@ -55,7 +51,7 @@ export default function DailyExpenses() {
   const now = new Date()
   const [year,      setYear]      = useState(now.getFullYear())
   const [month,     setMonth]     = useState(now.getMonth()+1)
-  const [summary,   setSummary]   = useState(null)   // includes monthlyLimit from DB
+  const [summary,   setSummary]   = useState(null)   
   const [monthRecs, setMonthRecs] = useState([])
 
   const [loading,     setLoading]     = useState(false)
@@ -71,7 +67,7 @@ export default function DailyExpenses() {
   const token   = localStorage.getItem('agentToken')
   const headers = { Authorization:`Bearer ${token}`, 'Content-Type':'application/json' }
 
-  // ── Load day's expense ─────────────────────────────────────────────────────
+  //  Load day's expense 
   const loadExpense = useCallback(async () => {
     setLoading(true); setError('')
     try {
@@ -89,7 +85,7 @@ export default function DailyExpenses() {
     finally { setLoading(false) }
   }, [date])
 
-  // ── Load month summary — budget comes from here (real DB value) ────────────
+  // Load month summary — budget comes from here (real DB value) 
   const loadSummary = useCallback(async () => {
     try {
       const [sumRes, recRes] = await Promise.all([
@@ -102,23 +98,31 @@ export default function DailyExpenses() {
     } catch {}
   }, [year, month])
 
-  useEffect(() => { loadExpense() }, [loadExpense])
-  useEffect(() => { loadSummary() }, [loadSummary])
+useEffect(() => { loadExpense() }, [loadExpense])
+useEffect(() => { loadSummary() }, [loadSummary])
 
-  // ── Entry helpers ──────────────────────────────────────────────────────────
+useEffect(() => {
+  if (status !== 'submitted') return
+  const interval = setInterval(() => {
+    loadExpense()
+    loadSummary()
+  }, 30000)
+  return () => clearInterval(interval)
+}, [status, loadExpense, loadSummary])
+
+  //  Entry helpers 
   const addEntry    = () => setEntries(p => [...p, emptyEntry()])
   const removeEntry = (id) => setEntries(p => p.filter(e => e._localId !== id))
   const updateEntry = (id, k, v) => setEntries(p => p.map(e => e._localId === id ? {...e,[k]:v} : e))
 
-  // ── Derived — budget now from real summary.monthlyLimit ───────────────────
   const todayTotal  = entries.reduce((s,e) => s+(parseFloat(e.amount)||0), 0)
   const monthSpent  = summary?.totalSpent    ?? 0
-  const budget      = summary?.monthlyLimit  ?? 0    // real value from MarketingAgent model
-  const budgetPct   = summary?.budgetPct     ?? 0    // pre-computed on server
-  const balanceLeft = summary?.balanceLeft   ?? 0    // pre-computed on server
+  const budget      = summary?.monthlyLimit  ?? 0    
+  const budgetPct   = summary?.budgetPct     ?? 0    
+  const balanceLeft = summary?.balanceLeft   ?? 0  
   const isSubmitted = status === 'submitted' || status === 'approved'
 
-  // ── Validation ─────────────────────────────────────────────────────────────
+  //  Validation 
   const validateAll = () => {
     const all = {}
     entries.forEach(e => {
@@ -176,7 +180,6 @@ export default function DailyExpenses() {
     finally { setSaving(false) }
   }
 
-  // ── Export CSV ─────────────────────────────────────────────────────────────
   const exportCSV = () => {
     const hdr  = ['Date','Category','Amount (₹)','Description','Vendor','Bill No.','Receipt','Status']
     const rows = entries.map(e => [
@@ -188,11 +191,9 @@ export default function DailyExpenses() {
     a.download = `expenses-${date}.csv`; a.click()
   }
 
-  // ── Month navigation ───────────────────────────────────────────────────────
   const prevMonth = () => { if (month===1){setYear(y=>y-1);setMonth(12)} else setMonth(m=>m-1) }
   const nextMonth = () => { if (month===12){setYear(y=>y+1);setMonth(1)} else setMonth(m=>m+1) }
 
-  // ── Add custom category ────────────────────────────────────────────────────
   const handleAddCategory = () => {
     const t = newCat.trim()
     if (!t) return
@@ -339,7 +340,7 @@ export default function DailyExpenses() {
                 </Paper>
               </Box>
 
-            // ── Desktop table ─────────────────────────────────────────
+            // Desktop table 
             : <TableContainer>
                 <Table size="small">
                   <TableHead>
@@ -424,16 +425,45 @@ export default function DailyExpenses() {
           </>
         )}
         {isSubmitted && (
-          <Box sx={{display:'flex',alignItems:'center',gap:1}}>
-            <CheckCircle sx={{color:'success.main'}}/>
-            <Typography sx={{fontWeight:600,color:'success.main'}}>
-              {status==='approved' ? 'Approved by manager' : 'Submitted — awaiting approval'}
-            </Typography>
-          </Box>
-        )}
+  <Box sx={{
+    display:'flex', alignItems:'center', gap:1.5, px:2.5, py:1.5,
+    borderRadius:2, border:'1px solid',
+    bgcolor: status === 'approved' ? '#f0fdf4' : status === 'rejected' ? '#fef2f2' : '#eff6ff',
+    borderColor: status === 'approved' ? '#bbf7d0' : status === 'rejected' ? '#fecaca' : '#bfdbfe',
+  }}>
+    {status === 'approved' && <CheckCircle sx={{color:'#16a34a', fontSize:20}}/>}
+    {status === 'rejected' && <Cancel sx={{color:'#dc2626', fontSize:20}}/>}
+    {status === 'submitted' && <CircularProgress size={16} sx={{color:'#1d4ed8'}}/>}
+    <Box>
+      <Typography sx={{
+        fontWeight:700, fontSize:14,
+        color: status==='approved' ? '#16a34a' : status==='rejected' ? '#dc2626' : '#1d4ed8'
+      }}>
+        {status === 'approved' && 'Expense Approved ✓'}
+        {status === 'rejected' && 'Expense Rejected'}
+        {status === 'submitted' && 'Submitted — awaiting approval'}
+      </Typography>
+      {status === 'approved' && record?.approvedAt && (
+        <Typography sx={{fontSize:11, color:'#15803d'}}>
+          Approved on {new Date(record.approvedAt).toLocaleDateString('en-IN', {day:'numeric', month:'long', year:'numeric'})}
+        </Typography>
+      )}
+      {status === 'rejected' && record?.rejectedReason && (
+        <Typography sx={{fontSize:11, color:'#dc2626'}}>
+          Reason: {record.rejectedReason}
+        </Typography>
+      )}
+    </Box>
+    {/* Manual refresh button */}
+    <IconButton size="small" onClick={() => { loadExpense(); loadSummary() }}
+      sx={{ml:'auto', color: status==='approved' ? '#16a34a' : '#64748b'}}>
+      <Refresh sx={{fontSize:16}}/>
+    </IconButton>
+  </Box>
+)}
       </Box>
 
-      {/* ══════════ HISTORY DIALOG ══════════ */}
+      {/* HISTORY DIALOG  */}
       <Dialog open={historyOpen} onClose={() => setHistoryOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile}>
         <DialogTitle sx={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:1}}>
           <Box sx={{display:'flex',alignItems:'center',gap:1}}><History/> Monthly Expense History</Box>

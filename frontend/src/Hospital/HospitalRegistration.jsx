@@ -13,8 +13,7 @@ import {
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 
-const BASE_API = import.meta.env.VITE_API_BASE_URL || 'https://bioburglifescience-1.onrender.com';
-
+const BASE_API = import.meta.env.VITE_API_BASE_URL || 'https://bioburgapp.onrender.com';
 const StyledPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(4), borderRadius: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
 }));

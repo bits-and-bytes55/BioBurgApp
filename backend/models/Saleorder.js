@@ -33,8 +33,11 @@ const saleOrderSchema = new mongoose.Schema({
   customerName:    { type: String, required: true },
   customerPhone:   { type: String, default: "" },
   customerAddress: { type: String, default: "" },
-  customerGST:     { type: String, default: "" },
-  visitArea:       { type: String, default: "" },
+  customerGST:              { type: String, default: "" },
+  customerAlternatePhone:   { type: String, default: "" },
+  customerWhatsappPhone:    { type: String, default: "" },
+  customerLicenses:         { type: [String], default: [] },
+  visitArea:                { type: String, default: "" },
 
   // Items
   items:        { type: [saleOrderItemSchema], default: [] },

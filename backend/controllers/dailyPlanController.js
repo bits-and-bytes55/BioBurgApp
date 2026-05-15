@@ -38,7 +38,7 @@ export const getPlan = async (req, res) => {
   }
 };
 
-// ── GET  /api/daily-plan/:date  (daily shorthand) ────────────────
+// GET  /api/daily-plan/:date  (daily shorthand) 
 export const getDailyPlan = async (req, res) => {
   try {
     const { date } = req.params;
@@ -63,7 +63,7 @@ export const getDailyPlan = async (req, res) => {
   }
 };
 
-// ── POST /api/daily-plan/:planType/upsert ────────────────────────
+// POST /api/daily-plan/:planType/upsert 
 export const upsertPlan = async (req, res) => {
   try {
     const { planType } = req.params;
@@ -131,7 +131,7 @@ export const upsertPlan = async (req, res) => {
   }
 };
 
-// ── DELETE /api/daily-plan/:planType/:startDate/:endDate ─────────
+//  DELETE /api/daily-plan/:planType/:startDate/:endDate 
 export const deletePlan = async (req, res) => {
   try {
     const { planType, startDate, endDate } = req.params;

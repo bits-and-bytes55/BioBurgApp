@@ -19,6 +19,17 @@ const fmtDate = (d) =>
 const fmtDateShort = (d) =>
   d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
+const LEAVE_TYPES = [
+  { value: "EL",  label: "Earned Leave (EL)" },
+  { value: "CL",  label: "Casual Leave (CL)" },
+  { value: "SL",  label: "Sick Leave (SL)" },
+  { value: "ML",  label: "Medical Leave" },
+  { value: "MAL", label: "Maternity Leave (ML)" },
+  { value: "PL",  label: "Paternity Leave" },
+  { value: "CO",  label: "Compensatory Off (Comp-off)" },
+  { value: "LWP", label: "Leave Without Pay (LWP)" },
+];
+
 // Image loader 
 async function loadImg(src) {
   return new Promise(resolve => {
@@ -275,56 +286,331 @@ function IDCardModal({ frontImg, backImg, card, onClose }) {
 }
 
 //  Leave Modal 
-function LeaveModal({ onClose, onSubmit }) {
-  const [form, setForm] = useState({ leaveType:"casual", fromDate:"", toDate:"", reason:"" });
+// Leave Modal
+function LeaveModal({ onClose, onSubmit, agent, idCard }) {
+  const [form, setForm] = useState({
+    name: agent?.name || "",
+    enrollId: idCard?.employeeId || "",
+    dateJoining: agent?.createdAt ? agent.createdAt.split("T")[0] : "",
+    designation: idCard?.designation || agent?.designation || "",
+    workingAddress: agent?.address || "",
+    level: agent?.level || "",
+    ppaNo: agent?.ppaNo || "",
+    aadharNo: agent?.aadharNo || "",
+    panNo: agent?.panNo || "",
+    employmentType: "Permanent",
+    leaveType: "CL",
+    halfDay: false,
+    halfDaySession: "Forenoon",
+    fromDate: "",
+    toDate: "",
+    leaveAddress: "",
+    leaveAddressType: "In-Station",
+    leaveAddressContact: "",
+    reason: "",
+    medicalCertificate: null,
+    supportDocument: null,
+    othersInfo: "",
+    remarks: "",
+  });
   const [submitting, setSubmitting] = useState(false);
+  const set = (key, val) => setForm(p => ({ ...p, [key]: val }));
+
+  const isCL  = form.leaveType === "CL";
+  const isML  = form.leaveType === "ML";
+  const isPL  = form.leaveType === "PL";
+  const isMAL = form.leaveType === "MAL";
+  const needsDoc = isML || isPL || isMAL;
+
+  const totalDays = form.halfDay
+    ? 0.5
+    : form.fromDate && form.toDate
+      ? Math.max(1, Math.ceil((new Date(form.toDate) - new Date(form.fromDate)) / 86400000) + 1)
+      : 0;
+
+  // Leave balance rules info
+  const leaveRules = {
+    EL:  "Credited annually (15 days). Half-yearly credit: 15+15.",
+    CL:  "Credited annually. Half-day (Forenoon/Afternoon) allowed.",
+    SL:  "Credited annually.",
+    ML:  "Valid medical certificate required at time of application.",
+    MAL: "Credited on request. Supporting documents required.",
+    PL:  "Credited on request. Supporting documents required.",
+    CO:  "Compensatory Off — raised after working on a holiday.",
+    LWP: "Leave Without Pay. Deduction adjusted in current month's salary.",
+  };
 
   const handleSubmit = async () => {
-    if (!form.fromDate || !form.toDate) { toast.error("Please select both dates"); return; }
+    if (!form.fromDate && !form.halfDay) { toast.error("Please select a From date"); return; }
+    if (!form.halfDay && !form.toDate)   { toast.error("Please select a To date"); return; }
+    if (!form.reason.trim())             { toast.error("Please provide a reason"); return; }
+    if (isML && !form.medicalCertificate) {
+      toast.error("Medical certificate is required for Medical Leave"); return;
+    }
+    if ((isPL || isMAL) && !form.supportDocument) {
+      toast.error("Supporting document is required for this leave type"); return;
+    }
     setSubmitting(true);
-    await onSubmit(form);
+
+    const toBase64 = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.readAsDataURL(file);
+
+    reader.onload = () => resolve(reader.result);
+
+    reader.onerror = reject;
+  });
+
+let medicalCertificate = "";
+let supportDocument = "";
+
+if (form.medicalCertificate) {
+  medicalCertificate = await toBase64(form.medicalCertificate);
+}
+
+if (form.supportDocument) {
+  supportDocument = await toBase64(form.supportDocument);
+}
+
+const payload = {
+  ...form,
+  totalDays,
+  medicalCertificate,
+  supportDocument,
+};
+
+await onSubmit(payload);
     setSubmitting(false);
   };
 
+  const inp = {
+    width: "100%", padding: "8px 10px", borderRadius: 7,
+    border: "1.5px solid #e5e7eb", fontSize: 12.5, outline: "none",
+    fontFamily: "inherit", background: "#fff", boxSizing: "border-box",
+  };
+  const lbl = {
+    fontSize: 11, fontWeight: 700, color: "#374151",
+    display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".04em",
+  };
+  const sec = {
+    fontSize: 12, fontWeight: 800, color: "#fff", background: "#1e3a5f",
+    padding: "7px 14px", borderRadius: 7, margin: "16px 0 10px", letterSpacing: ".05em",
+  };
+  const g2 = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 };
+  const g3 = { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 };
+
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-      <div style={{ background:"#fff", borderRadius:16, width:"100%", maxWidth:440, padding:24, boxShadow:"0 24px 60px rgba(0,0,0,0.18)" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
-          <h3 style={{ margin:0, fontSize:16, fontWeight:800, color:"#1e3a5f" }}>🏖️ Apply for Leave</h3>
-          <button onClick={onClose} style={{ background:"#f3f4f6", border:"none", borderRadius:8, width:32, height:32, cursor:"pointer", fontSize:18 }}>×</button>
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:1000, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:16, overflowY:"auto" }}>
+      <div style={{ background:"#fff", borderRadius:16, width:"100%", maxWidth:620, padding:24, boxShadow:"0 24px 60px rgba(0,0,0,0.2)", margin:"auto" }}>
+
+        {/* ── Header ── */}
+        <div style={{ textAlign:"center", marginBottom:16, padding:14, background:"linear-gradient(135deg,#1e3a5f,#26bfbf)", borderRadius:10 }}>
+          <p style={{ margin:"0 0 2px", fontSize:10, color:"rgba(255,255,255,0.7)", letterSpacing:".1em" }}>BIOBURG LIFESCIENCES</p>
+          <h3 style={{ margin:"0 0 2px", fontSize:16, fontWeight:900, color:"#fff" }}>Leave Application</h3>
+          <p style={{ margin:0, fontSize:10, color:"rgba(255,255,255,0.6)" }}>Plot No. A-53, F/F, S/F Floor, Kh No-544, Village-Nawada, Rama Park, Mohan Garden, Uttam Nagar, New Delhi-110059</p>
         </div>
-        <div style={{ display:"flex", flexDirection:"column", gap:13 }}>
+
+        {/* ── IMPORTANT NOTES ── */}
+        <div style={{ background:"#fffbeb", border:"1.5px solid #fde68a", borderRadius:10, padding:"10px 14px", marginBottom:4 }}>
+          <p style={{ margin:"0 0 6px", fontSize:11.5, fontWeight:800, color:"#92400e" }}>Important Notes Before Applying</p>
+          {[
+            "Leave can only be applied if credits are available in your Self Leave Profile.",
+            "If one leave is under process, another leave cannot be applied until it is sanctioned/approved.",
+            "EL: Annually credited | Half-yearly: 15+15 days.",
+            "CL: Half-day (Forenoon / Afternoon) option available.",
+            "Medical Leave: Valid medical certificate must be attached.",
+            "Maternity / Paternity Leave: Supporting documents required.",
+            "LWP: Deduction will be adjusted in the current month's salary slip.",
+          ].map((note, i) => (
+            <p key={i} style={{ margin:"2px 0", fontSize:11, color:"#78350f" }}>• {note}</p>
+          ))}
+        </div>
+
+        {/* ── SECTION 1: Employee Info (auto-filled) ── */}
+        <div style={sec}>👤 Employee Information</div>
+        <div style={g2}>
+          {[["Full Name","name"],["Enrol ID","enrollId"]].map(([label, key]) => (
+            <div key={key}>
+              <label style={lbl}>{label}</label>
+              <input value={form[key]} onChange={e => set(key, e.target.value)} style={{ ...inp, background:"#f9fafb" }} />
+            </div>
+          ))}
+        </div>
+        <div style={{ ...g2, marginTop:10 }}>
           <div>
-            <label style={{ fontSize:12, fontWeight:700, color:"#374151", display:"block", marginBottom:5 }}>Leave Type</label>
-            <select value={form.leaveType} onChange={e => setForm(p => ({...p, leaveType: e.target.value}))}
-              style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #e5e7eb", fontSize:13, outline:"none", fontFamily:"inherit", background:"#fff" }}>
-              <option value="casual">Casual Leave</option>
-              <option value="sick">Sick Leave</option>
-              <option value="earned">Earned Leave</option>
-              <option value="emergency">Emergency Leave</option>
+            <label style={lbl}>Date of Joining</label>
+            <input type="date" value={form.dateJoining} onChange={e => set("dateJoining", e.target.value)} style={{ ...inp, background:"#f9fafb" }} />
+          </div>
+          <div>
+            <label style={lbl}>Designation</label>
+            <input value={form.designation} onChange={e => set("designation", e.target.value)} style={{ ...inp, background:"#f9fafb" }} />
+          </div>
+        </div>
+        <div style={{ marginTop:10 }}>
+          <label style={lbl}>Working Address</label>
+          <input value={form.workingAddress} onChange={e => set("workingAddress", e.target.value)} style={{ ...inp, background:"#f9fafb" }} />
+        </div>
+        <div style={{ ...g3, marginTop:10 }}>
+          {[["Level","level"],["PPA No","ppaNo"],["Aadhar No","aadharNo"]].map(([label, key]) => (
+            <div key={key}>
+              <label style={lbl}>{label}</label>
+              <input value={form[key]} onChange={e => set(key, e.target.value)} style={inp} />
+            </div>
+          ))}
+        </div>
+        <div style={{ ...g2, marginTop:10 }}>
+          <div>
+            <label style={lbl}>PAN No</label>
+            <input value={form.panNo} onChange={e => set("panNo", e.target.value)} style={inp} />
+          </div>
+          <div>
+            <label style={lbl}>Type of Employment</label>
+            <select value={form.employmentType} onChange={e => set("employmentType", e.target.value)} style={inp}>
+              {["Permanent","Part-time","Contract","Probation"].map(t => <option key={t}>{t}</option>)}
             </select>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-            {[["From Date","fromDate"],["To Date","toDate"]].map(([label, key]) => (
-              <div key={key}>
-                <label style={{ fontSize:12, fontWeight:700, color:"#374151", display:"block", marginBottom:5 }}>{label}</label>
-                <input type="date" value={form[key]} onChange={e => setForm(p => ({...p, [key]: e.target.value}))}
-                  style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #e5e7eb", fontSize:13, outline:"none", fontFamily:"inherit", boxSizing:"border-box" }} />
+        </div>
+
+        {/* ── SECTION 2: Leave Type ── */}
+        <div style={sec}>Leave Type & Duration</div>
+
+        <div>
+          <label style={lbl}>Type of Leave</label>
+          <select value={form.leaveType} onChange={e => set("leaveType", e.target.value)} style={inp}>
+            {LEAVE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
+        </div>
+
+        {/* Leave rule info pill */}
+        <div style={{ marginTop:8, padding:"8px 12px", background:"#f0f9ff", border:"1px solid #bae6fd", borderRadius:8 }}>
+          <p style={{ margin:0, fontSize:11, color:"#0369a1" }}>{leaveRules[form.leaveType]}</p>
+        </div>
+
+        {/* Half-day — CL only */}
+        {isCL && (
+          <div style={{ marginTop:10, padding:"10px 14px", background:"#f5f3ff", border:"1.5px solid #ddd6fe", borderRadius:9 }}>
+            <label style={{ display:"flex", alignItems:"center", gap:8, cursor:"pointer", fontWeight:700, fontSize:12.5, color:"#4c1d95" }}>
+              <input type="checkbox" checked={form.halfDay} onChange={e => set("halfDay", e.target.checked)}
+                style={{ width:16, height:16, cursor:"pointer" }} />
+              Apply for Half Day (Casual Leave only)
+            </label>
+            {form.halfDay && (
+              <div style={{ display:"flex", gap:10, marginTop:10 }}>
+                {["Forenoon","Afternoon"].map(s => (
+                  <button key={s} onClick={() => set("halfDaySession", s)}
+                    style={{ flex:1, padding:"8px 0", border:`1.5px solid ${form.halfDaySession===s?"#7c3aed":"#ddd6fe"}`, borderRadius:8, background:form.halfDaySession===s?"#7c3aed":"#fff", color:form.halfDaySession===s?"#fff":"#4c1d95", fontWeight:700, cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>
+                    {s === "Forenoon" ? "Forenoon (1st half)" : "Afternoon (2nd half)"}
+                  </button>
+                ))}
               </div>
+            )}
+          </div>
+        )}
+
+        {/* Date range — hidden if half-day with single date */}
+        {!form.halfDay ? (
+          <div style={{ ...g2, marginTop:10 }}>
+            <div>
+              <label style={lbl}>From Date</label>
+              <input type="date" value={form.fromDate} onChange={e => set("fromDate", e.target.value)} style={inp} />
+            </div>
+            <div>
+              <label style={lbl}>To Date</label>
+              <input type="date" value={form.toDate} onChange={e => { set("toDate", e.target.value); }} style={inp} min={form.fromDate} />
+            </div>
+          </div>
+        ) : (
+          <div style={{ marginTop:10 }}>
+            <label style={lbl}>Date of Half Day</label>
+            <input type="date" value={form.fromDate} onChange={e => { set("fromDate", e.target.value); set("toDate", e.target.value); }} style={inp} />
+          </div>
+        )}
+
+        {/* Total days pill */}
+        {totalDays > 0 && (
+          <div style={{ background:"#f0fdf4", border:"1.5px solid #86efac", borderRadius:8, padding:"8px 14px", marginTop:8, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <span style={{ fontSize:12, color:"#15803d", fontWeight:600 }}>📅 Total Leave Days</span>
+            <span style={{ fontSize:15, fontWeight:800, color:"#15803d" }}>
+              {totalDays} {totalDays === 0.5 ? "Day (Half)" : totalDays === 1 ? "Day" : "Days"}
+            </span>
+          </div>
+        )}
+
+        {/* Document upload for ML / PL / MAL */}
+        {needsDoc && (
+          <div style={{ marginTop:10, padding:"10px 14px", background:"#fef2f2", border:"1.5px solid #fca5a5", borderRadius:9 }}>
+            <p style={{ margin:"0 0 8px", fontSize:11.5, fontWeight:800, color:"#991b1b" }}>
+              {isML ? "Medical Certificate Required" : "Supporting Document Required"}
+            </p>
+            <label style={lbl}>{isML ? "Upload Medical Certificate" : "Upload Supporting Document"}</label>
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png"
+              onChange={e => set(isML ? "medicalCertificate" : "supportDocument", e.target.files[0])}
+              style={{ ...inp, padding:"6px 8px", cursor:"pointer" }} />
+            <p style={{ margin:"5px 0 0", fontSize:10.5, color:"#b91c1c" }}>Accepted: PDF, JPG, PNG. Max 5MB.</p>
+          </div>
+        )}
+
+        {/* ── SECTION 3: Leave Address ── */}
+        <div style={sec}>Address During Leave</div>
+        <div>
+          <div style={{ display:"flex", gap:10, marginBottom:10 }}>
+            {["In-Station","Out-Station"].map(t => (
+              <button key={t} onClick={() => set("leaveAddressType", t)}
+                style={{ flex:1, padding:"8px 0", border:`1.5px solid ${form.leaveAddressType===t?"#1e3a5f":"#e5e7eb"}`, borderRadius:8, background:form.leaveAddressType===t?"#1e3a5f":"#f9fafb", color:form.leaveAddressType===t?"#fff":"#374151", fontWeight:700, cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>
+                {t === "In-Station" ? "In-Station" : "Out-Station"}
+              </button>
             ))}
           </div>
-          <div>
-            <label style={{ fontSize:12, fontWeight:700, color:"#374151", display:"block", marginBottom:5 }}>Reason</label>
-            <textarea value={form.reason} onChange={e => setForm(p => ({...p, reason: e.target.value}))}
-              placeholder="Briefly describe reason for leave..."
-              style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #e5e7eb", fontSize:13, outline:"none", fontFamily:"inherit", minHeight:80, resize:"vertical", boxSizing:"border-box" }} />
+          <label style={lbl}>Leave Address</label>
+          <textarea value={form.leaveAddress} onChange={e => set("leaveAddress", e.target.value)}
+            placeholder="Full address where you'll be staying during leave…"
+            style={{ ...inp, minHeight:60, resize:"vertical" }} />
+          <div style={{ marginTop:10 }}>
+            <label style={lbl}>Contact No at Leave Address</label>
+            <input value={form.leaveAddressContact} onChange={e => set("leaveAddressContact", e.target.value)}
+              style={inp} placeholder="Emergency contact number during leave" />
           </div>
         </div>
-        <div style={{ display:"flex", gap:10, marginTop:18 }}>
-          <button onClick={onClose} style={{ flex:1, padding:"10px 0", background:"#f3f4f6", border:"none", borderRadius:10, fontWeight:600, cursor:"pointer", fontSize:13 }}>Cancel</button>
+
+        {/* ── SECTION 4: Reason ── */}
+        <div style={sec}>✍️ Reason & Remarks</div>
+        <div>
+          <label style={lbl}>Reason for Leave <span style={{ color:"#ef4444" }}>*</span></label>
+          <textarea value={form.reason} onChange={e => set("reason", e.target.value)}
+            placeholder="Mention purpose / reason for leave…"
+            style={{ ...inp, minHeight:70, resize:"vertical" }} />
+        </div>
+        <div style={{ marginTop:10 }}>
+          <label style={lbl}>Others Info</label>
+          <input value={form.othersInfo} onChange={e => set("othersInfo", e.target.value)} style={inp} placeholder="Any additional information…" />
+        </div>
+        <div style={{ marginTop:10 }}>
+          <label style={lbl}>Remarks</label>
+          <textarea value={form.remarks} onChange={e => set("remarks", e.target.value)}
+            style={{ ...inp, minHeight:48, resize:"vertical" }} placeholder="Any remarks…" />
+        </div>
+
+        {/* ── Footer ── */}
+        <div style={{ marginTop:14, padding:"8px 12px", background:"#f9fafb", borderRadius:8, border:"1px solid #e5e7eb", textAlign:"center" }}>
+          <p style={{ margin:0, fontSize:10.5, color:"#6b7280", fontStyle:"italic" }}>
+            ** System generated leave application — no physical attestation required **
+          </p>
+          <p style={{ margin:"3px 0 0", fontSize:10.5, color:"#6b7280" }}>
+            With-Pay leave calculation will be reflected in the monthly salary slip.
+          </p>
+        </div>
+
+        {/* ── Actions ── */}
+        <div style={{ display:"flex", gap:10, marginTop:16 }}>
+          <button onClick={onClose}
+            style={{ flex:1, padding:"11px 0", background:"#f3f4f6", border:"none", borderRadius:10, fontWeight:600, cursor:"pointer", fontSize:13, fontFamily:"inherit" }}>
+            Cancel
+          </button>
           <button onClick={handleSubmit} disabled={submitting}
-            style={{ flex:2, padding:"10px 0", background:"#1e3a5f", color:"#fff", border:"none", borderRadius:10, fontWeight:700, cursor:"pointer", fontSize:13, opacity:submitting?0.7:1 }}>
-            {submitting ? "Submitting…" : "Submit Request"}
+            style={{ flex:2, padding:"11px 0", background:"linear-gradient(135deg,#1e3a5f,#26bfbf)", color:"#fff", border:"none", borderRadius:10, fontWeight:800, cursor:"pointer", fontSize:13, fontFamily:"inherit", opacity:submitting?0.7:1 }}>
+            {submitting ? "Submitting…" : "Submit Leave Application"}
           </button>
         </div>
       </div>
@@ -412,7 +698,7 @@ export default function AgentProfile() {
   const fetchSlips = async () => {
     setSlipsLoading(true);
     try {
-      const res = await axios.get(`${API}/api/marketing-agent/salary-slips`, { headers: agentHeaders() });
+      const res = await axios.get(`${API}/api/points/agent/slip/$`, { headers: agentHeaders() });
       setSlips(res.data.slips || res.data.data || []);
     } catch { setSlips([]); }
     setSlipsLoading(false);
@@ -431,15 +717,21 @@ export default function AgentProfile() {
   };
 
   const handleLeaveSubmit = async (leaveForm) => {
-    try {
-      await axios.post(`${API}/api/marketing-agent/leaves`, leaveForm, { headers: agentHeaders() });
-      toast.success("Leave request submitted!");
-      setShowLeaveModal(false);
-      fetchLeaves();
-    } catch (err) {
-      toast.error(err?.response?.data?.message || "Failed to submit leave");
-    }
-  };
+  try {
+    await axios.post(
+  `${API}/api/marketing-agent/leaves`,
+  leaveForm,
+  {
+    headers: agentHeaders(),
+  }
+);
+    toast.success("Leave request submitted!");
+    setShowLeaveModal(false);
+    fetchLeaves();
+  } catch (err) {
+    toast.error(err?.response?.data?.message || "Failed to submit leave");
+  }
+};
 
   if (loading) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", minHeight:"60vh", flexDirection:"column", gap:12 }}>
@@ -523,8 +815,13 @@ export default function AgentProfile() {
           />
         )}
         {showLeaveModal && (
-          <LeaveModal onClose={() => setShowLeaveModal(false)} onSubmit={handleLeaveSubmit} />
-        )}
+  <LeaveModal
+    onClose={() => setShowLeaveModal(false)}
+    onSubmit={handleLeaveSubmit}
+    agent={agent}
+    idCard={idCard}
+  />
+)}
 
         <div className="ap-cover" />
 
@@ -698,7 +995,7 @@ export default function AgentProfile() {
                 <div style={{ overflowX:"auto" }}>
                   <table className="ap-ltbl">
                     <thead>
-                      <tr>{["Type","From","To","Days","Status"].map(h => <th key={h}>{h}</th>)}</tr>
+                      <tr>{["Type","From","To","Days","Address Type","Status"].map(h => <th key={h}>{h}</th>)}</tr>
                     </thead>
                     <tbody>
                       {leaves.slice(0, 10).map((l, i) => {
@@ -707,16 +1004,17 @@ export default function AgentProfile() {
                         const ss = lss(l.status);
                         return (
                           <tr key={i}>
-                            <td style={{ fontWeight:600, textTransform:"capitalize" }}>{l.leaveType || "Leave"}</td>
-                            <td>{fmtDateShort(l.fromDate)}</td>
-                            <td>{fmtDateShort(l.toDate)}</td>
-                            <td style={{ textAlign:"center", fontWeight:700 }}>{days}</td>
-                            <td>
-                              <span style={{ display:"inline-block", padding:"3px 10px", borderRadius:20, fontSize:11, fontWeight:700, background:ss.bg, color:ss.color }}>
-                                {l.status ? l.status.charAt(0).toUpperCase() + l.status.slice(1) : "Pending"}
-                              </span>
-                            </td>
-                          </tr>
+  <td style={{ fontWeight:600 }}>{l.leaveType || "Leave"}</td>
+  <td>{fmtDateShort(l.fromDate)}</td>
+  <td>{fmtDateShort(l.toDate)}</td>
+  <td style={{ textAlign:"center", fontWeight:700 }}>{l.totalDays || days}</td>
+  <td style={{ fontSize:11, color:"#6b7280" }}>{l.leaveAddressType || "—"}</td>
+  <td>
+    <span style={{ display:"inline-block", padding:"3px 10px", borderRadius:20, fontSize:11, fontWeight:700, background:ss.bg, color:ss.color }}>
+      {l.status ? l.status.charAt(0).toUpperCase() + l.status.slice(1) : "Pending"}
+    </span>
+  </td>
+</tr>
                         );
                       })}
                     </tbody>

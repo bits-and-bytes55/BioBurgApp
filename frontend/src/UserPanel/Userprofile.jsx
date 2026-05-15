@@ -296,8 +296,7 @@ export default function UserProfile() {
   });
   const navigate = useNavigate();
 
-  const BASE_API = 'https://bioburglifescience-1.onrender.com';
-  // const BASE_API = import.meta.env.VITE_API_BASE_URL;
+  const BASE_API = 'https://bioburgapp.onrender.com';  // const BASE_API = import.meta.env.VITE_API_BASE_URL;
   console.log();
 
   useEffect(() => {

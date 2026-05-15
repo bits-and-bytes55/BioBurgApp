@@ -1,11 +1,11 @@
 // controllers/dailyExpensesController.js
 import DailyExpense from "../models/dailyExpenses.js";
 import MarketingAgent from "../models/MarketingAgent.model.js"; 
+import SalaryWallet from "../models/salaryWallet.js";
+import SalaryTransaction from "../models/salaryTransaction.js";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
-//  GET /api/expenses/budget 
-// Reads real budget from agent's profile. Falls back to 8000 if not set.
 export const getBudget = async (req, res) => {
   try {
     const agent = await MarketingAgent.findById(req.user.id).select("monthlyExpenseBudget name");
@@ -16,8 +16,6 @@ export const getBudget = async (req, res) => {
   }
 };
 
-//  PATCH /api/expenses/budget 
-// Admin / HR sets per-agent monthly budget
 export const setBudget = async (req, res) => {
   try {
     const { monthlyLimit } = req.body;
@@ -91,8 +89,6 @@ export const getMonthExpenses = async (req, res) => {
   }
 };
 
-//  GET /api/expenses/summary/:year/:month 
-// Returns real totals AND real budget from agent profile in a single response
 export const getMonthlySummary = async (req, res) => {
   try {
     const agentId = req.user.id;
@@ -128,6 +124,120 @@ export const getMonthlySummary = async (req, res) => {
         budgetPct:    monthlyLimit > 0 ? Math.min(Math.round((totalSpent / monthlyLimit) * 100), 100) : 0,
       },
     });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+//  GET /api/expenses/admin/all/:year/:month 
+export const getAllAgentsExpenses = async (req, res) => {
+  try {
+    const { year, month } = req.params;
+    const from = `${year}-${String(month).padStart(2, "0")}-01`;
+    const to   = `${year}-${String(month).padStart(2, "0")}-31`;
+
+    const records = await DailyExpense.find({
+      date: { $gte: from, $lte: to },
+    })
+      .populate("agent", "name email phone assignedArea")
+      .sort({ date: -1 });
+
+    res.json({ success: true, records });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+//  PATCH /api/expenses/admin/:expenseId/approve 
+export const approveExpense = async (req, res) => {
+  try {
+    const record = await DailyExpense.findById(req.params.expenseId);
+
+    if (!record) {
+      return res.status(404).json({
+        success: false,
+        message: "Not found",
+      });
+    }
+
+    // Prevent double credit
+    if (record.status === "approved") {
+      return res.status(400).json({
+        success: false,
+        message: "Expense already approved",
+      });
+    }
+
+    // Approve expense
+    record.status = "approved";
+    record.approvedBy = req.user?.name || req.user?.email || "Admin";
+    record.approvedAt = new Date();
+    record.rejectedReason = undefined;
+
+    await record.save();
+
+    const amount = record.totalAmount || 0;
+
+    let wallet = await SalaryWallet.findOne({
+      agent: record.agent,
+    });
+
+    // Create wallet if not exists
+    if (!wallet) {
+      wallet = await SalaryWallet.create({
+        agent: record.agent,
+        balance: 0,
+        totalEarned: 0,
+        totalPaidOut: 0,
+      });
+    }
+
+    // Credit amount
+    wallet.balance += amount;
+    wallet.totalEarned += amount;
+
+    await wallet.save();
+
+    // Transaction history
+    await SalaryTransaction.create({
+      agent: record.agent,
+      amount,
+      type: "credit",
+      source: "expense_approval",
+      expenseId: record._id,
+      expenseDate: record.date,
+      note: `Expense approved for ${record.date}`,
+    });
+
+    res.json({
+      success: true,
+      expense: record,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+// PATCH /api/expenses/admin/:expenseId/reject 
+export const rejectExpense = async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const record = await DailyExpense.findById(req.params.expenseId);
+    if (!record) return res.status(404).json({ success: false, message: "Not found" });
+
+    record.status          = "rejected";
+    record.rejectedReason  = reason || "Rejected by admin";
+    record.approvedBy      = undefined;
+    record.approvedAt      = undefined;
+    await record.save();
+
+    res.json({ success: true, expense: record });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

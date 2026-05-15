@@ -146,6 +146,12 @@ const AgentSidebar = ({ darkMode, mobileOpen, onMobileClose }) => {
       section: 'Field Work',
       items: [
         {
+          text: 'Working Plan',      icon: <Map />, key: 'plan',
+          children: [
+            { text: 'Everyday Plans',           path: '/agent/plan/daily' },
+          ]
+        },
+        {
           text: 'Daily Call Report', icon: <Assignment />, key: 'dcr',
           children: [
             { text: 'New DCR Entry',        path: '/agent/dcr/new' },
@@ -153,12 +159,7 @@ const AgentSidebar = ({ darkMode, mobileOpen, onMobileClose }) => {
             { text: 'End of Day Report',    path: '/agent/dcr/eod' },
           ]
         },
-        {
-          text: 'Working Plan',      icon: <Map />, key: 'plan',
-          children: [
-            { text: 'Everyday Plans',           path: '/agent/plan/daily' },
-          ]
-        },
+        
         { text: 'Geo-Tracking',      icon: <GpsFixed />,        path: '/agent/geo-tracking' },
         { text: 'Route Planning',    icon: <Route />,           path: '/agent/route-planning' },
         { text: 'Daily Expenses',    icon: <AttachMoney />,     path: '/agent/daily-expenses' },

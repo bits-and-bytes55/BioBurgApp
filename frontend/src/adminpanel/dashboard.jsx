@@ -101,6 +101,8 @@ import AdminVisualAds from "./MarketingAgent/AdminVisualAds";
 import AdminProductFeedback from "./MarketingAgent/Adminpf";
 import AdminPopupVideoManager from "../adminpanel/pages/AdminPopupVideoManager";
 import AdminCalendar from "./MarketingAgent/adminCalendar";
+import AdminExpenseManager from "./MarketingAgent/AdminExpenseManager";
+import AdminTargetManagement from "./MarketingAgent/targetManagement";
 
 // diagnostics admin imports
 import AdminLabs from "./diagnostics/AdminLabs";
@@ -919,6 +921,13 @@ const Dashboard = () => {
   Products Feedback
 </Button>
 <Button onClick={() => setActiveSection("admin-calendar")} sx={subMenuBtnSx}>Calendar</Button>
+<Button onClick={() => setActiveSection("marketing-expenses")} sx={subMenuBtnSx}>
+  Expense Approvals
+</Button>
+<Button onClick={() => setActiveSection("target-management")} sx={subMenuBtnSx}>
+  Target Management
+</Button>
+
           </Box>
         </Collapse>
 
@@ -2554,6 +2563,8 @@ const Dashboard = () => {
         {activeSection === "marketing-product-feedback" && <AdminProductFeedback />}
         {activeSection === "visual-ads" && <AdminVisualAds />}
         {activeSection === "admin-calendar" && <AdminCalendar />}
+        {activeSection === "marketing-expenses" && <AdminExpenseManager />}
+        {activeSection === "target-management" && <AdminTargetManagement />}
 
         {/* ================= Delivery ZONE ================= */}
         {activeSection === "delivery-overview" && <DeliveryOverview />}

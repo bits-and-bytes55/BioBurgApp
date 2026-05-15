@@ -2,152 +2,96 @@ import mongoose from "mongoose";
 
 const productFeedbackSchema = new mongoose.Schema(
   {
-    submitter_type: {
-      type: String,
-      required: true,
-      trim: true,
+    customer: {
+      name: {
+        type: String,
+        required: true,
+      },
+
+      phone: {
+        type: String,
+        default: "",
+      },
+
+      role: {
+        type: String,
+        default: "",
+      },
+
+      area: {
+        type: String,
+        default: "",
+      },
+
+      placeName: {
+        type: String,
+        default: "",
+      },
+
+      isExisting: {
+        type: Boolean,
+        default: false,
+      },
     },
 
-    submitter_name: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+    products: [
+      {
+        productId: {
+          type: String,
+          default: "",
+        },
 
-    submitter_phone: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+        productName: {
+          type: String,
+          default: "",
+        },
 
-    submitter_email: {
-      type: String,
-      default: null,
-      trim: true,
-    },
+        brandName: {
+          type: String,
+          default: "",
+        },
 
-    organization_name: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+        rating: {
+          type: String,
+          enum: [
+            "Satisfactory",
+            "Good",
+            "Better",
+            "Best",
+            "Other",
+          ],
+        },
 
-    city: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+        comment: {
+          type: String,
+          default: "",
+        },
+      },
+    ],
 
-    state: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    specialization: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    product_name: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    product_code: {
-      type: String,
-      default: null,
-      trim: true,
-    },
-
-    batch_number: {
-      type: String,
-      default: null,
-      trim: true,
-    },
-
-    category: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    product_source: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    how_long: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    feedback_type: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    patient_age_group: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    prescription_count: {
+    overallRating: {
       type: Number,
-      required: true,
-    },
-
-    rating: {
-      type: Number,
-      required: true,
-      min: 1,
+      min: 0,
       max: 5,
+      default: 0,
     },
 
-    overall_experience: {
+    remarks: {
       type: String,
-      required: true,
-      trim: true,
+      default: "",
     },
 
-    feedback_text: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    specific_issue: {
-      type: String,
-      default: null,
-      trim: true,
-    },
-
-    suggestions: {
-      type: String,
-      default: null,
-      trim: true,
-    },
-
-    would_recommend: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    submitted_at: {
+    submittedAt: {
       type: Date,
       default: Date.now,
     },
+
+    submittedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Agent",
+    },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 const ProductFeedback = mongoose.model(

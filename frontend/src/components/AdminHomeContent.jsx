@@ -1,8 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
 
-const BASE_API = 'https://bioburglifescience-1.onrender.com';
-// const BASE_API = 'https://bioburglifescience-1.onrender.com'
+const BASE_API = 'https://bioburgapp.onrender.com';// const BASE_API = 'https://bioburglifescience-1.onrender.com'
 
 export default function AdminHomeContent() {
   const [form, setForm] = useState({

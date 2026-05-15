@@ -8,23 +8,106 @@ const AgentResponseSchema = new mongoose.Schema(
       ref: "MarketingAgent",
       required: true,
     },
+
     // Place details
-    placeName: { type: String, required: true, trim: true },
+    placeName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
     placeType: {
       type: String,
       enum: [
-        "Hospital", "Clinic", "Pharmacy", "Medical Store", "Nursing Home",
-        "Diagnostic Centre", "Doctor Chamber", "Corporate Office",
-        "Retail Shop", "Wholesaler", "Factory", "School", "Hotel", "Other",
+        "Hospital",
+        "Clinic",
+        "Pharmacy",
+        "Medical Store",
+        "Nursing Home",
+        "Diagnostic Centre",
+        "Doctor Chamber",
+        "Corporate Office",
+        "Retail Shop",
+        "Wholesaler",
+        "Factory",
+        "School",
+        "Hotel",
+        "Other",
       ],
       default: "Hospital",
     },
-    address: { type: String, default: "" },
+
+    address: {
+      type: String,
+      default: "",
+    },
+
+    state: {
+      type: String,
+      default: "",
+    },
+
+    district: {
+      type: String,
+      default: "",
+    },
+
+    city: {
+      type: String,
+      default: "",
+    },
+
+    pincode: {
+      type: String,
+      default: "",
+    },
 
     // Contact details
-    contactPerson: { type: String, required: true, trim: true },
-    contactRole: { type: String, default: "" },
-    phone: { type: String, default: "" },
+    contactPerson: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    contactRole: {
+      type: String,
+      default: "",
+    },
+
+    phone: {
+      type: String,
+      default: "",
+    },
+
+    alternatePhone: {
+      type: String,
+      default: "",
+    },
+
+    whatsappPhone: {
+      type: String,
+      default: "",
+    },
+
+    qualification: {
+      type: String,
+      default: "",
+    },
+
+    designation: {
+      type: String,
+      default: "",
+    },
+
+    dob: {
+      type: String,
+      default: "",
+    },
+
+    anniversary: {
+      type: String,
+      default: "",
+    },
 
     // Visit outcome
     responseStatus: {
@@ -41,24 +124,56 @@ const AgentResponseSchema = new mongoose.Schema(
       ],
       default: "Responded - Positive",
     },
-    productDiscussed: { type: String, default: "" },
-    remarks: { type: String, default: "" },
+
+    productDiscussed: {
+      type: String,
+      default: "",
+    },
+
+    remarks: {
+      type: String,
+      default: "",
+    },
+
     nextAction: {
       type: String,
       enum: [
-        "Call Tomorrow", "Visit Again", "Send Sample", "Send Quotation",
-        "None Required", "Escalate to Manager",
+        "Call Tomorrow",
+        "Visit Again",
+        "Send Sample",
+        "Send Quotation",
+        "None Required",
+        "Escalate to Manager",
       ],
       default: "None Required",
     },
-    followUpDate: { type: Date },
+
+    followUpDate: {
+      type: Date,
+    },
 
     // Order
-    hasOrder: { type: Boolean, default: false },
-    orderValue: { type: Number, default: 0 },
+    hasOrder: {
+      type: Boolean,
+      default: false,
+    },
+
+    orderValue: {
+      type: Number,
+      default: 0,
+    },
+
+    linkedOrderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "SaleOrder",
+      default: null,
+    },
 
     // Points tracking
-    pointsAwarded: { type: Number, default: 0 },
+    pointsAwarded: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

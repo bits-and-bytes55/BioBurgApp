@@ -10,14 +10,14 @@ import Zone from "../models/Zone.js";
 import getPriceForRole from "../utils/getPriceForRole.js";
 import jwt from "jsonwebtoken";
 
-// ─── Constants ─────────────────────────────────────────────────────────────────
+//  Constants 
 
 const QR_TOKEN_PREFIX = "BBLS";
 const CLOUDINARY_IMAGE_TIMEOUT_MS = Number(process.env.CLOUDINARY_IMAGE_TIMEOUT_MS || 180000);
 const CLOUDINARY_VIDEO_TIMEOUT_MS = Number(process.env.CLOUDINARY_VIDEO_TIMEOUT_MS || 420000);
 const CLOUDINARY_RETRY_COUNT = Number(process.env.CLOUDINARY_RETRY_COUNT || 2);
 
-// ─── Small utilities ───────────────────────────────────────────────────────────
+//  Small utilities 
 
 const httpError = (statusCode, message) => {
   const error = new Error(message);
@@ -62,7 +62,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const normalizeBaseUrl  = (url) => String(url || "").trim().replace(/\/+$/, "");
 const getFrontendBaseUrl = () => normalizeBaseUrl(process.env.FRONTEND_URL || "http://localhost:5173");
 
-// ─── QR helpers ────────────────────────────────────────────────────────────────
+//  QR helpers 
 
 const buildProductQrToken = (productId) => `${QR_TOKEN_PREFIX}-${String(productId)}`;
 const buildProductQrUrl   = (qrToken)   => `${getFrontendBaseUrl()}/product-qr/${encodeURIComponent(qrToken)}`;
@@ -74,7 +74,7 @@ const parseProductIdFromQrToken = (qrToken) => {
   return match ? match[1] : null;
 };
 
-// ─── Cloudinary helpers ────────────────────────────────────────────────────────
+//  Cloudinary helpers 
 
 const readCloudinaryError = (error) => {
   const nested = error?.error || {};
@@ -1191,5 +1191,29 @@ export const voteProduct = async (req, res) => {
     return res.json({ success: true, thumbsUp: product.thumbsUp, thumbsDown: product.thumbsDown });
   } catch (error) {
     return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+export const getProductsForTargets = async (req, res) => {
+  try {
+    const products = await Product.find(
+      {
+        currentStatus1: { $nin: ["inactive", "disabled", "deleted"] },
+      },
+      {
+        brandName:           1,
+        genericName:         1,
+        genericCompositions: 1,
+        mrp:                 1,
+        stocks:              1,
+      }
+    )
+      .sort({ brandName: 1 })
+      .lean();
+
+    return res.json(products);
+  } catch (err) {
+    console.error("getProductsForTargets error:", err);
+    return res.status(500).json({ message: err.message });
   }
 };

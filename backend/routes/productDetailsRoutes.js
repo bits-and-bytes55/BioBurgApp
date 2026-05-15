@@ -13,6 +13,7 @@ import {
   getProductQrCodeImage,
   addReview,
   voteProduct,
+  getProductsForTargets,
 } from "../controllers/productDetailsController.js";
 import { adminProtect } from "../middleware/adminAuth.js";
 import { optionalAuth } from "../middleware/authMiddleware.js";
@@ -23,6 +24,8 @@ router.post("/add", adminProtect, createProduct);
 
 router.get("/filter", optionalAuth, filterProducts);
 router.get("/all", optionalAuth, getAllProducts);
+
+router.get("/for-targets", adminProtect, getProductsForTargets);
 
 router.get("/qr/:token", getProductByQrToken);
 router.get("/qr-image/:token", getProductQrCodeImage);

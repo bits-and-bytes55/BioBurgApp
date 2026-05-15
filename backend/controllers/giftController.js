@@ -99,24 +99,40 @@ export const deleteGift = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-// ─── DISTRIBUTION ─────────────────────────────────────────────────────────────
+//  DISTRIBUTION 
 
 export const distributeGift = async (req, res) => {
   try {
-    const { giftId, recipientName, recipientType, recipientContact, quantity, occasion, area, notes } = req.body;
+    const {
+      giftId, recipientName, recipientType, recipientContact,
+      quantity, occasion, area, notes,
+      customerTier,
+      proofImageBase64, proofImageMime,
+    } = req.body;
 
     const gift = await Gift.findById(giftId);
-    if (!gift)                              return res.status(404).json({ message: "Gift not found" });
-    if (gift.availableQuantity < Number(quantity))
-                                            return res.status(400).json({ message: "Insufficient stock" });
+    if (!gift)                                   return res.status(404).json({ message: "Gift not found" });
+    if (gift.availableQuantity < Number(quantity)) return res.status(400).json({ message: "Insufficient stock" });
 
     gift.availableQuantity -= Number(quantity);
     await gift.save();
+
+    // Upload proof image if provided
+    let proofImage;
+    if (proofImageBase64 && proofImageMime) {
+      const uploaded = await cloudinary.uploader.upload(
+        `data:${proofImageMime};base64,${proofImageBase64}`,
+        { folder: "gift-proofs" }
+      );
+      proofImage = { url: uploaded.secure_url, public_id: uploaded.public_id };
+    }
 
     const dist = await GiftDistribution.create({
       gift: giftId, agent: req.agent._id,
       recipientName, recipientType, recipientContact,
       quantity: Number(quantity), occasion, area, notes,
+      ...(customerTier  ? { customerTier }  : {}),
+      ...(proofImage    ? { proofImage }    : {}),
     });
 
     const populated = await GiftDistribution.findById(dist._id)

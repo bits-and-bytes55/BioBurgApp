@@ -8,15 +8,17 @@ import { verifyAgent } from "../middleware/DeliveryAgentAuthMiddleware.js";
 
 const router = express.Router();
 
-/* ================= AUTH ================= */
+/*  AUTH  */
 router.post("/register", registerDeliveryAgent);
 router.post("/login", loginDeliveryAgent);
 
-/* ================= PROTECTED ================= */
+/*  PROTECTED  */
+
 router.get("/profile", verifyAgent, getDeliveryAgentProfile);
 
-/* ================= DASHBOARD (TEST) ================= */
+/*  DASHBOARD (TEST)  */
 /* Frontend already expects this */
+
 router.get("/dashboard", verifyAgent, (req, res) => {
   res.status(200).json({
     success: true,

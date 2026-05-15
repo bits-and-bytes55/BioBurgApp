@@ -843,11 +843,11 @@ export default function JobActivity() {
         <DialogTitle sx={{ fontWeight:800, fontSize:17, color:'#0f172a', borderBottom:'1px solid #f1f5f9', pb:2 }}>
           {editVisitIdx!==null ? 'Edit Visit' : 'Log a Visit'}
         </DialogTitle>
-        <DialogContent sx={{ pt:2.5 }}>
+        <DialogContent sx={{ pt:3, pb:2, overflow:'visible' }}>
           <Box sx={{ display:'flex', flexDirection:'column', gap:2 }}>
 
             {/* Place Type */}
-            <FormControl size="small" fullWidth error={!!visitErrors.type}>
+            <FormControl size="small" fullWidth error={!!visitErrors.type} sx={{ mt:0.5 }}>
               <InputLabel>Place Type *</InputLabel>
               <Select label="Place Type *" value={visitForm.type}
                 onChange={(e) => setVisitForm(f => ({ ...f, type:e.target.value, specificName:'', customType:'' }))}>

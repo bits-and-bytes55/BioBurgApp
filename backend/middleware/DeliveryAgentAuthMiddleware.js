@@ -16,7 +16,7 @@ export const verifyAgent = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // decoded = { id, role, iat, exp }
-    if (decoded.role !== "delivery_agent") {
+    if (decoded.role !== "delivery-agent") {
       return res.status(403).json({
         success: false,
         message: "Access denied",

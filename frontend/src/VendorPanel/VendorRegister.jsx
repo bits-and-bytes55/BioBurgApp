@@ -62,8 +62,7 @@ import { ArrowBack, ArrowForward } from '@mui/icons-material'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
 
-const BASE_API = 'https://bioburglifescience-1.onrender.com';
-// const BASE_API = import.meta.env.VITE_API_BASE_URL;
+const BASE_API = 'https://bioburgapp.onrender.com';// const BASE_API = import.meta.env.VITE_API_BASE_URL;
 
 
 export default function VendorRegister() {

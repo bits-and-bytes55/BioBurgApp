@@ -83,24 +83,44 @@ const responseSchema = new mongoose.Schema(
     placeType: {
       type: String,
       default: "Hospital",
-      enum: ["Hospital", "Clinic", "Medical Store", "Distributor",
-             "Diagnostic Centre", "Path Lab", "EOD", "Other"],
+      enum: [
+        "Hospital", "Clinic", "Medical Store", "Distributor",
+        "Diagnostic Centre", "Path Lab", "EOD", "Other",
+        "Nursing Home", "Doctor Chamber", "Pharmacy",
+        "Corporate Office", "Retail Shop", "Wholesaler",
+        "Factory", "School", "Hotel",
+      ],
     },
     address:          String,
+    state:            String,        
+    district:         String,        
+    city:             String,       
+    pincode:          String,       
     contactPerson:    { type: String, required: true },
     contactRole:      String,
     phone:            String,
+    alternatePhone: String,
+    whatsappPhone: String,
+    gst: String,
+    licenses: [String],
+    designation:      String,
+    qualification:    String,        
+    dob:              String,      
+    anniversary:      String,        
     responseStatus:   { type: String, default: "Responded - Positive" },
     productDiscussed: String,
     remarks:          String,
     nextAction:       { type: String, default: "None Required" },
     followUpDate:     String,
     hasOrder:         { type: Boolean, default: false },
-    orderValue:       String,
+    orderValue: {
+  type: Number,
+  default: 0,
+},
+    linkedOrderId:    String,        
   },
   { timestamps: true }
 );
-
 const campaignSchema = new mongoose.Schema(
   {
     title:       { type: String, required: true },

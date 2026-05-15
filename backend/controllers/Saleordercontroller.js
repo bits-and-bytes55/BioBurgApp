@@ -1,8 +1,10 @@
+// controllers/saleOrderController.js
 import SaleOrder      from "../models/Saleorder.js";
 import BioburgPayment from "../models/Bioburgpayment.js";
 import MarketingAgent from "../models/MarketingAgent.model.js";
+import { creditProductSalePoints, triggerPointsSync } from "./targetController.js";  
 
-/* ─── helpers ─── */
+/* helpers  */
 const agentGuard = async (req, res) => {
   const agent = await MarketingAgent.findById(req.user.id).select("name");
   if (!agent) { res.status(404).json({ message: "Agent not found" }); return null; }
@@ -15,7 +17,8 @@ export const createSaleOrder = async (req, res) => {
     if (!agent) return;
 
     const {
-      customerName, customerPhone, customerAddress, customerGST,
+      customerName, customerPhone, customerAlternatePhone, customerWhatsappPhone,
+      customerAddress, customerGST, customerLicenses,
       orderType, items, subtotal, discountAmt, taxAmt, taxPercent, grandTotal,
       paymentMode, paymentStatus, paidAmount, notes, visitArea,
     } = req.body;
@@ -30,7 +33,13 @@ export const createSaleOrder = async (req, res) => {
     const order = await SaleOrder.create({
       agentId:         req.user.id,
       agentName:       agent.name,
-      customerName, customerPhone, customerAddress, customerGST,
+      customerName,
+      customerPhone,
+      customerAlternatePhone,
+      customerWhatsappPhone,
+      customerAddress,
+      customerGST,
+      customerLicenses,
       orderType:       orderType || "bill",
       items,
       subtotal, discountAmt, taxAmt, taxPercent, grandTotal,
@@ -38,11 +47,19 @@ export const createSaleOrder = async (req, res) => {
       paidAmount:  paid,
       dueAmount:   Math.max(0, grandTotal - paid),
       notes, visitArea,
-      // Seed ledger if already paid
       paymentLedger: paid > 0 ? [{
         amount: paid, mode: paymentMode, note: "Initial payment", recordedAt: new Date(),
       }] : [],
     });
+
+    const agentId = req.user.id;
+    creditProductSalePoints(agentId, order.items).catch((err) =>
+      console.error("[SaleOrder] creditProductSalePoints error:", err)
+    );
+
+    triggerPointsSync(agentId).catch((err) =>
+      console.error("[SaleOrder] triggerPointsSync error:", err)
+    );
 
     res.status(201).json({ success: true, order });
   } catch (err) {
@@ -55,7 +72,7 @@ export const getAgentOrders = async (req, res) => {
     const { type, status, search, page = 1, limit = 20 } = req.query;
     const filter = { agentId: req.user.id, isVoid: false };
 
-    if (type)   filter.orderType    = type;
+    if (type)   filter.orderType     = type;
     if (status) filter.paymentStatus = status;
     if (search) filter.$or = [
       { orderNumber:   { $regex: search, $options: "i" } },
@@ -78,9 +95,6 @@ export const getAgentOrders = async (req, res) => {
   }
 };
 
-/**
- * GET /api/sale-orders/agent/:id
- */
 export const getSaleOrderById = async (req, res) => {
   try {
     const order = await SaleOrder.findOne({ _id: req.params.id, agentId: req.user.id });
@@ -91,10 +105,6 @@ export const getSaleOrderById = async (req, res) => {
   }
 };
 
-/**
- * PATCH /api/sale-orders/agent/:id/payment
- * Record an additional payment on an existing order
- */
 export const recordPayment = async (req, res) => {
   try {
     const { amount, mode, note } = req.body;
@@ -123,14 +133,11 @@ export const recordPayment = async (req, res) => {
   }
 };
 
-/**
- * PATCH /api/sale-orders/agent/:id/void
- */
 export const voidOrder = async (req, res) => {
   try {
     const order = await SaleOrder.findOne({ _id: req.params.id, agentId: req.user.id });
     if (!order) return res.status(404).json({ message: "Order not found" });
-    order.isVoid    = true;
+    order.isVoid     = true;
     order.voidReason = req.body.reason || "Voided by agent";
     await order.save();
     res.json({ success: true, message: "Order voided" });
@@ -139,9 +146,6 @@ export const voidOrder = async (req, res) => {
   }
 };
 
-/**
- * GET /api/sale-orders/agent/payments/history
- */
 export const getPaymentHistory = async (req, res) => {
   try {
     const { status, mode, from, to, page = 1, limit = 30 } = req.query;
@@ -157,7 +161,6 @@ export const getPaymentHistory = async (req, res) => {
 
     const skip = (page - 1) * limit;
 
-    // Summary stats
     const stats = await SaleOrder.aggregate([
       { $match: match },
       { $group: {
@@ -191,9 +194,6 @@ export const getPaymentHistory = async (req, res) => {
   }
 };
 
-/**
- * GET /api/sale-orders/agent/bioburg-payments
- */
 export const getBioburgPayments = async (req, res) => {
   try {
     const { type, status, year, month } = req.query;
@@ -210,9 +210,9 @@ export const getBioburgPayments = async (req, res) => {
         { $match: { agentId: new (await import("mongoose")).default.Types.ObjectId(req.user.id) } },
         { $group: {
           _id: null,
-          totalPaid:   { $sum: { $cond: [{ $eq: ["$status", "paid"] }, "$amount", 0] } },
-          totalPending:{ $sum: { $cond: [{ $eq: ["$status", "pending"] }, "$amount", 0] } },
-          count:       { $sum: 1 },
+          totalPaid:    { $sum: { $cond: [{ $eq: ["$status", "paid"] }, "$amount", 0] } },
+          totalPending: { $sum: { $cond: [{ $eq: ["$status", "pending"] }, "$amount", 0] } },
+          count:        { $sum: 1 },
         }},
       ]),
     ]);
@@ -227,9 +227,6 @@ export const getBioburgPayments = async (req, res) => {
   }
 };
 
-/**
- * POST /api/sale-orders/admin/bioburg-payments  (admin creates)
- */
 export const createBioburgPayment = async (req, res) => {
   try {
     const {

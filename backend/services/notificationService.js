@@ -1,9 +1,6 @@
 import nodemailer from "nodemailer";
 import axios from "axios";
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  TRANSPORTER
-// ─────────────────────────────────────────────────────────────────────────────
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
@@ -12,9 +9,6 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  SMS HELPER
-// ─────────────────────────────────────────────────────────────────────────────
 const sendSMS = async (phone, message) => {
   try {
     await axios.post(
@@ -33,9 +27,6 @@ const sendSMS = async (phone, message) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  SHARED EMAIL WRAPPER
-// ─────────────────────────────────────────────────────────────────────────────
 const sendEmail = async (to, subject, html) => {
   await transporter.sendMail({
     from: `"Bioburg Pharma" <${process.env.SMTP_EMAIL}>`,
@@ -45,10 +36,6 @@ const sendEmail = async (to, subject, html) => {
   });
   console.log(`Email sent to ${to}`);
 };
-
-// ═════════════════════════════════════════════════════════════════════════════
-//  DELIVERY AGENT NOTIFICATIONS  (existing — unchanged)
-// ═════════════════════════════════════════════════════════════════════════════
 
 export const notifyRegistrationReceived = async ({ name, email, phone }) => {
   const html = `
@@ -118,9 +105,65 @@ export const notifyRejected = async ({ name, email, phone, reason }) => {
   await sendSMS(phone, `Hi ${name}, your Bioburg Pharma delivery agent application was not approved. ${reason ? "Reason: " + reason : ""} Contact: support@bioburgpharma.com`);
 };
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  HOSPITAL NOTIFICATIONS  NEW
-// ═════════════════════════════════════════════════════════════════════════════
+export const notifyDraft = async ({ name, email, phone, fieldLabels, adminNote }) => {
+  const loginUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/delivery/login`;
+
+  const html = `
+    <div style="font-family:Inter,sans-serif;max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0">
+      <div style="background:linear-gradient(135deg,#f97316,#c2410c);padding:28px 32px">
+        <h2 style="margin:0;color:#fff;font-size:22px">Application Needs Updates</h2>
+        <p style="margin:6px 0 0;color:rgba(255,255,255,0.8);font-size:13px">Bioburg Pharma — Delivery Agent Portal</p>
+      </div>
+
+      <div style="padding:28px 32px">
+        <p style="font-size:15px;color:#334155">Hi <strong>${name}</strong>,</p>
+
+        <p style="color:#64748b;font-size:14px;line-height:1.7">
+          Your delivery agent application has been reviewed, but a few details need to be updated before approval.
+        </p>
+
+        <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:14px 18px;margin:20px 0">
+          <p style="margin:0 0 8px;font-size:13px;color:#9a3412">
+            Please update the following field(s):
+          </p>
+          <p style="margin:0;font-size:13px;color:#7c2d12">
+            <strong>${fieldLabels || "Required fields"}</strong>
+          </p>
+        </div>
+
+        ${
+          adminNote
+            ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 18px;margin:20px 0">
+                <p style="margin:0;font-size:13px;color:#475569">
+                  Admin note: <strong>${adminNote}</strong>
+                </p>
+              </div>`
+            : ""
+        }
+
+        <p style="color:#64748b;font-size:13px;line-height:1.7">
+          Log in to your delivery agent application and update only the requested fields. Your other details will remain saved.
+        </p>
+
+        <a href="${loginUrl}" style="display:inline-block;background:#f97316;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">
+          Update Application →
+        </a>
+      </div>
+
+      <div style="padding:16px 32px;background:#f8fafc;border-top:1px solid #e2e8f0">
+        <p style="margin:0;font-size:12px;color:#94a3b8">Bioburg Pharma · support@bioburgpharma.com</p>
+      </div>
+    </div>
+  `;
+
+  await sendEmail(email, "Update Required — Bioburg Pharma Delivery Application", html);
+
+  await sendSMS(
+    phone,
+    `Hi ${name}, your Bioburg Pharma delivery agent application needs updates: ${fieldLabels || "some fields"}. ${adminNote ? "Note: " + adminNote + ". " : ""}Login: ${loginUrl}`
+  );
+};
+
 
 export const notifyHospitalApproved = async ({ name, email, phone, facilityName }) => {
   const loginUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/hospital/login`;
@@ -179,10 +222,6 @@ export const notifyHospitalRejected = async ({ name, email, phone, facilityName,
   await sendEmail(email, "Hospital Registration Status — Bioburg Pharma", html);
   await sendSMS(phone, `Hi ${name}, the registration for "${facilityName}" on Bioburg Pharma was not approved. ${reason ? "Reason: " + reason + "." : ""} Contact: support@bioburgpharma.com`);
 };
-
-// ═════════════════════════════════════════════════════════════════════════════
-//  PHARMACY NOTIFICATIONS  NEW
-// ═════════════════════════════════════════════════════════════════════════════
 
 export const notifyPharmacyApproved = async ({ name, email, phone, facilityName }) => {
   const loginUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/pharmacy/login`;

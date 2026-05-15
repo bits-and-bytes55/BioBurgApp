@@ -1,8 +1,205 @@
 ﻿import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import frontLogoUrl from "../assets/IDCARDS/frontlogo.png";
+import backLogoUrl  from "../assets/IDCARDS/backlogo.png";
 
 const API = import.meta.env.VITE_API_BASE_URL + "/api";
+
+const fmtDateShort = (d) =>
+  d ? new Date(d).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" }) : "—";
+
+async function loadImg(src) {
+  return new Promise(resolve => {
+    const i = new Image();
+    i.crossOrigin = "anonymous";
+    i.onload  = () => resolve(i);
+    i.onerror = () => resolve(null);
+    i.src = src;
+  });
+}
+
+async function renderCardPreview(card) {
+  const W = 320, H = 510, DPR = 2;
+  const cv = document.createElement("canvas");
+  cv.width = W * DPR; cv.height = H * DPR;
+  const ctx = cv.getContext("2d");
+  ctx.scale(DPR, DPR);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath(); ctx.roundRect(0, 0, W, H, 12); ctx.fill();
+
+  const hg = ctx.createLinearGradient(0, 0, W, 78);
+  hg.addColorStop(0, "#26bfbf"); hg.addColorStop(1, "#1e3a5f");
+  ctx.fillStyle = hg; ctx.fillRect(0, 0, W, 78);
+
+  const logo = await loadImg(frontLogoUrl);
+  if (logo) ctx.drawImage(logo, 6, 4, 68, 68);
+
+  ctx.fillStyle = "#fff"; ctx.font = "bold 13px Arial";
+  ctx.textAlign = "left"; ctx.fillText("BIOBURG LIFESCIENCES", 80, 34);
+  ctx.font = "8.5px Arial"; ctx.fillStyle = "rgba(255,255,255,0.75)";
+  ctx.fillText("PHARMACEUTICALS DISTRIBUTOR", 80, 52);
+
+  ctx.fillStyle = "#f5c012";
+  ctx.beginPath();
+  ctx.moveTo(0, 78); ctx.bezierCurveTo(W*0.3, 64, W*0.7, 92, W, 78);
+  ctx.lineTo(W, 90); ctx.bezierCurveTo(W*0.7, 104, W*0.3, 76, 0, 90);
+  ctx.closePath(); ctx.fill();
+
+  ctx.fillStyle = "#26bfbf";
+  ctx.beginPath();
+  ctx.moveTo(0, 90); ctx.bezierCurveTo(W*0.3, 104, W*0.7, 76, W, 90);
+  ctx.lineTo(W, 136); ctx.lineTo(0, 136); ctx.closePath(); ctx.fill();
+
+  const px = W / 2, py = 210;
+  ctx.save();
+  ctx.beginPath(); ctx.ellipse(px, py, 50, 58, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "#dce8ee"; ctx.fill(); ctx.clip();
+  if (card.photo) {
+    const img = await loadImg(card.photo);
+    if (img) ctx.drawImage(img, px - 50, py - 58, 100, 116);
+  }
+  ctx.restore();
+  ctx.beginPath(); ctx.ellipse(px, py, 52, 60, 0, 0, Math.PI * 2);
+  ctx.strokeStyle = "#c9a84c"; ctx.lineWidth = 2.5; ctx.stroke();
+
+  ctx.fillStyle = "#1e3a5f"; ctx.font = "bold 15px Arial";
+  ctx.textAlign = "center"; ctx.fillText((card.name || "—").toUpperCase(), W / 2, 292);
+  ctx.fillStyle = "#cc2200"; ctx.font = "bold 11px Arial";
+  ctx.fillText(card.designation || "Delivery Agent", W / 2, 309);
+
+  ctx.strokeStyle = "#e5e7eb"; ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.moveTo(20, 320); ctx.lineTo(W - 20, 320); ctx.stroke();
+
+  const fields = [
+    ["Employee ID", card.employeeId || "—"],
+    ["Department",  card.department  || "—"],
+    ["Issued On",   fmtDateShort(card.issuedAt)],
+    ["Valid Till",  fmtDateShort(card.validTill)],
+    ["Phone",       card.phone || "—"],
+  ];
+  fields.forEach(([label, value], i) => {
+    const y = 340 + i * 26;
+    ctx.fillStyle = "#9ca3af"; ctx.font = "9.5px Arial"; ctx.textAlign = "left";
+    ctx.fillText(label, 22, y);
+    ctx.fillStyle = "#111827"; ctx.font = "bold 10.5px Arial"; ctx.textAlign = "right";
+    ctx.fillText(value, W - 22, y);
+  });
+
+  const fg = ctx.createLinearGradient(0, H - 46, W, H);
+  fg.addColorStop(0, "#1e3a5f"); fg.addColorStop(1, "#26bfbf");
+  ctx.fillStyle = fg; ctx.fillRect(0, H - 46, W, 46);
+  ctx.fillStyle = "#fff"; ctx.font = "7px Arial"; ctx.textAlign = "center";
+  ctx.fillText("Display this card at all times on Bioburg premises", W / 2, H - 18);
+
+  return cv.toDataURL("image/png");
+}
+
+async function renderBackPreview(card) {
+  const W = 320, H = 510, DPR = 2;
+  const cv = document.createElement("canvas");
+  cv.width = W * DPR; cv.height = H * DPR;
+  const ctx = cv.getContext("2d");
+  ctx.scale(DPR, DPR);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath(); ctx.roundRect(0, 0, W, H, 12); ctx.fill();
+
+  const hg = ctx.createLinearGradient(0, 0, W, 78);
+  hg.addColorStop(0, "#26bfbf"); hg.addColorStop(1, "#1e3a5f");
+  ctx.fillStyle = hg; ctx.fillRect(0, 0, W, 78);
+
+  const logo = await loadImg(frontLogoUrl);
+  if (logo) ctx.drawImage(logo, 6, 4, 68, 68);
+
+  ctx.fillStyle = "#fff"; ctx.font = "bold 12px Arial";
+  ctx.textAlign = "left"; ctx.fillText("BIOBURG LIFESCIENCES", 80, 34);
+  ctx.font = "7.5px Arial"; ctx.fillStyle = "rgba(255,255,255,0.75)";
+  ctx.fillText("PHARMACEUTICALS DISTRIBUTOR", 80, 52);
+
+  ctx.fillStyle = "#f5c012";
+  ctx.beginPath();
+  ctx.moveTo(0, 78); ctx.bezierCurveTo(W*0.3, 64, W*0.7, 92, W, 78);
+  ctx.lineTo(W, 90); ctx.bezierCurveTo(W*0.7, 104, W*0.3, 76, 0, 90);
+  ctx.closePath(); ctx.fill();
+
+  ctx.fillStyle = "#26bfbf";
+  ctx.beginPath();
+  ctx.moveTo(0, 90); ctx.bezierCurveTo(W*0.3, 104, W*0.7, 76, W, 90);
+  ctx.lineTo(W, 138); ctx.lineTo(0, 138); ctx.closePath(); ctx.fill();
+
+  const backLogo = await loadImg(backLogoUrl);
+  if (backLogo) ctx.drawImage(backLogo, 10, 148, 120, 120);
+
+  ctx.fillStyle = "#26bfbf"; ctx.font = "bold 7px Arial";
+  ctx.textAlign = "center"; ctx.fillText("BIOBURG LIFESCIENCES", 70, 278);
+
+  ctx.fillStyle = "#111111"; ctx.font = "bold 10px Arial";
+  ctx.textAlign = "left"; ctx.fillText("Motto Of Bioburg", 142, 168);
+
+  const mottos = [
+    "Nothing Beyond Our Products",
+    "Bio Burg Helping Peoples",
+    "Our Challenge Is Life Sciences",
+    "Biosciences, Research & Development",
+  ];
+  ctx.fillStyle = "#333333"; ctx.font = "8.5px Arial";
+  mottos.forEach((m, i) => ctx.fillText("• " + m, 142, 184 + i * 15));
+
+  ctx.strokeStyle = "#cccccc"; ctx.lineWidth = 0.7;
+  ctx.beginPath(); ctx.moveTo(12, 252); ctx.lineTo(W - 12, 252); ctx.stroke();
+
+  ctx.fillStyle = "#cc0000"; ctx.font = "bold 9px Arial";
+  ctx.textAlign = "left"; ctx.fillText("Terms And Conditions:-", 12, 268);
+
+  ctx.fillStyle = "#333333"; ctx.font = "8px Arial";
+  const terms = "This Card is not transferable. It is the property of the \"Bioburg Lifesciences\" and is to be returned to the issuing authority on cessation of the service.";
+  const words = terms.split(" "); let line = "", ty = 282;
+  words.forEach(w => {
+    const t = line + w + " ";
+    if (ctx.measureText(t).width > W - 24 && line) {
+      ctx.fillText(line.trim(), 12, ty); line = w + " "; ty += 13;
+    } else line = t;
+  });
+  if (line.trim()) ctx.fillText(line.trim(), 12, ty);
+
+  ctx.fillStyle = "#111111"; ctx.font = "bold 8.5px Arial";
+  ctx.textAlign = "center"; ctx.fillText("If Found Please Return it to", W/2, 328);
+  ctx.strokeStyle = "#111"; ctx.lineWidth = 0.6;
+  const tw = ctx.measureText("If Found Please Return it to").width;
+  ctx.beginPath(); ctx.moveTo(W/2 - tw/2, 330); ctx.lineTo(W/2 + tw/2, 330); ctx.stroke();
+
+  const contacts = [
+    ["Address", "B-119, 2nd Floor, Lane No-7, Laxmi Vihar,"],
+    ["",        "Mohan Garden, Dwarka Mor, New Delhi-110059."],
+    ["E-Mail",  "bioburg.lifesciences@yahoo.com"],
+    ["Phone",   "9990719273, 9868013337, 6005459761"],
+    ["Website", "https://www.bioburglifesciences.com"],
+  ];
+  ctx.textAlign = "left";
+  contacts.forEach(([label, value], i) => {
+    const y = 344 + i * 14;
+    if (label) {
+      ctx.fillStyle = "#111"; ctx.font = "bold 7.5px Arial";
+      ctx.fillText(label + ":", 12, y);
+      ctx.fillStyle = "#333"; ctx.font = "7.5px Arial";
+      ctx.fillText(value, 12 + ctx.measureText(label + ": ").width + 4, y);
+    } else {
+      ctx.fillStyle = "#333"; ctx.font = "7.5px Arial";
+      ctx.fillText(value, 12, y);
+    }
+  });
+
+  const fg = ctx.createLinearGradient(0, H - 46, W, H);
+  fg.addColorStop(0, "#1e3a5f"); fg.addColorStop(1, "#26bfbf");
+  ctx.fillStyle = fg; ctx.fillRect(0, H - 46, W, 46);
+  ctx.fillStyle = "#fff"; ctx.font = "6.5px Arial"; ctx.textAlign = "center";
+  ctx.fillText("Display the Security Pass at all times while outside BIOBURG Premises", W/2, H - 16);
+
+  return cv.toDataURL("image/png");
+}
+
 const api = axios.create({ baseURL: API });
 api.interceptors.request.use((cfg) => {
   const t = localStorage.getItem("daToken");
@@ -61,7 +258,7 @@ const Ic = {
   Close:   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
 };
 
-/* ─── Animated Counter ──────────────────────────────────────────── */
+/*  Animated Counter  */
 function Counter({ to, prefix = "", suffix = "", dec = 0 }) {
   const [v, setV] = useState(0);
   const raf = useRef();
@@ -95,7 +292,63 @@ function Toast({ t }) {
   );
 }
 
-/* ─── Map Tab (no Nominatim / no CORS) ─────────────────────────── */
+/* ─── ID Card Modal (same as AgentProfile.jsx) ──────────────────── */
+function IDCardModal({ frontImg, backImg, card, onClose }) {
+  const [side, setSide] = useState("front");
+  const img = side === "front" ? frontImg : backImg;
+
+  const download = () => {
+    if (!img) return;
+    const a = document.createElement("a");
+    a.href = img;
+    a.download = `ID_${card?.employeeId || "card"}_${side}.png`;
+    a.click();
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.72)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+      <div style={{ background:"#0f172a", borderRadius:20, padding:24, maxWidth:370, width:"100%", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+          <h3 style={{ margin:0, fontSize:15, fontWeight:800, color:"#fff" }}>Your ID Card</h3>
+          <button onClick={onClose} style={{ background:"rgba(255,255,255,0.1)", border:"none", borderRadius:8, width:32, height:32, cursor:"pointer", fontSize:18, color:"#fff" }}>×</button>
+        </div>
+        <div style={{ display:"flex", gap:8, marginBottom:14 }}>
+          {["front","back"].map(s => (
+            <button key={s} onClick={() => setSide(s)} style={{
+              flex:1, padding:"7px 0", border:"1.5px solid #c9a84c", borderRadius:8,
+              background: side===s ? "#c9a84c" : "transparent",
+              color: side===s ? "#1a1a1a" : "#c9a84c",
+              fontWeight:700, cursor:"pointer", fontSize:12, fontFamily:"inherit",
+            }}>
+              {s === "front" ? "Front Side" : "Back Side"}
+            </button>
+          ))}
+        </div>
+        {img
+          ? <img src={img} alt="ID Card" style={{ width:"100%", borderRadius:12, border:"2px solid #c9a84c", display:"block" }} />
+          : <div style={{ height:160, display:"flex", alignItems:"center", justifyContent:"center", color:"#9ca3af" }}>Generating…</div>}
+        <div style={{ display:"flex", gap:8, marginTop:14 }}>
+          <button onClick={download} disabled={!img}
+            style={{ flex:1, padding:"11px 0", background:"linear-gradient(135deg,#c9a84c,#b8860b)", color:"#1a1a1a", border:"none", borderRadius:10, fontWeight:800, cursor:"pointer", fontSize:13 }}>
+            ⬇ Download {side === "front" ? "Front" : "Back"}
+          </button>
+          <button onClick={() => {
+            [frontImg, backImg].forEach((im, i) => {
+              if (!im) return;
+              setTimeout(() => {
+                const a = document.createElement("a");
+                a.href = im; a.download = `ID_${card?.employeeId || "card"}_${i===0?"front":"back"}.png`; a.click();
+              }, i * 400);
+            });
+          }} style={{ flex:1, padding:"11px 0", background:"rgba(255,255,255,0.1)", color:"#fff", border:"1.5px solid rgba(255,255,255,0.2)", borderRadius:10, fontWeight:700, cursor:"pointer", fontSize:13 }}>
+            ⬇ Both Sides
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MapView({ orders, agentGps }) {
   const mapRef = useRef(null);
   const leafRef = useRef(null);
@@ -228,14 +481,38 @@ export default function DeliveryAgentDashboard() {
   const orders = rawOrders.map(normalizeOrder);
 
   const fetchMe = useCallback(async () => {
-    try {
-      const { data } = await api.get("/delivery/me");
-      if (data.success) {
-        const u = { ...data.agent, isOnline: data.agent.availability === "online" };
-        setAgent(u); localStorage.setItem("daAgent", JSON.stringify(u));
-      }
-    } catch (e) { if (e.response?.status === 401) { localStorage.clear(); navigate("/delivery/login"); } }
-  }, [navigate]);
+  try {
+    const { data } = await api.get("/delivery/me");
+    if (!data.success) return;
+
+    const baseAgent = data.agent || data.data;
+    if (!baseAgent) return;
+
+    // ID card comes from getMe already; fallback to dedicated endpoint
+    let idCard = baseAgent.idCard || null;
+    if (!idCard) {
+      try {
+        const { data: cardRes } = await api.get("/delivery/my-id-card");
+        if (cardRes.success) idCard = cardRes.card;
+      } catch {}
+    }
+
+    const u = {
+      ...baseAgent,
+      idCard,
+      isOnline: baseAgent.availability === "online",
+    };
+
+    setAgent(u);
+    localStorage.setItem("daAgent", JSON.stringify(u));
+  } catch (e) {
+    if (e.response?.status === 401) {
+      localStorage.clear();
+      navigate("/delivery/login");
+    }
+  }
+}, [navigate]);
+
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -245,24 +522,67 @@ export default function DeliveryAgentDashboard() {
   }, []);
 
   const startGPS = useCallback(() => {
-    if (!navigator.geolocation) return;
-    watchRef.current = navigator.geolocation.watchPosition(
-      async pos => {
-        const { latitude: lat, longitude: lng } = pos.coords;
-        setGps({ lat, lng });
-        try { await api.patch("/delivery/location", { lat, lng }); } catch {}
-      },
-      () => {},
-      { enableHighAccuracy: true, maximumAge: 8000, timeout: 15000 }
-    );
-  }, []);
+  if (!navigator.geolocation) return;
+  if (watchRef.current) return;
+
+  let lastSent = 0;
+
+  watchRef.current = navigator.geolocation.watchPosition(
+    async (pos) => {
+      const now = Date.now();
+      if (now - lastSent < 30000) return;
+
+      lastSent = now;
+
+      const { latitude: lat, longitude: lng } = pos.coords;
+      setGps({ lat, lng });
+
+      try {
+        await api.patch("/delivery/location", { lat, lng });
+      } catch {}
+    },
+    () => {},
+    {
+      enableHighAccuracy: false,
+      maximumAge: 30000,
+      timeout: 15000,
+    }
+  );
+}, []);
 
   useEffect(() => {
-    if (!localStorage.getItem("daToken")) { navigate("/delivery/login"); return; }
-    fetchMe(); fetchOrders(); startGPS();
-    const iv = setInterval(() => { fetchMe(); fetchOrders(); }, 15000);
-    return () => { clearInterval(iv); if (watchRef.current) navigator.geolocation.clearWatch(watchRef.current); };
-  }, []);
+  if (!localStorage.getItem("daToken")) {
+    navigate("/delivery/login");
+    return;
+  }
+
+  let cancelled = false;
+
+  const load = async () => {
+    if (cancelled) return;
+    await fetchMe();
+
+    if (cancelled) return;
+    await fetchOrders();
+  };
+
+  load();
+  startGPS();
+
+  const iv = window.setInterval(load, 60000);
+
+  return () => {
+    cancelled = true;
+    window.clearInterval(iv);
+
+    if (watchRef.current) {
+      navigator.geolocation.clearWatch(watchRef.current);
+      watchRef.current = null;
+    }
+  };
+}, [fetchMe, fetchOrders, startGPS, navigate]);
+
+
 
   const toggleOnline = async () => {
     setToggling(true);
@@ -472,6 +792,12 @@ export default function DeliveryAgentDashboard() {
         .irow:last-child{border:none}
         .ilbl{font-size:12px;font-weight:600;color:var(--faint)}
         .ival{font-size:12px;font-weight:700;color:#1e293b;max-width:58%;text-align:right;word-break:break-word}
+        .idcard-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+        .idcard-link{text-decoration:none;display:block}
+        .idcard-img{width:100%;display:block;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 8px 22px rgba(15,23,42,.08);background:#f8fafc}
+        .idcard-label{font-size:11px;font-weight:800;color:#0d9488;text-align:center;margin-top:6px;text-transform:uppercase;letter-spacing:.06em}
+        @media(max-width:520px){.idcard-grid{grid-template-columns:1fr}}
+
         .dlink{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#0d9488;text-decoration:none}
 
         /* ── Commission tiles ── */
@@ -942,59 +1268,375 @@ function OCard({ o, onUpd, delay = 0, queuePos, commission = 7 }) {
   );
 }
 
-/* ─── Profile Tab ─────────────────────────────────────────────────── */
-function ProfileTab({ agent }) {
-  const docs = agent.documents || {}, bank = agent.bankDetails || {};
-  const Sec = ({ title, children }) => (
-    <div className="card fu"><div className="card-hd">{title}</div>{children}</div>
-  );
-  const Row = ({ l, v }) => (
-    <div className="irow"><span className="ilbl">{l}</span><span className="ival">{v || "—"}</span></div>
-  );
-  return (
-    <div className="g2" style={{ gap: 16 }}>
-      <Sec title="Personal">
-        <Row l="Agent ID" v={agent.agentId} />
-        <Row l="Full Name" v={agent.name} />
-        <Row l="Mobile" v={agent.phone} />
-        <Row l="Email" v={agent.email} />
-        <Row l="Zone" v={agent.deliveryZone || agent.zone} />
-        <Row l="Status" v={agent.status} />
-        <Row l="Since" v={agent.createdAt ? new Date(agent.createdAt).toLocaleDateString("en-IN", { dateStyle: "medium" }) : "—"} />
-      </Sec>
-      <Sec title="Vehicle">
-        <Row l="Type" v={agent.vehicleType} />
-        <Row l="Reg. No." v={agent.vehicleNumber || agent.vehicleReg} />
-        <Row l="Driving Licence" v={agent.drivingLicence} />
-        <Row l="PAN" v={agent.panNumber || agent.panCard} />
-      </Sec>
-      <Sec title="Bank & Payment">
-        <Row l="Bank" v={bank.bankName || agent.bankName} />
-        <Row l="Account" v={(bank.accountNumber || agent.accountNumber) ? "••••" + String(bank.accountNumber || agent.accountNumber).slice(-4) : "—"} />
-        <Row l="IFSC" v={bank.ifscCode || agent.ifscCode} />
-        <Row l="UPI ID" v={agent.upiId} />
-      </Sec>
-      <Sec title="Documents">
-        {[
-          ["Aadhaar / ID Proof", docs.aadhaar || docs.aadhaarUrl],
-          ["Driving Licence",    docs.licenceCopy || docs.licenceCopyUrl],
-          ["Vehicle RC",         docs.vehicleRC || docs.vehicleRCUrl],
-          ["Passport Photo",     docs.passportPhoto || docs.passportPhotoUrl],
-          ["UPI QR Code",        docs.upiQrImage || docs.upiQrImageUrl],
-        ].map(([l, url]) => (
-          <div className="irow" key={l}>
-            <span className="ilbl">{l}</span>
-            {url
-              ? <a href={url} target="_blank" rel="noreferrer" className="dlink">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
-                  View
-                </a>
-              : <span style={{ fontSize: 11, color: "#cbd5e1" }}>Not uploaded</span>
-            }
-          </div>
-        ))}
-      </Sec>
+function DeliveryIDCardSection({ idCard, agent }) {
+  const [front, setFront]                   = useState("");
+  const [back,  setBack]                    = useState("");
+  const [showModal, setShowModal]           = useState(false);
+  const [generating, setGenerating]         = useState(false);
+  const [showCorr, setShowCorr]             = useState(false);
+  const [corrField, setCorrField]           = useState("");
+  const [corrReason, setCorrReason]         = useState("");
+  const [corrFile, setCorrFile]             = useState(null);
+  const [corrSubmitting, setCorrSubmitting] = useState(false);
+  const [corrections, setCorrections]       = useState([]);
+  const [localToast, setLocalToast]         = useState(null);
+ 
+  const CORR_FIELDS = [
+    { value:"name",        label:"Full Name" },
+    { value:"photo",       label:"Passport Photo" },
+    { value:"designation", label:"Designation" },
+    { value:"department",  label:"Department" },
+    { value:"phone",       label:"Phone Number" },
+    { value:"validTill",   label:"Valid Till Date" },
+    { value:"employeeId",  label:"Employee ID" },
+  ];
+ 
+  const fire = useCallback((msg, type = "success") => {
+    setLocalToast({ msg, type });
+    setTimeout(() => setLocalToast(null), 3000);
+  }, []);
+ 
+  const cardId = idCard?._id;
+ 
+  const fetchCorrections = useCallback(async () => {
+    if (!cardId) return;
+    try {
+      const t = localStorage.getItem("daToken");
+      const { data } = await axios.get(`${API}/delivery/my-id-card/corrections`, {
+        headers: { Authorization: `Bearer ${t}` },
+      });
+      if (data.success) setCorrections(data.corrections || []);
+    } catch {}
+  }, [cardId]); // stable — only re-creates if the card ID changes
+ 
+  useEffect(() => {
+    if (!idCard) return;
+    setGenerating(true);
+    Promise.all([
+      idCard.cardImage     ? Promise.resolve(idCard.cardImage)     : renderCardPreview(idCard).catch(() => ""),
+      idCard.cardImageBack ? Promise.resolve(idCard.cardImageBack) : renderBackPreview(idCard).catch(() => ""),
+    ]).then(([f, b]) => {
+      setFront(f);
+      setBack(b);
+      setGenerating(false);
+    });
+    fetchCorrections();
+  }, [cardId]); // ← was [idCard] — that caused the loop
+ 
+  const submitCorrection = async () => {
+    if (!corrField)         { fire("Select a field to correct", "error"); return; }
+    if (!corrReason.trim()) { fire("Enter the correct value / reason", "error"); return; }
+    setCorrSubmitting(true);
+    try {
+      let docUrl = null;
+      if (corrFile) {
+        const fd = new FormData();
+        fd.append("file", corrFile);
+        fd.append("upload_preset", import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || "bioburg_docs");
+        fd.append("folder", "bioburg/id-card-corrections");
+        const res = await axios.post(
+          `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/upload`, fd
+        );
+        docUrl = res.data.secure_url;
+      }
+      const t = localStorage.getItem("daToken");
+      await axios.post(`${API}/delivery/my-id-card/corrections`,
+        { cardId: idCard._id, field: corrField, reason: corrReason, supportingDocUrl: docUrl },
+        { headers: { Authorization: `Bearer ${t}` } }
+      );
+      fire("Correction request submitted!");
+      setShowCorr(false); setCorrField(""); setCorrReason(""); setCorrFile(null);
+      fetchCorrections();
+    } catch (err) {
+      fire(err?.response?.data?.message || "Failed to submit", "error");
+    } finally { setCorrSubmitting(false); }
+  };
+ 
+  const corrStatusStyle = (s) => ({
+    pending:  { bg:"#fefce8", color:"#b45309" },
+    approved: { bg:"#f0fdf4", color:"#15803d" },
+    rejected: { bg:"#fef2f2", color:"#dc2626" },
+  })[s] || { bg:"#f9fafb", color:"#374151" };
+ 
+  const docs    = agent?.documents || {};
+  const DOC_LIST = [
+    { label:"Aadhaar / ID Proof",   url: docs.aadhaar },
+    { label:"Personal Insurance",   url: docs.personalInsurance },
+    { label:"Driving Licence Copy", url: docs.licenceCopy },
+    { label:"Vehicle RC",           url: docs.vehicleRC },
+    { label:"Vehicle Insurance",    url: docs.vehicleInsurance },
+    { label:"Passport Photo",       url: docs.passportPhoto },
+    { label:"UPI QR Code",          url: docs.upiQrImage },
+  ];
+ 
+  if (!idCard) return (
+    <div style={{ textAlign:"center", padding:"20px 8px", background:"#f8fafc", borderRadius:10, border:"2px dashed #e2e8f0" }}>
+      <div style={{ fontSize:32, marginBottom:6 }}>🪪</div>
+      <p style={{ margin:"0 0 4px", fontWeight:700, color:"#374151", fontSize:13 }}>No ID Card Issued Yet</p>
+      <p style={{ margin:0, fontSize:11, color:"#94a3b8" }}>Your card will appear here once issued by admin.</p>
     </div>
+  );
+ 
+  return (
+    <>
+      {/* Local toast for this section */}
+      {localToast && (
+        <div style={{
+          padding:"10px 14px", borderRadius:10, marginBottom:10, fontSize:12, fontWeight:700,
+          background: localToast.type === "error" ? "#fef2f2" : "#f0fdf4",
+          color:      localToast.type === "error" ? "#dc2626"  : "#065f46",
+          border:     `1px solid ${localToast.type === "error" ? "#fecaca" : "#a7f3d0"}`,
+        }}>
+          {localToast.msg}
+        </div>
+      )}
+ 
+      {/* ID Card preview */}
+      <div style={{ borderRadius:12, background:"linear-gradient(135deg,#0f172a,#1e3a5f)", padding:16, textAlign:"center" }}>
+        {generating ? (
+          <div style={{ color:"#94a3b8", fontSize:13, padding:"18px 0" }}>Generating card…</div>
+        ) : front ? (
+          <img src={front} alt="ID Card" onClick={() => setShowModal(true)}
+            style={{ width:"100%", maxWidth:200, borderRadius:10, border:"2px solid #c9a84c", cursor:"pointer", display:"block", margin:"0 auto", transition:"transform .2s" }}
+            onMouseOver={e => { e.currentTarget.style.transform="scale(1.03)"; }}
+            onMouseOut={e =>  { e.currentTarget.style.transform="scale(1)"; }}
+          />
+        ) : null}
+        <p style={{ color:"rgba(255,255,255,0.5)", fontSize:10, margin:"6px 0 0" }}>
+          Tap to enlarge · <strong style={{ color:"#c9a84c" }}>{idCard.employeeId}</strong>
+        </p>
+        <button onClick={() => setShowModal(true)}
+          style={{ display:"inline-flex", alignItems:"center", gap:6, marginTop:10, padding:"8px 18px", background:"linear-gradient(135deg,#c9a84c,#b8860b)", color:"#1a1a1a", border:"none", borderRadius:9, fontWeight:800, cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>
+          View & Download
+        </button>
+ 
+        {/* Meta grid */}
+        <div style={{ marginTop:12, display:"grid", gridTemplateColumns:"1fr 1fr", gap:7, textAlign:"left" }}>
+          {[
+            { label:"Issued On",   val: fmtDateShort(idCard.issuedAt) },
+            { label:"Valid Till",  val: fmtDateShort(idCard.validTill) },
+            { label:"Department",  val: idCard.department  || "—" },
+            { label:"Designation", val: idCard.designation || "—" },
+          ].map(r => (
+            <div key={r.label} style={{ background:"rgba(255,255,255,0.08)", borderRadius:7, padding:"7px 9px" }}>
+              <p style={{ fontSize:9, color:"rgba(255,255,255,0.4)", margin:"0 0 2px", textTransform:"uppercase", letterSpacing:".04em" }}>{r.label}</p>
+              <p style={{ fontSize:11, color:"#fff", fontWeight:700, margin:0 }}>{r.val}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+ 
+      {/* Request Correction */}
+      <div style={{ marginTop:12, background:"#fff", border:"1.5px solid #e2e8f0", borderRadius:12, overflow:"hidden" }}>
+        <div style={{ padding:"11px 13px", borderBottom: showCorr ? "1px solid #f1f5f9" : "none", display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
+          <div style={{ minWidth:0 }}>
+            <p style={{ margin:0, fontSize:12, fontWeight:700, color:"#0f172a" }}>Request Correction</p>
+            <p style={{ margin:"1px 0 0", fontSize:10, color:"#94a3b8" }}>Something wrong on your ID card?</p>
+          </div>
+          <button onClick={() => setShowCorr(v => !v)}
+            style={{ flexShrink:0, padding:"6px 12px", background: showCorr ? "#f1f5f9" : "#0d9488", color: showCorr ? "#64748b" : "#fff", border:"none", borderRadius:8, fontWeight:700, cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>
+            {showCorr ? "Cancel" : "+ Request"}
+          </button>
+        </div>
+ 
+        {showCorr && (
+          <div style={{ padding:13, display:"flex", flexDirection:"column", gap:10 }}>
+            <div>
+              <label style={{ fontSize:10, fontWeight:700, color:"#475569", display:"block", marginBottom:4, textTransform:"uppercase", letterSpacing:".05em" }}>Field to Correct *</label>
+              <select value={corrField} onChange={e => setCorrField(e.target.value)}
+                style={{ width:"100%", padding:"8px 10px", borderRadius:8, border:"1.5px solid #e2e8f0", fontSize:12, outline:"none", fontFamily:"inherit", background:"#fff", color:"#0f172a" }}>
+                <option value="">— Select field —</option>
+                {CORR_FIELDS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize:10, fontWeight:700, color:"#475569", display:"block", marginBottom:4, textTransform:"uppercase", letterSpacing:".05em" }}>Correct Value / Reason *</label>
+              <textarea value={corrReason} onChange={e => setCorrReason(e.target.value)}
+                placeholder="Describe what is wrong and what it should be…"
+                style={{ width:"100%", padding:"8px 10px", borderRadius:8, border:"1.5px solid #e2e8f0", fontSize:12, outline:"none", fontFamily:"inherit", minHeight:64, resize:"vertical", boxSizing:"border-box", color:"#0f172a" }} />
+            </div>
+            <div>
+              <label style={{ fontSize:10, fontWeight:700, color:"#475569", display:"block", marginBottom:4, textTransform:"uppercase", letterSpacing:".05em" }}>Supporting Document (optional)</label>
+              <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", border:"1.5px dashed #cbd5e1", borderRadius:8, padding:"9px 11px", cursor:"pointer", background:"#f8fafc" }}>
+                <span style={{ fontSize:11, color: corrFile ? "#0d9488" : "#94a3b8", fontWeight: corrFile ? 700 : 400, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {corrFile ? `✓ ${corrFile.name}` : "Attach photo / document (max 5 MB)"}
+                </span>
+                <span style={{ flexShrink:0, fontSize:10, fontWeight:700, color:"#64748b", border:"1px solid #e2e8f0", borderRadius:5, padding:"2px 7px", marginLeft:8 }}>Browse</span>
+                <input type="file" style={{ display:"none" }} accept=".jpg,.jpeg,.png,.pdf"
+                  onChange={e => { const f = e.target.files[0]; if (f && f.size > 5*1024*1024) return; setCorrFile(f); }} />
+              </label>
+            </div>
+            <button onClick={submitCorrection} disabled={corrSubmitting}
+              style={{ padding:"9px 0", background:"#0d9488", color:"#fff", border:"none", borderRadius:9, fontWeight:700, cursor:"pointer", fontSize:12, fontFamily:"inherit", opacity: corrSubmitting ? 0.7 : 1 }}>
+              {corrSubmitting ? "Submitting…" : "Submit Correction Request"}
+            </button>
+          </div>
+        )}
+ 
+        {corrections.length > 0 && (
+          <div style={{ padding:"0 13px 13px" }}>
+            <p style={{ fontSize:10, fontWeight:700, color:"#94a3b8", textTransform:"uppercase", letterSpacing:".05em", margin:"10px 0 7px" }}>Previous Requests</p>
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              {corrections.map((c, i) => {
+                const ss = corrStatusStyle(c.status);
+                return (
+                  <div key={i} style={{ background:"#f8fafc", borderRadius:8, padding:"9px 11px", border:"1px solid #f1f5f9", display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:8 }}>
+                    <div style={{ minWidth:0 }}>
+                      <p style={{ margin:0, fontSize:11, fontWeight:700, color:"#0f172a" }}>
+                        {CORR_FIELDS.find(f => f.value === c.field)?.label || c.field}
+                      </p>
+                      <p style={{ margin:"2px 0 0", fontSize:10, color:"#64748b" }}>{c.reason}</p>
+                      {c.adminNote && (
+                        <p style={{ margin:"3px 0 0", fontSize:10, color:"#0d9488", fontWeight:600 }}>Admin: {c.adminNote}</p>
+                      )}
+                      {c.supportingDocUrl && (
+                        <a href={c.supportingDocUrl} target="_blank" rel="noreferrer"
+                          style={{ fontSize:10, color:"#3b82f6", fontWeight:700, textDecoration:"none", display:"inline-flex", alignItems:"center", gap:3, marginTop:3 }}>
+                          📎 View Doc
+                        </a>
+                      )}
+                    </div>
+                    <span style={{ fontSize:9, fontWeight:700, padding:"2px 8px", borderRadius:20, background:ss.bg, color:ss.color, whiteSpace:"nowrap", flexShrink:0 }}>
+                      {c.status ? c.status.charAt(0).toUpperCase() + c.status.slice(1) : "Pending"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+ 
+      {showModal && (
+        <IDCardModal frontImg={front} backImg={back} card={idCard} onClose={() => setShowModal(false)} />
+      )}
+    </>
+  );
+}
+ 
+function ProfileTab({ agent }) {
+  const docs   = agent.documents   || {};
+  const bank   = agent.bankDetails || {};
+  const idCard = agent.idCard || agent.employeeIdCard || null;
+ 
+  const Sec = ({ title, children, span }) => {
+    const rows = Array.isArray(children) ? children.filter(Boolean) : [children].filter(Boolean);
+    if (!rows.length) return null;
+    return (
+      <div className="card fu" style={span ? { gridColumn:"1/-1" } : {}}>
+        <div className="card-hd">{title}</div>
+        {rows}
+      </div>
+    );
+  };
+ 
+  // Returns null when value is falsy so Sec can filter it out
+  const Row = ({ l, v }) => {
+    if (!v) return null;
+    return (
+      <div className="irow">
+        <span className="ilbl">{l}</span>
+        <span className="ival">{v}</span>
+      </div>
+    );
+  };
+ 
+  const DocRow = ({ label, url }) => (
+    <div className="irow">
+      <span className="ilbl">{label}</span>
+      {url ? (
+        <a href={url} target="_blank" rel="noreferrer" className="dlink">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+          </svg>
+          View
+        </a>
+      ) : (
+        <span style={{ fontSize:11, color:"#cbd5e1" }}>Not uploaded</span>
+      )}
+    </div>
+  );
+ 
+  const acct = bank.accountNumber || agent.accountNumber;
+ 
+  return (
+    <>
+      {/* ── Add these responsive styles to the existing <style> block, or inline here ── */}
+      <style>{`
+        .profile-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 16px;
+          align-items: start;
+        }
+        .profile-grid-bottom {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+          margin-top: 16px;
+          align-items: start;
+        }
+        @media (max-width: 1100px) {
+          .profile-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 767px) {
+          .profile-grid,
+          .profile-grid-bottom { grid-template-columns: 1fr; }
+        }
+      `}</style>
+ 
+      <div className="profile-grid">
+        {/* Personal */}
+        <Sec title="Personal">
+          <Row l="Agent ID"  v={agent.agentId} />
+          <Row l="Full Name" v={agent.name} />
+          <Row l="Mobile"    v={agent.phone} />
+          <Row l="Email"     v={agent.email} />
+          <Row l="Zone"      v={agent.deliveryZone || agent.zone || agent.assignedArea} />
+          <Row l="Status"    v={agent.status} />
+          <Row l="Member Since" v={agent.createdAt ? new Date(agent.createdAt).toLocaleDateString("en-IN", { dateStyle:"medium" }) : null} />
+        </Sec>
+ 
+        {/* Vehicle */}
+        <Sec title="Vehicle">
+          <Row l="Type"              v={agent.vehicleType} />
+          <Row l="Reg. No."          v={agent.vehicleNumber || agent.vehicleReg} />
+          <Row l="Driving Licence"   v={agent.drivingLicence} />
+          <Row l="Vehicle Insurance" v={agent.vehicleInsuranceNumber} />
+          <Row l="PAN"               v={agent.panNumber || agent.panCard} />
+          <Row l="Personal Insurance" v={agent.personalInsuranceNumber} />
+        </Sec>
+ 
+        {/* ID Card */}
+        <div className="card fu">
+          <div className="card-hd">Driver ID Card</div>
+          <DeliveryIDCardSection idCard={idCard} agent={agent} />
+        </div>
+      </div>
+ 
+      <div className="profile-grid-bottom">
+        {/* Bank */}
+        <Sec title="Bank & Payment">
+          <Row l="Bank"    v={bank.bankName || agent.bankName} />
+          <Row l="Account" v={acct ? "••••" + String(acct).slice(-4) : null} />
+          <Row l="IFSC"    v={bank.ifscCode || agent.ifscCode} />
+          <Row l="UPI ID"  v={agent.upiId} />
+        </Sec>
+ 
+        {/* Documents */}
+        <div className="card fu">
+          <div className="card-hd">Documents</div>
+          <DocRow label="Aadhaar / ID Proof"   url={docs.aadhaar         || docs.aadhaarUrl} />
+          <DocRow label="Personal Insurance"   url={docs.personalInsurance || docs.personalInsuranceUrl} />
+          <DocRow label="Driving Licence"      url={docs.licenceCopy     || docs.licenceCopyUrl} />
+          <DocRow label="Vehicle RC"           url={docs.vehicleRC       || docs.vehicleRCUrl} />
+          <DocRow label="Vehicle Insurance"    url={docs.vehicleInsurance || docs.vehicleInsuranceUrl} />
+          <DocRow label="Passport Photo"       url={docs.passportPhoto   || docs.passportPhotoUrl} />
+          <DocRow label="UPI QR Code"          url={docs.upiQrImage      || docs.upiQrImageUrl} />
+        </div>
+      </div>
+    </>
   );
 }
 

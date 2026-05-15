@@ -10,6 +10,8 @@ import {
   togglePopupActive,
   createPopupVideo,
   updatePopupVideo,
+  deletePopupVideo, 
+  getAllActivePopups,
 } from "../controllers/popupVideoController.js";
 import { adminProtect } from "../middleware/adminAuth.js";
 import { optionalAuth }  from "../middleware/authMiddleware.js";
@@ -25,13 +27,13 @@ router.post("/config", adminProtect, savePopupVideoConfig);
 router.post("/upload",        adminProtect, uploadPopupVideo);
 router.post("/upload-poster", adminProtect, uploadPopupPoster);
 
-// Body: { publicId: string, resourceType: "video"|"image" }
-router.post("/delete-media", adminProtect, deleteMedia);
+router.delete("/delete/:id", adminProtect, deletePopupVideo);
 
 router.patch("/toggle", adminProtect, togglePopupActive);
 
 router.post(  "/create",       adminProtect, createPopupVideo);
 router.put(   "/update/:id",   adminProtect, updatePopupVideo);
 router.delete("/delete/:id",   adminProtect, deleteMedia); 
+router.get("/active-all", optionalAuth, getAllActivePopups);
 
 export default router;

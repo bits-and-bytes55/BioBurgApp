@@ -116,6 +116,10 @@ import targetRoutes from "./routes/targetRoutes.js";
 import topPerformerRoutes from "./routes/topPerformerRoutes.js";
 import giftRoutes from "./routes/giftRoutes.js";
 import productFeedbackRoutes from "./routes/pfRoutes.js";
+import salaryRoutes from "./routes/salaryRoutes.js";
+import agentReferralRoutes from "./routes/agentReferralRoutes.js";
+import adminReferralRoutes from "./routes/adminReferralRoutes.js";
+import leaveRoutes from "./routes/leaveRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -187,6 +191,8 @@ if (!fs.existsSync(resumePath)) {
 }
 app.use("/agent/campaigns", campaignRoutes);
 app.use("/api/marketing-agent", marketingAgentRoutes);
+app.use("/api/marketing-agent/leaves", leaveRoutes);
+app.use("/api/agent/referrals", agentReferralRoutes);
 app.use("/api/agent", marketingAgentRoutes); 
 app.use("/api/sale-orders", saleOrderRoutes);
 app.use("/api/upload", uploadRoutes);
@@ -202,6 +208,7 @@ app.use("/api/follow-ups", followUpRoutes);
 app.use("/api/marketing-agent", saleBillRoutes);
 app.use("/api/training", trainingRoutes);
 app.use("/api/points", pointsPayoutRoutes);
+app.use("/api/salary", salaryRoutes);
 app.use("/api/employees", employeeRoutes);
 app.use("/api/geo-tracking", geoTrackingRoutes);
 app.use("/api/route-planning", routePlanningRoutes);
@@ -216,6 +223,7 @@ app.use("/api/public", productFeedbackRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin", adminRegistrationsRoutes);
 app.use("/api/admin", adminDashboardRoutes);
+app.use("/api/admin/referrals", adminReferralRoutes);
 app.use("/api/admin", adminFranchiseRoutes);
 app.use("/api/admin", adminProductsRoutes);
 app.use("/api/admin", adminVendorAnalyticsRoutes);

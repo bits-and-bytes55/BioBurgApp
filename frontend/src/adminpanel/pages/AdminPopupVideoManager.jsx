@@ -1,5 +1,5 @@
-﻿// AdminPopupVideoManager.jsx
-import React, { useState, useEffect, useRef } from "react";
+﻿// AdminPopupVideoManager.jsx 
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { compressImage } from "../../../utils/mediaCompressor";
@@ -22,9 +22,10 @@ const DEFAULT_CONFIG = {
   ctaText: "Explore Now", ctaLink: "/",
   showDelay: 2, autoPlay: true, showOnce: true,
   accentColor: "#2563eb", showCloseButton: true, closeAfter: 0,
+  overlayColor: "rgba(0,0,0,0.75)",
 };
 
-// ── Direct Cloudinary upload via XHR 
+/* ── Direct Cloudinary upload ── */
 function uploadToCloudinary(file, resourceType = "video", onProgress) {
   return new Promise((resolve, reject) => {
     const fd = new FormData();
@@ -34,7 +35,7 @@ function uploadToCloudinary(file, resourceType = "video", onProgress) {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${resourceType}/upload`);
     if (onProgress) {
-      xhr.upload.onprogress = (e) => {
+      xhr.upload.onprogress = e => {
         if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
       };
     }
@@ -46,7 +47,6 @@ function uploadToCloudinary(file, resourceType = "video", onProgress) {
   });
 }
 
-// ── Delete via backend 
 async function callDeleteMedia(publicId, resourceType) {
   if (!publicId) return;
   try {
@@ -58,29 +58,30 @@ async function callDeleteMedia(publicId, resourceType) {
   } catch { /* best-effort */ }
 }
 
-// ── Toggle component 
-function Toggle({ checked, onChange }) {
+/*  Sub-components  */
+function Toggle({ checked, onChange, small }) {
+  const w = small ? 36 : 44, h = small ? 20 : 24, knob = small ? 16 : 20;
   return (
     <div
       onClick={() => onChange(!checked)}
       style={{
-        width: 44, height: 24, borderRadius: 12, cursor: "pointer",
+        width: w, height: h, borderRadius: h / 2, cursor: "pointer",
         background: checked ? "#2563eb" : "#cbd5e1",
         position: "relative", transition: "background 0.2s", flexShrink: 0,
       }}
     >
       <div style={{
-        position: "absolute", top: 2, width: 20, height: 20,
+        position: "absolute", top: (h - knob) / 2,
+        width: knob, height: knob,
         borderRadius: "50%", background: "white",
         boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
         transition: "transform 0.2s",
-        transform: checked ? "translateX(22px)" : "translateX(2px)",
+        transform: checked ? `translateX(${w - knob - (h - knob) / 2}px)` : `translateX(${(h - knob) / 2}px)`,
       }} />
     </div>
   );
 }
 
-// ── Range slider with labels 
 function RangeField({ label, value, min, max, step, onChange, formatVal, ticks }) {
   return (
     <div>
@@ -100,30 +101,77 @@ function RangeField({ label, value, min, max, step, onChange, formatVal, ticks }
   );
 }
 
-export default function AdminPopupVideoManager() {
-  const [config,         setConfig]         = useState(DEFAULT_CONFIG);
-  const [loading,        setLoading]        = useState(true);
-  const [saving,         setSaving]         = useState(false);
-  const [uploading,      setUploading]      = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [previewOpen,    setPreviewOpen]    = useState(false);
-  const [videoFile,      setVideoFile]      = useState(null);
-  const [posterFile,     setPosterFile]     = useState(null);
-  const [activeTab,      setActiveTab]      = useState("video");
+/* ── Popup Card in list view ── */
+function PopupCard({ doc, onEdit, onDelete, onToggle }) {
+  const cfg = doc.config ?? {};
+  const isYT = cfg.videoUrl?.includes("youtube.com") || cfg.videoUrl?.includes("youtu.be");
+
+  return (
+    <div style={S.popupCard}>
+      {/* Thumbnail */}
+      <div style={S.cardThumb}>
+        {cfg.posterUrl
+          ? <img src={cfg.posterUrl} alt="thumb" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          : isYT
+            ? <div style={S.cardThumbPlaceholder}>▶ YT</div>
+            : cfg.videoUrl
+              ? <video src={cfg.videoUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} muted playsInline />
+              : <div style={S.cardThumbPlaceholder}>No Video</div>
+        }
+        <div style={{ ...S.cardLiveBadge, background: cfg.enabled ? "#22c55e" : "#64748b" }}>
+          {cfg.enabled ? "● LIVE" : "○ OFF"}
+        </div>
+      </div>
+
+      {/* Info */}
+      <div style={S.cardInfo}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={S.cardInfoTitle}>{cfg.title || "Untitled Popup"}</div>
+            <div style={S.cardInfoSub}>{cfg.subtitle || "No subtitle"}</div>
+          </div>
+          <Toggle checked={cfg.enabled} onChange={v => onToggle(doc._id, v)} small />
+        </div>
+
+        <div style={S.cardMeta}>
+          <span style={S.metaTag}>⏱ {cfg.showDelay ?? 2}s delay</span>
+          {cfg.closeAfter > 0 && <span style={S.metaTag}>⏲ auto-close {cfg.closeAfter}s</span>}
+          {cfg.showOnce && <span style={S.metaTag}>👁 once/session</span>}
+          {cfg.autoPlay && <span style={S.metaTag}>▶ auto-play</span>}
+          <span style={S.metaTag}>
+            {cfg.videoType === "upload" ? "☁ uploaded" : "🔗 URL"}
+          </span>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          <button style={S.cardEditBtn} onClick={() => onEdit(doc)}>✏ Edit</button>
+          <button style={S.cardDeleteBtn} onClick={() => onDelete(doc)}>🗑 Delete</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Editor Panel (create / edit a single popup) ── */
+function PopupEditor({ initial, onSave, onCancel }) {
+  // isNew = no _id yet (creating); isNew=false means we're editing an existing doc
+  const isNew = !initial?._id;
+
+  const [config, setConfig]           = useState({ ...DEFAULT_CONFIG, ...(initial?.config ?? {}) });
+  const [saving, setSaving]           = useState(false);
+  const [uploading, setUploading]     = useState(false);
+  const [uploadPct, setUploadPct]     = useState(0);
+  const [videoFile, setVideoFile]     = useState(null);
+  const [posterFile, setPosterFile]   = useState(null);
+  const [activeTab, setActiveTab]     = useState("video");
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const videoInputRef  = useRef(null);
   const posterInputRef = useRef(null);
 
-  useEffect(() => {
-    axios.get(`${API_BASE}/api/popup-video/config`, getAuthHeader())
-      .then(res => { if (res.data?.config) setConfig({ ...DEFAULT_CONFIG, ...res.data.config }); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
   const set = (key, val) => setConfig(p => ({ ...p, [key]: val }));
 
-  const handleVideoChange = (e) => {
+  const handleVideoChange = e => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("video/")) { toast.error("Select a valid video file"); return; }
@@ -134,7 +182,7 @@ export default function AdminPopupVideoManager() {
     toast.success("Video ready — click Save to upload");
   };
 
-  const handlePosterChange = (e) => {
+  const handlePosterChange = e => {
     const file = e.target.files?.[0];
     if (!file) return;
     setPosterFile(file);
@@ -166,18 +214,18 @@ export default function AdminPopupVideoManager() {
     try {
       let final = { ...config };
 
-      // 1 — Upload video directly to Cloudinary (no backend needed)
+      // Upload video if a new file was selected
       if (videoFile && config.videoType === "upload") {
-        setUploading(true); setUploadProgress(0);
+        setUploading(true); setUploadPct(0);
         await callDeleteMedia(final.videoPublicId, "video");
-        const tid = toast.loading("Uploading video to Cloudinary…");
-        const r = await uploadToCloudinary(videoFile, "video", pct => setUploadProgress(pct));
+        const tid = toast.loading("Uploading video…");
+        const r = await uploadToCloudinary(videoFile, "video", pct => setUploadPct(pct));
         toast.dismiss(tid); toast.success("Video uploaded!");
-        final.videoUrl = r.secure_url; final.videoPublicId = r.public_id; final.videoType = "upload";
-        setVideoFile(null); setUploading(false); setUploadProgress(0);
+        final.videoUrl = r.secure_url; final.videoPublicId = r.public_id;
+        setVideoFile(null); setUploading(false); setUploadPct(0);
       }
 
-      // 2 — Upload poster directly to Cloudinary
+      // Upload poster/thumbnail if a new file was selected
       if (posterFile) {
         const compressed = await compressImage(posterFile, { maxWidthOrHeight: 1280, quality: 0.8, outputFormat: "image/jpeg" });
         const tid = toast.loading("Uploading thumbnail…");
@@ -187,58 +235,60 @@ export default function AdminPopupVideoManager() {
         setPosterFile(null);
       }
 
-      // 3 — Save config blob to backend
-      await axios.post(`${API_BASE}/api/popup-video/config`, { config: final }, getAuthHeader());
+      if (isNew) {
+        // ── CREATE: POST to /create ──
+        await axios.post(
+          `${API_BASE}/api/popup-video/create`,
+          { config: final },
+          getAuthHeader()
+        );
+        toast.success("Popup created!");
+      } else {
+        // ── UPDATE: PUT to /update/:id ──
+        await axios.put(
+          `${API_BASE}/api/popup-video/update/${initial._id}`,
+          { config: final },
+          getAuthHeader()
+        );
+        toast.success("Popup updated!");
+      }
+
       setConfig(final);
-      toast.success("All settings saved!");
+      onSave(final);
     } catch (err) {
-      console.error(err);
       toast.error(err?.response?.data?.message || err?.message || "Failed to save");
     } finally {
-      setSaving(false); setUploading(false); setUploadProgress(0);
+      setSaving(false); setUploading(false); setUploadPct(0);
     }
   };
 
-  if (loading) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 300, gap: 12, flexDirection: "column" }}>
-      <div style={S.spinner} />
-      <span style={{ color: "#64748b", fontSize: 14 }}>Loading settings…</span>
-    </div>
-  );
-
   const TABS = [
-    { key: "video",      label: "Video"   },
-    { key: "text",       label: "Text"    },
+    { key: "video",      label: "Video"    },
+    { key: "text",       label: "Text"     },
     { key: "behaviour",  label: "Settings" },
-    { key: "appearance", label: "Style"   },
+    { key: "appearance", label: "Style"    },
   ];
 
   return (
-    <div style={S.page}>
-      {/* HEADER */}
-      <div style={S.header}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, flex: 1, minWidth: 0 }}>
-          <div style={S.headerIcon}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-              <path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/>
-            </svg>
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <h1 style={S.headerTitle}>Popup Video Manager</h1>
-            <p style={S.headerSub}>Control the video popup shown to visitors on your home page</p>
-          </div>
+    <div style={S.editorWrap}>
+      {/* Editor Header */}
+      <div style={S.editorHeader}>
+        <button style={S.backBtn} onClick={onCancel}>← Back</button>
+        <div style={{ flex: 1 }}>
+          <div style={S.editorTitle}>{isNew ? "New Popup" : "Edit Popup"}</div>
+          <div style={S.editorSub}>{config.title || "Untitled"}</div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ ...S.badge, background: config.enabled ? "#22c55e" : "#64748b" }}>
             {config.enabled ? "● LIVE" : "○ OFF"}
           </div>
           <button style={S.headerSaveBtn} onClick={handleSave} disabled={saving}>
-            {saving ? "Saving…" : "Save"}
+            {saving ? "Saving…" : (isNew ? "Create" : "Update")}
           </button>
         </div>
       </div>
 
-      {/* MOBILE TAB BAR */}
+      {/* Tab bar */}
       <div style={S.tabBar}>
         {TABS.map(t => (
           <button key={t.key}
@@ -250,36 +300,34 @@ export default function AdminPopupVideoManager() {
         ))}
       </div>
 
-      {/* GRID */}
+      {/* Grid content */}
       <div style={S.grid}>
-
-        {/* LEFT — Video & Status */}
+        {/* LEFT */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-          {/* Status card */}
-          <div style={{ ...S.card, display: activeTab === "video" ? "block" : "none" }} className="pmv-always">
+          {/* Status */}
+          <div style={{ ...S.card, display: activeTab === "video" ? "block" : "none" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <div>
                 <div style={S.cardTitle}>Popup Status</div>
-                <div style={S.cardSub}>Toggle popup on/off for all visitors</div>
+                <div style={S.cardSub}>Toggle popup on/off for visitors</div>
               </div>
               <Toggle checked={config.enabled} onChange={v => set("enabled", v)} />
             </div>
             {config.enabled && (
-              <div style={S.successBanner}>✓ Popup is active — visitors will see it on the home page</div>
+              <div style={S.successBanner}>✓ Popup is active — visitors will see it</div>
             )}
           </div>
 
-          {/* Video source card */}
-          <div style={{ ...S.card, display: activeTab === "video" ? "block" : "none" }} className="pmv-always">
+          {/* Video source */}
+          <div style={{ ...S.card, display: activeTab === "video" ? "block" : "none" }}>
             <div style={S.cardTitle}>Video Source</div>
             <div style={S.cardSub}>Paste a URL or upload a video file</div>
 
-            {/* URL input */}
             <div style={{ marginTop: 12 }}>
               <label style={S.label}>Video URL (YouTube embed or direct MP4)</label>
               <div style={S.inputWrap}>
-                <span style={{ padding: "0 10px", fontSize: 16 }}></span>
+                <span style={{ padding: "0 10px", fontSize: 16 }}>🔗</span>
                 <input
                   style={S.inputInner}
                   placeholder="https://www.youtube.com/embed/VIDEO_ID or https://…/video.mp4"
@@ -300,7 +348,7 @@ export default function AdminPopupVideoManager() {
                 <div style={S.fileCardPlay}>▶</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={S.fileCardName}>{videoFile ? videoFile.name : "Video configured"}</div>
-                  <div style={S.fileCardType}>{config.videoType === "upload" ? "☁ Cloudinary upload" : "🔗 External URL"}</div>
+                  <div style={S.fileCardType}>{config.videoType === "upload" ? "☁ Cloudinary" : "🔗 External URL"}</div>
                 </div>
                 <button style={S.ghostBtn} onClick={() => setPreviewOpen(true)}>👁</button>
                 <button style={{ ...S.ghostBtn, color: "#ef4444" }} onClick={handleDeleteVideo}>🗑</button>
@@ -316,11 +364,11 @@ export default function AdminPopupVideoManager() {
             {uploading && (
               <div style={{ marginTop: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                  <span style={{ fontSize: 12, color: "#64748b" }}>Uploading to Cloudinary…</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#2563eb" }}>{uploadProgress}%</span>
+                  <span style={{ fontSize: 12, color: "#64748b" }}>Uploading…</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#2563eb" }}>{uploadPct}%</span>
                 </div>
                 <div style={S.progressTrack}>
-                  <div style={{ ...S.progressFill, width: `${uploadProgress}%` }} />
+                  <div style={{ ...S.progressFill, width: `${uploadPct}%` }} />
                 </div>
               </div>
             )}
@@ -339,7 +387,7 @@ export default function AdminPopupVideoManager() {
               ) : (
                 <button style={{ ...S.uploadArea, marginTop: 8, padding: "14px 12px" }}
                   onClick={() => posterInputRef.current?.click()}>
-                  <span style={{ fontSize: 20 }}></span>
+                  <span style={{ fontSize: 20 }}>🖼</span>
                   <span style={{ fontSize: 13, fontWeight: 600 }}>Upload Thumbnail Image</span>
                 </button>
               )}
@@ -347,11 +395,11 @@ export default function AdminPopupVideoManager() {
           </div>
         </div>
 
-        {/* RIGHT — Text, Behaviour, Appearance */}
+        {/* RIGHT */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
           {/* Text & CTA */}
-          <div style={{ ...S.card, display: activeTab === "text" ? "block" : "none" }} className="pmv-always">
+          <div style={{ ...S.card, display: activeTab === "text" ? "block" : "none" }}>
             <div style={S.cardTitle}>Text &amp; Call-to-Action</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 14 }}>
               <div>
@@ -379,7 +427,7 @@ export default function AdminPopupVideoManager() {
           </div>
 
           {/* Behaviour */}
-          <div style={{ ...S.card, display: activeTab === "behaviour" ? "block" : "none" }} className="pmv-always">
+          <div style={{ ...S.card, display: activeTab === "behaviour" ? "block" : "none" }}>
             <div style={S.cardTitle}>⚙️ Behaviour</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 14 }}>
               <RangeField
@@ -406,39 +454,47 @@ export default function AdminPopupVideoManager() {
           </div>
 
           {/* Appearance */}
-          <div style={{ ...S.card, display: activeTab === "appearance" ? "block" : "none" }} className="pmv-always">
-            <div style={S.cardTitle}>Appearance</div>
-            <div style={{ marginTop: 14 }}>
-              <label style={S.label}>Accent Colour</label>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
-                <input type="color" value={config.accentColor}
-                  onChange={e => set("accentColor", e.target.value)}
-                  style={{ width: 48, height: 40, border: "1.5px solid #e2e8f0", borderRadius: 8, cursor: "pointer", padding: 2 }}
-                />
-                <span style={{ fontSize: 13, fontFamily: "monospace", color: "#475569" }}>{config.accentColor}</span>
+          <div style={{ ...S.card, display: activeTab === "appearance" ? "block" : "none" }}>
+            <div style={S.cardTitle}>🎨 Appearance</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 14 }}>
+              <div>
+                <label style={S.label}>Accent Colour</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
+                  <input type="color" value={config.accentColor}
+                    onChange={e => set("accentColor", e.target.value)}
+                    style={{ width: 48, height: 40, border: "1.5px solid #e2e8f0", borderRadius: 8, cursor: "pointer", padding: 2 }}
+                  />
+                  <span style={{ fontSize: 13, fontFamily: "monospace", color: "#475569" }}>{config.accentColor}</span>
+                </div>
+              </div>
+              <div>
+                <label style={S.label}>Overlay Background</label>
+                <input style={S.input} value={config.overlayColor}
+                  onChange={e => set("overlayColor", e.target.value)}
+                  placeholder="rgba(0,0,0,0.75)" />
               </div>
             </div>
             <div style={S.infoBanner}>
-              ℹ Use the Preview button in the action bar to see how the popup will look before going live.
+              ℹ Use the Preview button to see how the popup will look before going live.
             </div>
           </div>
         </div>
       </div>
 
-      {/* ACTION BAR */}
+      {/* Action bar */}
       <div style={S.actionBar}>
         <button style={S.previewBtn} onClick={() => setPreviewOpen(true)} disabled={!config.videoUrl}>
-          👁 Preview Popup
+          👁 Preview
         </button>
         <button style={S.saveBigBtn} onClick={handleSave} disabled={saving}>
           {saving
             ? <><span style={S.spinnerSm} /> Saving…</>
-            : "Save All Changes"
+            : isNew ? "Create Popup" : "Update Popup"
           }
         </button>
       </div>
 
-      {/* PREVIEW MODAL */}
+      {/* Preview modal */}
       {previewOpen && (
         <div style={S.overlay} onClick={() => setPreviewOpen(false)}>
           <div style={S.modal} onClick={e => e.stopPropagation()}>
@@ -474,7 +530,8 @@ export default function AdminPopupVideoManager() {
                 )}
                 <div style={{ fontSize: 11, color: "rgba(255,255,255,.3)", marginTop: 14 }}>
                   {config.showDelay > 0 ? `Appears after ${config.showDelay}s` : "Appears immediately"} •{" "}
-                  {config.showOnce ? "Once per session" : "Every visit"}
+                  {config.showOnce ? "Once per session" : "Every visit"} •{" "}
+                  Auto-minimizes after 2s on first load
                 </div>
               </div>
             </div>
@@ -482,19 +539,156 @@ export default function AdminPopupVideoManager() {
         </div>
       )}
 
-      {/* Inject keyframes */}
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @media (min-width: 768px) {
-          .pmv-tabbar  { display: none !important; }
-          .pmv-always  { display: block !important; }
-        }
-      `}</style>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
 
-// ── Shared styles object ─────────────────────────────────────────────────────
+/* ── Main Component ─────────────────────────────────────────────────────── */
+export default function AdminPopupVideoManager() {
+  const [docs,    setDocs]    = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(null);  // null = list view; object = editor view
+  const [isNew,   setIsNew]   = useState(false);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    axios.get(`${API_BASE}/api/popup-video/all`, getAuthHeader())
+      .then(res => setDocs(res.data?.configs ?? []))
+      .catch(() => toast.error("Failed to load popups"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleNew = () => {
+    // Pass a fresh object with no _id so PopupEditor knows it's a create
+    setEditing({ config: { ...DEFAULT_CONFIG } });
+    setIsNew(true);
+  };
+
+  const handleEdit = doc => {
+    setEditing(doc);   // doc has ._id so PopupEditor knows it's an update
+    setIsNew(false);
+  };
+
+  const handleSave = () => {
+    setEditing(null);
+    load();
+  };
+
+  const handleCancel = () => {
+    setEditing(null);
+  };
+
+  const handleDelete = async doc => {
+    if (!window.confirm(`Delete "${doc.config?.title || "this popup"}"?`)) return;
+    try {
+      await callDeleteMedia(doc.config?.videoPublicId, "video");
+      await callDeleteMedia(doc.config?.posterPublicId, "image");
+      await axios.delete(`${API_BASE}/api/popup-video/delete/${doc._id}`, getAuthHeader());
+      toast.success("Popup deleted");
+      load();
+    } catch {
+      toast.error("Failed to delete popup");
+    }
+  };
+
+  const handleToggle = async (id, enabled) => {
+    try {
+      const doc = docs.find(d => d._id === id);
+      if (!doc) return;
+      const updated = { ...doc.config, enabled };
+      // Use PUT /update/:id to toggle a specific popup
+      await axios.put(
+        `${API_BASE}/api/popup-video/update/${id}`,
+        { config: updated },
+        getAuthHeader()
+      );
+      setDocs(prev => prev.map(d => d._id === id ? { ...d, config: updated } : d));
+      toast.success(enabled ? "Popup activated" : "Popup deactivated");
+    } catch {
+      toast.error("Failed to toggle popup");
+    }
+  };
+
+  /* Editor view */
+  if (editing) {
+    return (
+      <PopupEditor
+        initial={isNew ? null : editing}
+        onSave={handleSave}
+        onCancel={handleCancel}
+      />
+    );
+  }
+
+  /* List view */
+  return (
+    <div style={S.page}>
+      {/* Header */}
+      <div style={S.header}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, flex: 1, minWidth: 0 }}>
+          <div style={S.headerIcon}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+              <path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/>
+            </svg>
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <h1 style={S.headerTitle}>Popup Video Manager</h1>
+            <p style={S.headerSub}>
+              {docs.length} popup{docs.length !== 1 ? "s" : ""} •{" "}
+              {docs.filter(d => d.config?.enabled).length} live
+            </p>
+          </div>
+        </div>
+        <button style={S.newBtn} onClick={handleNew}>+ New Popup</button>
+      </div>
+
+      {/* Empty state */}
+      {!loading && docs.length === 0 && (
+        <div style={S.emptyState}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🎬</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#1e293b", marginBottom: 8 }}>No popup videos yet</div>
+          <div style={{ fontSize: 14, color: "#64748b", marginBottom: 24 }}>Create your first popup video to engage visitors on your homepage.</div>
+          <button style={S.newBtn} onClick={handleNew}>+ Create First Popup</button>
+        </div>
+      )}
+
+      {/* Loading */}
+      {loading && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 200, gap: 12 }}>
+          <div style={S.spinner} />
+          <span style={{ color: "#64748b", fontSize: 14 }}>Loading popups…</span>
+        </div>
+      )}
+
+      {/* Info banner */}
+      {!loading && docs.length > 0 && (
+        <div style={{ ...S.infoBanner, marginBottom: 16 }}>
+          ℹ️ On the user page, the popup shows full-screen first, then automatically shrinks to a mini-player after 2 seconds. Once a visitor manually expands it, it stays open until they minimize or close it.
+        </div>
+      )}
+
+      {/* List */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {docs.map(doc => (
+          <PopupCard
+            key={doc._id}
+            doc={doc}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onToggle={handleToggle}
+          />
+        ))}
+      </div>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
+/* Styles  */
 const S = {
   page: {
     minHeight: "100vh", background: "#f1f5f9", padding: 16,
@@ -532,6 +726,80 @@ const S = {
     borderRadius: 10, padding: "9px 18px", fontWeight: 700,
     fontSize: 13, cursor: "pointer",
   },
+  newBtn: {
+    background: "white", color: "#1e3a5f", border: "none",
+    borderRadius: 10, padding: "10px 20px", fontWeight: 700,
+    fontSize: 13, cursor: "pointer",
+    boxShadow: "0 2px 8px rgba(0,0,0,.12)",
+  },
+  emptyState: {
+    textAlign: "center", padding: "60px 20px",
+    background: "white", borderRadius: 16,
+    border: "1.5px dashed #cbd5e1",
+  },
+  infoBanner: {
+    padding: "10px 14px", background: "#eff6ff",
+    border: "1px solid #bfdbfe", borderRadius: 10, fontSize: 13, color: "#2563eb",
+  },
+  /* Popup card in list */
+  popupCard: {
+    display: "flex", gap: 0, background: "white", borderRadius: 16,
+    border: "1px solid #e2e8f0", overflow: "hidden",
+    boxShadow: "0 1px 4px rgba(0,0,0,.06)",
+  },
+  cardThumb: {
+    width: 160, flexShrink: 0, background: "#0b0f1a",
+    position: "relative", overflow: "hidden",
+    minHeight: 100,
+  },
+  cardThumbPlaceholder: {
+    display: "flex", alignItems: "center", justifyContent: "center",
+    height: "100%", color: "rgba(255,255,255,.4)", fontSize: 13, fontWeight: 600,
+  },
+  cardLiveBadge: {
+    position: "absolute", top: 8, left: 8,
+    color: "white", fontWeight: 700, fontSize: 10,
+    padding: "3px 8px", borderRadius: 20, letterSpacing: ".4px",
+  },
+  cardInfo: {
+    flex: 1, padding: "16px 18px",
+  },
+  cardInfoTitle: { fontSize: 15, fontWeight: 700, color: "#1e293b", marginBottom: 3 },
+  cardInfoSub:   { fontSize: 12, color: "#64748b" },
+  cardMeta: {
+    display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10,
+  },
+  metaTag: {
+    fontSize: 11, fontWeight: 600, color: "#475569",
+    background: "#f1f5f9", borderRadius: 6, padding: "3px 8px",
+  },
+  cardEditBtn: {
+    background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe",
+    borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 600,
+    cursor: "pointer",
+  },
+  cardDeleteBtn: {
+    background: "#fff5f5", color: "#ef4444", border: "1px solid #fca5a5",
+    borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 600,
+    cursor: "pointer",
+  },
+  /* Editor layout */
+  editorWrap: {
+    minHeight: "100vh", background: "#f1f5f9", padding: 16,
+    fontFamily: "'Segoe UI', system-ui, sans-serif", boxSizing: "border-box",
+  },
+  editorHeader: {
+    background: "linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%)",
+    borderRadius: 16, padding: "14px 18px", marginBottom: 14,
+    display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+  },
+  backBtn: {
+    background: "rgba(255,255,255,.15)", color: "white", border: "none",
+    borderRadius: 8, padding: "7px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+    flexShrink: 0,
+  },
+  editorTitle: { fontSize: 16, fontWeight: 800, color: "white", margin: 0 },
+  editorSub:   { fontSize: 12, color: "rgba(255,255,255,.65)", marginTop: 2 },
   tabBar: {
     display: "flex", gap: 4, marginBottom: 14,
     background: "white", borderRadius: 12, padding: 4,
@@ -558,10 +826,6 @@ const S = {
   successBanner: {
     marginTop: 10, padding: "8px 12px", background: "#f0fdf4",
     border: "1px solid #bbf7d0", borderRadius: 8, fontSize: 12, color: "#16a34a",
-  },
-  infoBanner: {
-    marginTop: 16, padding: "10px 12px", background: "#eff6ff",
-    border: "1px solid #bfdbfe", borderRadius: 8, fontSize: 12, color: "#2563eb",
   },
   label: { fontSize: 12, fontWeight: 600, color: "#475569", display: "block", marginBottom: 4 },
   input: {
@@ -602,22 +866,20 @@ const S = {
     background: "#f8fafc", padding: "22px 12px", cursor: "pointer",
     display: "flex", flexDirection: "column", alignItems: "center",
     gap: 6, color: "#64748b", boxSizing: "border-box",
-    transition: "border-color .2s",
   },
   outlineBtn: {
     background: "none", border: "1.5px solid #cbd5e1", borderRadius: 8,
     padding: "6px 14px", fontSize: 12, fontWeight: 600,
     color: "#475569", cursor: "pointer",
   },
-  progressTrack: {
-    height: 6, background: "#e2e8f0", borderRadius: 3, overflow: "hidden",
-  },
+  progressTrack: { height: 6, background: "#e2e8f0", borderRadius: 3, overflow: "hidden" },
   progressFill: {
     height: "100%", background: "linear-gradient(90deg,#2563eb,#60a5fa)",
     borderRadius: 3, transition: "width .3s",
   },
   actionBar: {
     display: "flex", gap: 12, justifyContent: "flex-end", flexWrap: "wrap",
+    marginBottom: 16,
   },
   previewBtn: {
     background: "white", border: "1.5px solid #e2e8f0",

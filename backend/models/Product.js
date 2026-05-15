@@ -1,7 +1,7 @@
 // models/Product.js
 import mongoose from "mongoose";
 
-// ─── Sub-schemas ───────────────────────────────────────────────────────────────
+// Sub-schemas 
 
 const VariantSchema = new mongoose.Schema(
   { name: String, price: Number, stock: Number, image: { url: String, public_id: String } },

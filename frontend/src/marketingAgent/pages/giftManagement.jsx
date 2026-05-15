@@ -39,6 +39,37 @@ const STOCK_META = {
   "Out of Stock":{ color: "#ef4444", bg: "#fee2e2", icon: <ErrorOutline sx={{ fontSize: 13 }} /> },
 };
 
+const TIER_CONFIG = {
+  A: { label:'A', color:'#7c3aed', bg:'#f5f3ff', desc:'₹50,000+',     min:50000 },
+  B: { label:'B', color:'#1d4ed8', bg:'#eff6ff', desc:'₹20K–49,999',  min:20000 },
+  C: { label:'C', color:'#0891b2', bg:'#ecfeff', desc:'₹5K–19,999',   min:5000  },
+  D: { label:'D', color:'#64748b', bg:'#f1f5f9', desc:'Below ₹5,000', min:0     },
+}
+
+// Replace the old fixed getCustomerTier with this
+const getCustomerTier = (totalValue, thresholds = { A:50000, B:20000, C:5000 }) => {
+  if (totalValue >= thresholds.A) return 'A'
+  if (totalValue >= thresholds.B) return 'B'
+  if (totalValue >= thresholds.C) return 'C'
+  return 'D'
+}
+
+// Days until next annual occurrence of a YYYY-MM-DD date
+const getDaysUntil = (dateStr) => {
+  if (!dateStr) return null
+  const today  = new Date(); today.setHours(0,0,0,0)
+  const d      = new Date(dateStr)
+  let next     = new Date(today.getFullYear(), d.getMonth(), d.getDate())
+  if (next < today) next = new Date(today.getFullYear() + 1, d.getMonth(), d.getDate())
+  return Math.round((next - today) / 86400000)
+}
+
+const dayLabel = (n) => {
+  if (n === 0) return { text:'Today!',     color:'#dc2626', bg:'#fef2f2' }
+  if (n === 1) return { text:'Tomorrow',   color:'#d97706', bg:'#fffbeb' }
+  return            { text:`In ${n} days`, color:'#0891b2', bg:'#ecfeff' }
+}
+
 /* StatCard  */
 const StatCard = ({ label, value, sub, icon, color }) => (
   <Card sx={{
@@ -285,36 +316,116 @@ const GiftFormDialog = ({ open, onClose, onSaved, initial }) => {
 /*  DistributeDialog  */
 const EMPTY_DIST = { recipientName: "", recipientType: "Doctor", recipientContact: "", area: "", quantity: 1, occasion: "", notes: "" };
 
+const DIST_TYPES = [
+  "Doctor","Physician","Chemist","Pharmacist","Stockist",
+  "Hospital","Clinic","Nursing Home","Manager","Purchase Manager",
+  "Receptionist","Nurse","Lab Technician","Owner","Administrator","Other"
+]
+
+const normalizeType = (role) => DIST_TYPES.includes(role) ? role : "Other"
+
 const DistributeDialog = ({ open, onClose, gift, onSaved }) => {
-  const [form, setForm]     = useState(EMPTY_DIST);
-  const [saving, setSaving] = useState(false);
+  const allCustomers    = useCustomers()
+  const [search,        setSearch]        = useState('')
+  const [searchFocused, setSearchFocused] = useState(false)
+  const [selected,      setSelected]      = useState(null)
+  const [remarks,       setRemarks]       = useState('')
+  const [img,           setImg]           = useState(null)
+  const [qty,           setQty]           = useState(1)
+  const [occasion,      setOccasion]      = useState('')
+  const [saving,        setSaving]        = useState(false)
+  const [showSettings,  setShowSettings]  = useState(false)
+  const imgRef = useRef(null)
 
-  useEffect(() => { if (open) setForm({ ...EMPTY_DIST, quantity: 1 }); }, [open]);
+  // ── Configurable thresholds (persisted in localStorage) ──
+  const [thresholds, setThresholds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('giftTierThresholds')
+      return saved ? JSON.parse(saved) : { A:50000, B:20000, C:5000 }
+    } catch { return { A:50000, B:20000, C:5000 } }
+  })
 
-  const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
+  const saveThresholds = (t) => {
+    setThresholds(t)
+    localStorage.setItem('giftTierThresholds', JSON.stringify(t))
+  }
+
+  // Auto quartile: split actual customer data into 4 equal buckets
+  const applyQuartile = () => {
+    if (allCustomers.length < 4) return
+    const sorted = [...allCustomers].map(c => c.totalValue).sort((a,b) => a - b)
+    const q = (p) => sorted[Math.floor(sorted.length * p)]
+    saveThresholds({ A: Math.round(q(0.75)), B: Math.round(q(0.5)), C: Math.round(q(0.25)) })
+  }
+
+  const tier    = (v) => getCustomerTier(v, thresholds)
+
+  useEffect(() => {
+    if (open) {
+      setSearch(''); setSearchFocused(false); setSelected(null)
+      setRemarks(''); setImg(null); setQty(1); setOccasion('')
+      setShowSettings(false)
+    }
+  }, [open])
+
+  const handleImgFile = (file) => {
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) { toast.error('Image must be < 5 MB'); return }
+    const r = new FileReader()
+    r.onloadend = () => setImg({ base64: r.result.split(',')[1], mime: file.type, preview: r.result })
+    r.readAsDataURL(file)
+  }
+
+  // Show ALL on focus, filter when typing
+  const displayList = (searchFocused || search.trim().length >= 1)
+    ? allCustomers.filter(c =>
+        !search.trim() ||
+        c.contactPerson.toLowerCase().includes(search.toLowerCase()) ||
+        c.phone.includes(search) ||
+        c.area.toLowerCase().includes(search.toLowerCase())
+      ).slice(0, 10)
+    : []
 
   const submit = async () => {
-    if (!form.recipientName.trim()) { toast.error("Recipient name is required"); return; }
-    if (form.quantity < 1 || form.quantity > gift.availableQuantity) {
-      toast.error(`Quantity must be between 1 and ${gift.availableQuantity}`); return;
+    if (!selected) { toast.error('Select a customer first'); return }
+    if (qty < 1 || qty > gift.availableQuantity) {
+      toast.error(`Qty must be 1–${gift.availableQuantity}`); return
     }
-    setSaving(true);
+    if (!img) { toast.error('Please upload a proof photo'); return }
+    setSaving(true)
     try {
-      await api().post("/distribute", { ...form, giftId: gift._id, quantity: Number(form.quantity) });
-      toast.success("Gift distributed successfully ");
-      onSaved(); onClose();
-    } catch (err) { toast.error(err.response?.data?.message || "Failed"); }
-    finally { setSaving(false); }
-  };
+      const payload = {
+        giftId:           gift._id,
+        recipientName:    selected.contactPerson,
+        recipientType:    normalizeType(selected.recipientType),
+        recipientContact: selected.phone,
+        area:             selected.area,
+        quantity:         Number(qty),
+        occasion,
+        notes:            remarks,
+        customerTier:     tier(selected.totalValue),
+      }
+      if (img?.base64) { payload.proofImageBase64 = img.base64; payload.proofImageMime = img.mime }
+      await api().post('/distribute', payload)
+      toast.success('Gift distributed successfully')
+      onSaved(); onClose()
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed') }
+    finally { setSaving(false) }
+  }
 
-  if (!gift) return null;
-  const stockMeta = STOCK_META[gift.stockStatus] || STOCK_META["In Stock"];
+  if (!gift) return null
+  const stockMeta  = STOCK_META[gift.stockStatus] || STOCK_META['In Stock']
+  const selTier    = selected ? tier(selected.totalValue) : null
+  const selTierCfg = selTier  ? TIER_CONFIG[selTier]     : null
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
-      <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: 800, pb: 1 }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-          <Avatar sx={{ width: 36, height: 36, borderRadius: 1.5, bgcolor: CAT_COLORS[gift.category] + "20", color: CAT_COLORS[gift.category] }}>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth
+      PaperProps={{ sx:{ borderRadius:3 } }}>
+
+      <DialogTitle sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', fontWeight:800, pb:1 }}>
+        <Box sx={{ display:'flex', alignItems:'center', gap:1.5 }}>
+          <Avatar sx={{ width:36, height:36, borderRadius:1.5,
+            bgcolor: CAT_COLORS[gift.category]+'20', color: CAT_COLORS[gift.category] }}>
             <LocalShipping fontSize="small" />
           </Avatar>
           Distribute Gift
@@ -323,63 +434,403 @@ const DistributeDialog = ({ open, onClose, gift, onSaved }) => {
       </DialogTitle>
       <Divider />
 
-      <DialogContent sx={{ pt: 2 }}>
+      <DialogContent sx={{ pt:2 }}>
+
         {/* Gift summary */}
-        <Box sx={{ display: "flex", gap: 1.5, p: 1.5, bgcolor: "#f8fafc", borderRadius: 2, mb: 2.5, alignItems: "center" }}>
+        <Box sx={{ display:'flex', gap:1.5, p:1.5, bgcolor:'#f8fafc', borderRadius:2, mb:2, alignItems:'center' }}>
           {gift.image?.url
-            ? <img src={gift.image.url} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
-            : <Avatar sx={{ width: 48, height: 48, borderRadius: 2, bgcolor: CAT_COLORS[gift.category] + "20", color: CAT_COLORS[gift.category] }}><CardGiftcard /></Avatar>
+            ? <img src={gift.image.url} alt="" style={{ width:48, height:48, borderRadius:8, objectFit:'cover', flexShrink:0 }} />
+            : <Avatar sx={{ width:48, height:48, borderRadius:2, bgcolor: CAT_COLORS[gift.category]+'20', color: CAT_COLORS[gift.category] }}><CardGiftcard /></Avatar>
           }
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography sx={{ fontWeight: 700, fontSize: 14 }}>{gift.name}</Typography>
-            <Typography sx={{ fontSize: 12, color: "#94a3b8" }}>{gift.category} · ₹{gift.value} per unit</Typography>
+          <Box sx={{ flex:1, minWidth:0 }}>
+            <Typography sx={{ fontWeight:700, fontSize:14 }}>{gift.name}</Typography>
+            <Typography sx={{ fontSize:12, color:'#94a3b8' }}>{gift.category} · ₹{gift.value} per unit</Typography>
           </Box>
           <Chip label={`${gift.availableQuantity} left`} size="small" icon={stockMeta.icon}
-            sx={{ bgcolor: stockMeta.bg, color: stockMeta.color, fontWeight: 700, fontSize: 11 }} />
+            sx={{ bgcolor: stockMeta.bg, color: stockMeta.color, fontWeight:700, fontSize:11 }} />
         </Box>
 
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={8}>
-            <TextField fullWidth label="Recipient Name *" value={form.recipientName} onChange={f("recipientName")} size="small" />
-          </Grid>
-          <Grid item xs={12} sm={4}>
-            <TextField fullWidth label="Type *" value={form.recipientType} onChange={f("recipientType")} size="small" select>
-              {RECIPIENT_TYPES.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-            </TextField>
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField fullWidth label="Contact Number" value={form.recipientContact} onChange={f("recipientContact")} size="small" />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField fullWidth label="Area / Location" value={form.area} onChange={f("area")} size="small" />
-          </Grid>
-          <Grid item xs={12} sm={4}>
-            <TextField fullWidth label="Quantity *" value={form.quantity} onChange={f("quantity")}
-              size="small" type="number" inputProps={{ min: 1, max: gift.availableQuantity }}
-              helperText={`Max: ${gift.availableQuantity}`} />
-          </Grid>
-          <Grid item xs={12} sm={8}>
-            <TextField fullWidth label="Occasion" value={form.occasion} onChange={f("occasion")}
-              size="small" placeholder="e.g. Doctor's Day, Product Launch…" />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField fullWidth label="Notes" value={form.notes} onChange={f("notes")}
-              size="small" multiline rows={2} placeholder="Any additional notes…" />
-          </Grid>
-        </Grid>
+        {/* ── Customer search ── */}
+        <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb:1 }}>
+          <Typography sx={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:'0.07em' }}>
+            SELECT CUSTOMER
+          </Typography>
+          <Button size="small" onClick={() => setShowSettings(s => !s)}
+            sx={{ fontSize:10, color: showSettings ? '#6366f1' : '#94a3b8',
+              bgcolor: showSettings ? '#eef2ff' : 'transparent', borderRadius:1.5,
+              minWidth:0, px:1, py:0.25 }}>
+            ⚙ Tier Settings
+          </Button>
+        </Box>
+
+        {/* ── Tier settings panel ── */}
+        {showSettings && (
+          <Box sx={{ p:1.5, mb:1.5, bgcolor:'#f8fafc', borderRadius:2,
+            border:'1px solid #e2e8f0', display:'flex', flexDirection:'column', gap:1.5 }}>
+            <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <Typography sx={{ fontSize:11, fontWeight:700, color:'#475569' }}>
+                Minimum purchase to qualify for each tier
+              </Typography>
+              <Button size="small" onClick={applyQuartile}
+                disabled={allCustomers.length < 4}
+                sx={{ fontSize:10, bgcolor:'#eff6ff', color:'#1d4ed8', borderRadius:1.5,
+                  fontWeight:700, minWidth:0, px:1.5, py:0.25,
+                  '&:disabled':{ opacity:0.4 } }}>
+                Auto (Quartile)
+              </Button>
+            </Box>
+            <Box sx={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:1.5 }}>
+              {[
+                { key:'A', color:'#7c3aed', label:'Tier A min (₹)' },
+                { key:'B', color:'#1d4ed8', label:'Tier B min (₹)' },
+                { key:'C', color:'#0891b2', label:'Tier C min (₹)' },
+              ].map(({ key, color, label }) => (
+                <Box key={key}>
+                  <Typography sx={{ fontSize:10, fontWeight:700, color, mb:0.5 }}>{label}</Typography>
+                  <TextField
+                    size="small" type="number" fullWidth
+                    value={thresholds[key]}
+                    onChange={e => saveThresholds({ ...thresholds, [key]: Math.max(0, Number(e.target.value)) })}
+                    inputProps={{ min:0, style:{ fontSize:12 } }}
+                    sx={{ '& .MuiOutlinedInput-root':{ borderRadius:1.5 } }}
+                  />
+                </Box>
+              ))}
+            </Box>
+            <Typography sx={{ fontSize:10, color:'#94a3b8' }}>
+              Tier D = everyone below Tier C · Settings saved automatically
+            </Typography>
+          </Box>
+        )}
+
+        {/* Selected customer card */}
+        {selected ? (
+          <Box sx={{ display:'flex', alignItems:'center', gap:1.5, p:1.5, mb:1.5,
+            border:`2px solid ${selTierCfg.color}40`, borderRadius:2, bgcolor: selTierCfg.bg }}>
+            <Box sx={{ width:36, height:36, borderRadius:1.5, bgcolor: selTierCfg.color,
+              display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <Typography sx={{ fontSize:16, fontWeight:800, color:'#fff' }}>{selTier}</Typography>
+            </Box>
+            <Box sx={{ flex:1, minWidth:0 }}>
+              <Typography sx={{ fontSize:13, fontWeight:700, color:'#0f172a' }}>
+                {selected.contactPerson}
+              </Typography>
+              <Typography sx={{ fontSize:11, color:'#64748b' }}>
+                {selected.recipientType}
+                {selected.designation ? ` · ${selected.designation}` : ''}
+                {selected.area ? ` · ${selected.area}` : ''}
+              </Typography>
+              <Typography sx={{ fontSize:11, color: selTierCfg.color, fontWeight:600 }}>
+                Total purchases: ₹{selected.totalValue.toLocaleString('en-IN')} · Tier {selTier} ({selTierCfg.desc})
+              </Typography>
+            </Box>
+            <Box sx={{ textAlign:'right', flexShrink:0 }}>
+              {selected.phone && (
+                <Typography sx={{ fontSize:11, color:'#64748b', fontFamily:'monospace' }}>{selected.phone}</Typography>
+              )}
+              {getDaysUntil(selected.dob) !== null && getDaysUntil(selected.dob) <= 7 && (
+                <Chip label={`${dayLabel(getDaysUntil(selected.dob)).text}`} size="small"
+                  sx={{ fontSize:10, height:18, mt:0.5,
+                    bgcolor: dayLabel(getDaysUntil(selected.dob)).bg,
+                    color:   dayLabel(getDaysUntil(selected.dob)).color, fontWeight:700 }} />
+              )}
+              {getDaysUntil(selected.anniversary) !== null && getDaysUntil(selected.anniversary) <= 7 && (
+                <Chip label={` ${dayLabel(getDaysUntil(selected.anniversary)).text}`} size="small"
+                  sx={{ fontSize:10, height:18, mt:0.5, ml:0.5,
+                    bgcolor: dayLabel(getDaysUntil(selected.anniversary)).bg,
+                    color:   dayLabel(getDaysUntil(selected.anniversary)).color, fontWeight:700 }} />
+              )}
+            </Box>
+            <IconButton size="small" onClick={() => { setSelected(null); setSearch('') }}
+              sx={{ color:'#94a3b8', ml:0.5 }}>
+              <Close sx={{ fontSize:14 }} />
+            </IconButton>
+          </Box>
+        ) : (
+          <Box sx={{ position:'relative', mb:1.5 }}>
+            <TextField
+              fullWidth size="small"
+              placeholder="Click to browse all customers or type to search…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search sx={{ fontSize:16, color:'#94a3b8' }} />
+                  </InputAdornment>
+                )
+              }}
+            />
+
+            {/* Tier legend */}
+            <Box sx={{ display:'flex', gap:1, mt:0.75, flexWrap:'wrap' }}>
+              {Object.entries(TIER_CONFIG).map(([t, cfg]) => (
+                <Box key={t} sx={{ display:'flex', alignItems:'center', gap:0.5 }}>
+                  <Box sx={{ width:10, height:10, borderRadius:0.5, bgcolor: cfg.color }} />
+                  <Typography sx={{ fontSize:10, color:'#64748b' }}>
+                    {t}{t !== 'D'
+                      ? `: ₹${thresholds[t].toLocaleString('en-IN')}+`
+                      : `: below ₹${thresholds.C.toLocaleString('en-IN')}`}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+
+            {/* Dropdown */}
+            {displayList.length > 0 && (
+              <Paper elevation={4} sx={{
+                position:'absolute', top:'calc(100% + 4px)', left:0, right:0, zIndex:9999,
+                border:'1px solid #e2e8f0', borderRadius:2, overflow:'hidden',
+                maxHeight:300, overflowY:'auto',
+              }}>
+                {/* Header row */}
+                <Box sx={{ px:2, py:0.75, bgcolor:'#f8fafc', borderBottom:'1px solid #f1f5f9',
+                  display:'flex', justifyContent:'space-between' }}>
+                  <Typography sx={{ fontSize:10, fontWeight:700, color:'#94a3b8', letterSpacing:'0.07em' }}>
+                    {search.trim() ? `${displayList.length} RESULT(S)` : `ALL CUSTOMERS (${allCustomers.length})`}
+                  </Typography>
+                  <Typography sx={{ fontSize:10, color:'#94a3b8' }}>Sorted by purchases ↓</Typography>
+                </Box>
+
+                {[...displayList].sort((a,b) => b.totalValue - a.totalValue).map((c, i) => {
+                  const t       = tier(c.totalValue)
+                  const tCfg    = TIER_CONFIG[t]
+                  const bdDays  = getDaysUntil(c.dob)
+                  const anDays  = getDaysUntil(c.anniversary)
+                  const hasCel  = (bdDays !== null && bdDays <= 7) || (anDays !== null && anDays <= 7)
+                  return (
+                    <Box key={i}
+                      onMouseDown={() => { setSelected(c); setSearch(''); setSearchFocused(false) }}
+                      sx={{
+                        display:'flex', alignItems:'center', gap:1.5,
+                        px:2, py:1.25, cursor:'pointer', borderBottom:'1px solid #f8fafc',
+                        bgcolor: hasCel ? '#fffbeb' : 'transparent',
+                        '&:hover':{ bgcolor: hasCel ? '#fef3c7' : '#f8fafc' },
+                      }}>
+                      {/* Tier box */}
+                      <Box sx={{ width:28, height:28, borderRadius:1, bgcolor: tCfg.color,
+                        flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                        <Typography sx={{ fontSize:13, fontWeight:800, color:'#fff' }}>{t}</Typography>
+                      </Box>
+                      <Box sx={{ flex:1, minWidth:0 }}>
+                        <Box sx={{ display:'flex', alignItems:'center', gap:0.75 }}>
+                          <Typography sx={{ fontSize:13, fontWeight:700, color:'#0f172a',
+                            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                            {c.contactPerson}
+                          </Typography>
+                          {hasCel && (
+                            <Typography sx={{ fontSize:12 }}>
+                              {bdDays !== null && bdDays <= 7 ? '' : ''}
+                              {anDays !== null && anDays <= 7 ? '' : ''}
+                            </Typography>
+                          )}
+                        </Box>
+                        <Typography sx={{ fontSize:11, color:'#64748b' }}>
+                          {c.recipientType}{c.area ? ` · ${c.area}` : ''}
+                          {c.designation ? ` · ${c.designation}` : ''}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ textAlign:'right', flexShrink:0 }}>
+                        <Typography sx={{ fontSize:12, fontWeight:700, color: tCfg.color }}>
+                          ₹{c.totalValue.toLocaleString('en-IN')}
+                        </Typography>
+                        {c.phone && (
+                          <Typography sx={{ fontSize:10, color:'#94a3b8', fontFamily:'monospace' }}>{c.phone}</Typography>
+                        )}
+                      </Box>
+                    </Box>
+                  )
+                })}
+              </Paper>
+            )}
+
+            {allCustomers.length === 0 && searchFocused && (
+              <Typography sx={{ fontSize:12, color:'#94a3b8', mt:1 }}>
+                No past customers found yet — visit the DCR page to log customers first.
+              </Typography>
+            )}
+          </Box>
+        )}
+
+        {/* ── Qty + Occasion ── */}
+        <Box sx={{ display:'grid', gridTemplateColumns:'1fr 2fr', gap:2, mb:2, mt:1 }}>
+          <TextField size="small" label="Quantity *" type="number"
+            value={qty}
+            onChange={e => setQty(Math.max(1, Math.min(gift.availableQuantity, Number(e.target.value))))}
+            inputProps={{ min:1, max: gift.availableQuantity }}
+            helperText={`Max: ${gift.availableQuantity}`}
+          />
+          <TextField size="small" label="Occasion"
+            value={occasion} onChange={e => setOccasion(e.target.value)}
+            placeholder="e.g. Birthday, Doctor's Day…"
+          />
+        </Box>
+
+        {/* ── Remarks ── */}
+        <TextField
+          fullWidth multiline rows={2} size="small" label="Remarks"
+          value={remarks} onChange={e => setRemarks(e.target.value)}
+          placeholder="Any notes about this distribution…"
+          sx={{ mb:2 }}
+        />
+
+        {/* ── Proof Image ── */}
+        <Typography sx={{ fontSize:11, fontWeight:700, color:'#dc2626', letterSpacing:'0.07em', mb:1 }}>
+  Photo With Customer *
+</Typography>
+        <input ref={imgRef} type="file" accept="image/*" hidden
+          onChange={e => handleImgFile(e.target.files[0])} />
+        {img?.preview ? (
+          <Box sx={{ position:'relative', borderRadius:2, overflow:'hidden', height:100 }}>
+            <img src={img.preview} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+            <IconButton size="small" onClick={() => setImg(null)}
+              sx={{ position:'absolute', top:4, right:4, bgcolor:'rgba(0,0,0,0.55)', color:'#fff', width:24, height:24 }}>
+              <Close sx={{ fontSize:14 }} />
+            </IconButton>
+          </Box>
+        ) : (
+
+<Box onClick={() => imgRef.current?.click()} sx={{
+  height:72, border:'2px dashed #fca5a5', borderRadius:2,   
+  display:'flex', alignItems:'center', justifyContent:'center', gap:1,
+  cursor:'pointer', bgcolor:'#fff5f5',                        
+  '&:hover':{ borderColor:'#ef4444', bgcolor:'#fee2e2' }, transition:'all 0.2s',
+}}>
+  <CloudUpload sx={{ fontSize:18, color:'#f87171' }} />        
+  <Typography sx={{ fontSize:12, color:'#ef4444' }}>Upload photo (required)</Typography>
+</Box>
+        )}
       </DialogContent>
+
       <Divider />
-      <DialogActions sx={{ p: 2, gap: 1 }}>
-        <Button onClick={onClose} variant="outlined" size="small" sx={{ borderRadius: 2, borderColor: "#e2e8f0", color: "#64748b" }}>Cancel</Button>
-        <Button onClick={submit} variant="contained" size="small" disabled={saving}
-          startIcon={saving ? <CircularProgress size={13} color="inherit" /> : <LocalShipping sx={{ fontSize: 14 }} />}
-          sx={{ bgcolor: "#10b981", "&:hover": { bgcolor: "#059669" }, borderRadius: 2, fontWeight: 700 }}>
-          {saving ? "Distributing…" : "Distribute Gift"}
+      <DialogActions sx={{ p:2, gap:1 }}>
+        <Button onClick={onClose} variant="outlined" size="small"
+          sx={{ borderRadius:2, borderColor:'#e2e8f0', color:'#64748b' }}>
+          Cancel
+        </Button>
+        <Button onClick={submit} variant="contained" size="small" disabled={saving || !selected}
+          startIcon={saving ? <CircularProgress size={13} color="inherit" /> : <LocalShipping sx={{ fontSize:14 }} />}
+          sx={{ bgcolor:'#10b981', '&:hover':{ bgcolor:'#059669' }, borderRadius:2, fontWeight:700 }}>
+          {saving ? 'Distributing…' : 'Distribute Gift'}
         </Button>
       </DialogActions>
     </Dialog>
-  );
-};
+  )
+}
+
+function useCustomers() {
+  const [customers, setCustomers] = useState([])
+
+  useEffect(() => {
+    const token = localStorage.getItem('agentToken')
+    const BASE_AGENT = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+    fetch(`${BASE_AGENT}/api/agent/responses`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (!d.success) return
+        // Aggregate by contactPerson+phone
+        const map = {}
+        d.responses.forEach(r => {
+          const key = `${r.contactPerson}__${r.phone || ''}`
+          if (!map[key]) {
+            map[key] = {
+              contactPerson: r.contactPerson,
+              recipientType: r.contactRole || 'Other',
+              phone:         r.phone        || '',
+              area:          r.city         || r.district || '',
+              dob:           r.dob          || '',
+              anniversary:   r.anniversary  || '',
+              designation:   r.designation  || '',
+              totalValue:    0,
+            }
+          }
+          map[key].totalValue += parseFloat(r.orderValue || 0)
+        })
+        setCustomers(Object.values(map))
+      })
+      .catch(() => {})
+  }, [])
+
+  return customers
+}
+
+function UpcomingCelebrations({ customers }) {
+  const events = []
+  customers.forEach(c => {
+    const bd   = getDaysUntil(c.dob)
+    const ann  = getDaysUntil(c.anniversary)
+    if (bd  !== null && bd  <= 7) events.push({ customer:c, type:'Birthday',     days:bd  })
+    if (ann !== null && ann <= 7) events.push({ customer:c, type:'Anniversary',  days:ann })
+  })
+  // Sort: today first
+  events.sort((a,b) => a.days - b.days)
+
+  if (events.length === 0) return null
+
+  return (
+    <Box sx={{ mb:2.5 }}>
+      <Box sx={{ display:'flex', alignItems:'center', gap:1, mb:1 }}>
+        <Box sx={{ width:8, height:8, borderRadius:'50%', bgcolor:'#dc2626', animation:'pulse 1.5s infinite' }} />
+        <Typography sx={{ fontSize:11, fontWeight:700, color:'#64748b', letterSpacing:'0.07em' }}>
+          UPCOMING CELEBRATIONS (next 7 days)
+        </Typography>
+      </Box>
+      <Box sx={{ display:'flex', gap:1.5, flexWrap:'wrap' }}>
+        {events.map((ev, i) => {
+          const { text, color, bg } = dayLabel(ev.days)
+          const tier   = getCustomerTier(ev.customer.totalValue)
+          const tierCfg = TIER_CONFIG[tier]
+          return (
+            <Paper key={i} elevation={0} sx={{
+              display:'flex', alignItems:'center', gap:1.5,
+              px:2, py:1.25, borderRadius:2,
+              border:`1px solid ${color}30`,
+              bgcolor: bg,
+              minWidth:220,
+            }}>
+              {/* Icon */}
+              <Box sx={{ fontSize:20 }}>{ev.type === 'Birthday' ? '🎂' : '🎉'}</Box>
+
+              <Box sx={{ flex:1, minWidth:0 }}>
+                <Box sx={{ display:'flex', alignItems:'center', gap:0.75 }}>
+                  <Typography sx={{ fontSize:13, fontWeight:700, color:'#0f172a',
+                    overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:140 }}>
+                    {ev.customer.contactPerson}
+                  </Typography>
+                  {/* Tier badge */}
+                  <Box sx={{ px:0.75, py:0.1, borderRadius:1, bgcolor: tierCfg.bg,
+                    fontSize:10, fontWeight:800, color: tierCfg.color, lineHeight:1.6,
+                    border:`1px solid ${tierCfg.color}30`, flexShrink:0 }}>
+                    {tier}
+                  </Box>
+                </Box>
+                <Typography sx={{ fontSize:11, color:'#64748b' }}>
+                  {ev.type}{ev.customer.designation ? ` · ${ev.customer.designation}` : ''}
+                </Typography>
+              </Box>
+
+              <Box sx={{ textAlign:'right', flexShrink:0 }}>
+                <Typography sx={{ fontSize:11, fontWeight:700, color }}>
+                  {text}
+                </Typography>
+                {ev.customer.phone && (
+                  <Typography sx={{ fontSize:10, color:'#94a3b8', fontFamily:'monospace' }}>
+                    {ev.customer.phone}
+                  </Typography>
+                )}
+              </Box>
+            </Paper>
+          )
+        })}
+      </Box>
+      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}`}</style>
+    </Box>
+  )
+}
 
 /* MAIN */
 export default function GiftManagement() {
@@ -400,6 +851,7 @@ export default function GiftManagement() {
   const [distGift,  setDistGift]  = useState(null);
   const [deleteId,  setDeleteId]  = useState(null);
   const [deleting,  setDeleting]  = useState(false);
+  const customers = useCustomers()  
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -499,33 +951,71 @@ export default function GiftManagement() {
         </Grid>
       )}
 
+     <UpcomingCelebrations customers={customers} />
+
       {/* ── Tabs ── */}
-      <Paper sx={{ borderRadius: 3, border: "1.5px solid #e2e8f0", boxShadow: "none", mb: 2.5, overflow: "hidden" }}>
+      <Paper sx={{ borderRadius:3, border:"1.5px solid #e2e8f0", boxShadow:"none", mb:2.5, overflow:"hidden" }}>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant={isMobile ? "fullWidth" : "standard"}
-          sx={{ "& .MuiTab-root": { fontSize: 13, fontWeight: 600, textTransform: "none", minHeight: 48 }, "& .Mui-selected": { color: "#6366f1" }, "& .MuiTabs-indicator": { bgcolor: "#6366f1" } }}>
-          <Tab label={<Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}><Inventory2 sx={{ fontSize: 16 }} /> Gift Catalog <Chip label={gifts.length} size="small" sx={{ height: 17, fontSize: 10, fontWeight: 700, bgcolor: tab === 0 ? "#e0e7ff" : "#f1f5f9", color: tab === 0 ? "#6366f1" : "#64748b" }} /></Box>} />
-          <Tab label={<Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}><LocalShipping sx={{ fontSize: 16 }} /> My Distributions <Chip label={dists.length} size="small" sx={{ height: 17, fontSize: 10, fontWeight: 700, bgcolor: tab === 1 ? "#e0e7ff" : "#f1f5f9", color: tab === 1 ? "#6366f1" : "#64748b" }} /></Box>} />
+          sx={{ "& .MuiTab-root":{ fontSize:13, fontWeight:600, textTransform:"none", minHeight:48 },
+            "& .Mui-selected":{ color:"#6366f1" }, "& .MuiTabs-indicator":{ bgcolor:"#6366f1" } }}>
+
+          <Tab label={
+            <Box sx={{ display:"flex", alignItems:"center", gap:0.8 }}>
+              <Inventory2 sx={{ fontSize:16 }} />
+              Gift Catalog
+              <Chip label={gifts.length} size="small" sx={{ height:17, fontSize:10, fontWeight:700,
+                bgcolor:tab===0?"#e0e7ff":"#f1f5f9", color:tab===0?"#6366f1":"#64748b" }} />
+            </Box>
+          } />
+
+          <Tab label={
+            <Box sx={{ display:"flex", alignItems:"center", gap:0.8 }}>
+              <LocalShipping sx={{ fontSize:16 }} />
+              My Distributions
+              <Chip label={dists.length} size="small" sx={{ height:17, fontSize:10, fontWeight:700,
+                bgcolor:tab===1?"#e0e7ff":"#f1f5f9", color:tab===1?"#6366f1":"#64748b" }} />
+            </Box>
+          } />
+
+          <Tab label={
+            <Box sx={{ display:"flex", alignItems:"center", gap:0.8 }}>
+              <Typography sx={{ fontSize:15, lineHeight:1 }}></Typography>
+              Celebrations
+              {(() => {
+                const count = customers.filter(c => {
+                  const bd = getDaysUntil(c.dob)
+                  const an = getDaysUntil(c.anniversary)
+                  return (bd !== null && bd <= 7) || (an !== null && an <= 7)
+                }).length
+                return count > 0
+                  ? <Chip label={count} size="small" sx={{ height:17, fontSize:10, fontWeight:700, bgcolor:'#fef2f2', color:'#dc2626' }} />
+                  : null
+              })()}
+            </Box>
+          } />
+
         </Tabs>
       </Paper>
 
-      {/* ── Catalog Tab ── */}
+      {/* ── Tab 0: Catalog ── */}
       {tab === 0 && (
         <>
-          {/* Filters */}
-          <Paper sx={{ p: 2, mb: 2.5, borderRadius: 2, boxShadow: "0 1px 6px rgba(0,0,0,0.05)", border: "1.5px solid #f1f5f9", display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
-            <TextField size="small" placeholder="Search gifts…" value={search} onChange={e => setSearch(e.target.value)}
-              sx={{ flex: 1, minWidth: 180, "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-              InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 17, color: "#94a3b8" }} /></InputAdornment> }} />
-            <FormControl size="small" sx={{ minWidth: 140 }}>
+          <Paper sx={{ p:2, mb:2.5, borderRadius:2, boxShadow:"0 1px 6px rgba(0,0,0,0.05)",
+            border:"1.5px solid #f1f5f9", display:"flex", gap:2, flexWrap:"wrap", alignItems:"center" }}>
+            <TextField size="small" placeholder="Search gifts…" value={search}
+              onChange={e => setSearch(e.target.value)}
+              sx={{ flex:1, minWidth:180, "& .MuiOutlinedInput-root":{ borderRadius:2 } }}
+              InputProps={{ startAdornment:<InputAdornment position="start"><Search sx={{ fontSize:17, color:"#94a3b8" }} /></InputAdornment> }} />
+            <FormControl size="small" sx={{ minWidth:140 }}>
               <InputLabel>Category</InputLabel>
-              <Select value={catFilter} label="Category" onChange={e => setCatFilter(e.target.value)} sx={{ borderRadius: 2 }}>
+              <Select value={catFilter} label="Category" onChange={e => setCatFilter(e.target.value)} sx={{ borderRadius:2 }}>
                 <MenuItem value="All">All Categories</MenuItem>
                 {CATEGORIES.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
               </Select>
             </FormControl>
-            <FormControl size="small" sx={{ minWidth: 130 }}>
+            <FormControl size="small" sx={{ minWidth:130 }}>
               <InputLabel>Stock</InputLabel>
-              <Select value={stockFilter} label="Stock" onChange={e => setStockFilter(e.target.value)} sx={{ borderRadius: 2 }}>
+              <Select value={stockFilter} label="Stock" onChange={e => setStockFilter(e.target.value)} sx={{ borderRadius:2 }}>
                 <MenuItem value="All">All Stock</MenuItem>
                 <MenuItem value="In Stock">In Stock</MenuItem>
                 <MenuItem value="Low Stock">Low Stock</MenuItem>
@@ -535,19 +1025,22 @@ export default function GiftManagement() {
           </Paper>
 
           {loading ? (
-            <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress sx={{ color: "#6366f1" }} /></Box>
+            <Box sx={{ display:"flex", justifyContent:"center", py:8 }}>
+              <CircularProgress sx={{ color:"#6366f1" }} />
+            </Box>
           ) : filtered.length === 0 ? (
-            <Box sx={{ textAlign: "center", py: 10, border: "2px dashed #e2e8f0", borderRadius: 3 }}>
-              <CardGiftcard sx={{ fontSize: 56, color: "#cbd5e1", mb: 2 }} />
-              <Typography sx={{ fontWeight: 700, color: "#475569", mb: 0.5 }}>
+            <Box sx={{ textAlign:"center", py:10, border:"2px dashed #e2e8f0", borderRadius:3 }}>
+              <CardGiftcard sx={{ fontSize:56, color:"#cbd5e1", mb:2 }} />
+              <Typography sx={{ fontWeight:700, color:"#475569", mb:0.5 }}>
                 {search || catFilter !== "All" || stockFilter !== "All" ? "No gifts match your filters" : "No gifts added yet"}
               </Typography>
-              <Typography sx={{ fontSize: 13, color: "#94a3b8", mb: 3 }}>
+              <Typography sx={{ fontSize:13, color:"#94a3b8", mb:3 }}>
                 {search || catFilter !== "All" ? "Try adjusting your search or filters" : "Add your first gift to get started"}
               </Typography>
               {!search && catFilter === "All" && (
-                <Button variant="contained" startIcon={<Add />} onClick={() => { setEditGift(null); setFormOpen(true); }}
-                  sx={{ bgcolor: "#6366f1", borderRadius: 2, textTransform: "none", fontWeight: 700 }}>
+                <Button variant="contained" startIcon={<Add />}
+                  onClick={() => { setEditGift(null); setFormOpen(true) }}
+                  sx={{ bgcolor:"#6366f1", borderRadius:2, textTransform:"none", fontWeight:700 }}>
                   Add First Gift
                 </Button>
               )}
@@ -557,7 +1050,7 @@ export default function GiftManagement() {
               {filtered.map(g => (
                 <Grid item xs={12} sm={6} md={4} lg={3} key={g._id}>
                   <GiftCard gift={g}
-                    onEdit={gift => { setEditGift(gift); setFormOpen(true); }}
+                    onEdit={gift => { setEditGift(gift); setFormOpen(true) }}
                     onDelete={id => setDeleteId(id)}
                     onDistribute={gift => setDistGift(gift)} />
                 </Grid>
@@ -567,60 +1060,108 @@ export default function GiftManagement() {
         </>
       )}
 
-      {/* ── Distributions Tab ── */}
+      {/* ── Tab 1: Distributions ── */}
       {tab === 1 && (
         loading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress sx={{ color: "#6366f1" }} /></Box>
+          <Box sx={{ display:"flex", justifyContent:"center", py:8 }}>
+            <CircularProgress sx={{ color:"#6366f1" }} />
+          </Box>
         ) : dists.length === 0 ? (
-          <Box sx={{ textAlign: "center", py: 10, border: "2px dashed #e2e8f0", borderRadius: 3 }}>
-            <LocalShipping sx={{ fontSize: 56, color: "#cbd5e1", mb: 2 }} />
-            <Typography sx={{ fontWeight: 700, color: "#475569" }}>No distributions yet</Typography>
-            <Typography sx={{ fontSize: 13, color: "#94a3b8" }}>Distribute a gift from the catalog to see history here</Typography>
+          <Box sx={{ textAlign:"center", py:10, border:"2px dashed #e2e8f0", borderRadius:3 }}>
+            <LocalShipping sx={{ fontSize:56, color:"#cbd5e1", mb:2 }} />
+            <Typography sx={{ fontWeight:700, color:"#475569" }}>No distributions yet</Typography>
+            <Typography sx={{ fontSize:13, color:"#94a3b8" }}>
+              Distribute a gift from the catalog to see history here
+            </Typography>
           </Box>
         ) : (
-          <Paper sx={{ borderRadius: 3, border: "1.5px solid #e2e8f0", boxShadow: "none", overflow: "hidden" }}>
+          <Paper sx={{ borderRadius:3, border:"1.5px solid #e2e8f0", boxShadow:"none", overflow:"hidden" }}>
             <TableContainer>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ bgcolor: "#f8fafc" }}>
-                    {["Gift", "Recipient", "Type", "Area", "Qty", "Value", "Occasion", "Date"].map(h => (
-                      <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap", py: 1.5 }}>{h}</TableCell>
+                  <TableRow sx={{ bgcolor:"#f8fafc" }}>
+                    {["Gift","Recipient","Type","Tier","Area","Qty","Value","Occasion","Proof","Date"].map(h => (
+                      <TableCell key={h} sx={{ fontWeight:700, fontSize:11, color:"#64748b",
+                        textTransform:"uppercase", letterSpacing:"0.05em", whiteSpace:"nowrap", py:1.5 }}>
+                        {h}
+                      </TableCell>
                     ))}
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {dists.map(d => {
-                    const catColor = CAT_COLORS[d.gift?.category] || "#64748b";
+                    const catColor = CAT_COLORS[d.gift?.category] || "#64748b"
                     return (
-                      <TableRow key={d._id} hover sx={{ "&:hover": { bgcolor: "#f8fafc" } }}>
+                      <TableRow key={d._id} hover sx={{ "&:hover":{ bgcolor:"#f8fafc" } }}>
+
+                        {/* Gift */}
                         <TableCell>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <Box sx={{ display:"flex", alignItems:"center", gap:1 }}>
                             {d.gift?.image?.url
-                              ? <img src={d.gift.image.url} alt="" style={{ width: 30, height: 30, borderRadius: 6, objectFit: "cover" }} />
-                              : <Avatar sx={{ width: 30, height: 30, borderRadius: 1, bgcolor: catColor + "20", color: catColor }}><CardGiftcard sx={{ fontSize: 14 }} /></Avatar>
+                              ? <img src={d.gift.image.url} alt="" style={{ width:30, height:30, borderRadius:6, objectFit:"cover" }} />
+                              : <Avatar sx={{ width:30, height:30, borderRadius:1, bgcolor:catColor+"20", color:catColor }}>
+                                  <CardGiftcard sx={{ fontSize:14 }} />
+                                </Avatar>
                             }
-                            <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{d.gift?.name || "—"}</Typography>
+                            <Typography sx={{ fontSize:13, fontWeight:600 }}>{d.gift?.name || "—"}</Typography>
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: 13, fontWeight: 600 }}>{d.recipientName}</TableCell>
+
+                        {/* Recipient */}
+                        <TableCell sx={{ fontSize:13, fontWeight:600 }}>{d.recipientName}</TableCell>
+
+                        {/* Type */}
                         <TableCell>
                           <Chip label={d.recipientType} size="small"
-                            sx={{ fontSize: 10, height: 20, bgcolor: "#f1f5f9", color: "#475569", fontWeight: 600 }} />
+                            sx={{ fontSize:10, height:20, bgcolor:"#f1f5f9", color:"#475569", fontWeight:600 }} />
                         </TableCell>
-                        <TableCell sx={{ fontSize: 12, color: "#64748b" }}>{d.area || "—"}</TableCell>
+
+                        {/* Tier */}
+                        <TableCell>
+                          {d.customerTier ? (
+                            <Box sx={{ width:24, height:24, borderRadius:1, display:"inline-flex",
+                              alignItems:"center", justifyContent:"center",
+                              bgcolor:TIER_CONFIG[d.customerTier]?.color }}>
+                              <Typography sx={{ fontSize:11, fontWeight:800, color:"#fff" }}>
+                                {d.customerTier}
+                              </Typography>
+                            </Box>
+                          ) : <Typography sx={{ fontSize:11, color:"#cbd5e1" }}>—</Typography>}
+                        </TableCell>
+
+                        {/* Area */}
+                        <TableCell sx={{ fontSize:12, color:"#64748b" }}>{d.area || "—"}</TableCell>
+
+                        {/* Qty */}
                         <TableCell>
                           <Chip label={d.quantity} size="small"
-                            sx={{ fontSize: 11, height: 20, bgcolor: "#dbeafe", color: "#1d4ed8", fontWeight: 800 }} />
+                            sx={{ fontSize:11, height:20, bgcolor:"#dbeafe", color:"#1d4ed8", fontWeight:800 }} />
                         </TableCell>
-                        <TableCell sx={{ fontSize: 13, fontWeight: 700, color: "#10b981" }}>
+
+                        {/* Value */}
+                        <TableCell sx={{ fontSize:13, fontWeight:700, color:"#10b981" }}>
                           ₹{((d.gift?.value || 0) * d.quantity).toLocaleString("en-IN")}
                         </TableCell>
-                        <TableCell sx={{ fontSize: 12, color: "#64748b" }}>{d.occasion || "—"}</TableCell>
-                        <TableCell sx={{ fontSize: 11, color: "#94a3b8", whiteSpace: "nowrap" }}>
-                          {new Date(d.distributedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+
+                        {/* Occasion */}
+                        <TableCell sx={{ fontSize:12, color:"#64748b" }}>{d.occasion || "—"}</TableCell>
+
+                        {/* Proof */}
+                        <TableCell>
+                          {d.proofImage?.url ? (
+                            <Box component="img" src={d.proofImage.url} alt="proof"
+                              sx={{ width:32, height:32, borderRadius:1, objectFit:"cover", cursor:"pointer" }}
+                              onClick={() => window.open(d.proofImage.url, "_blank")} />
+                          ) : <Typography sx={{ fontSize:11, color:"#cbd5e1" }}>—</Typography>}
                         </TableCell>
+
+                        {/* Date */}
+                        <TableCell sx={{ fontSize:11, color:"#94a3b8", whiteSpace:"nowrap" }}>
+                          {new Date(d.distributedAt).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" })}
+                        </TableCell>
+
                       </TableRow>
-                    );
+                    )
                   })}
                 </TableBody>
               </Table>
@@ -629,26 +1170,118 @@ export default function GiftManagement() {
         )
       )}
 
+      {/* ── Tab 2: Celebrations ── */}
+      {tab === 2 && (() => {
+        const events = []
+        customers.forEach(c => {
+          const bd  = getDaysUntil(c.dob)
+          const ann = getDaysUntil(c.anniversary)
+          if (bd  !== null && bd  <= 7) events.push({ customer:c, type:'Birthday',    days:bd  })
+          if (ann !== null && ann <= 7) events.push({ customer:c, type:'Anniversary', days:ann })
+        })
+        events.sort((a,b) => a.days - b.days)
+
+        if (events.length === 0) return (
+          <Box sx={{ textAlign:"center", py:10, border:"2px dashed #e2e8f0", borderRadius:3 }}>
+            <Typography sx={{ fontSize:48, mb:2 }}></Typography>
+            <Typography sx={{ fontWeight:700, color:"#475569", mb:0.5 }}>
+              No upcoming celebrations
+            </Typography>
+            <Typography sx={{ fontSize:13, color:"#94a3b8", maxWidth:400, mx:"auto" }}>
+              Customers with birthdays or anniversaries in the next 7 days will appear here.
+              Fill DOB and anniversary when logging DCR visits.
+            </Typography>
+          </Box>
+        )
+
+        return (
+          <Box sx={{ display:"flex", flexDirection:"column", gap:1.5 }}>
+            {events.map((ev, i) => {
+              const { text, color, bg } = dayLabel(ev.days)
+              const t    = getCustomerTier(ev.customer.totalValue)
+              const tCfg = TIER_CONFIG[t]
+              return (
+                <Paper key={i} elevation={0} sx={{
+                  display:"flex", alignItems:"center", gap:2,
+                  px:2.5, py:2, borderRadius:2.5,
+                  border:`1.5px solid ${color}30`, bgcolor:bg,
+                }}>
+
+                  {/* Icon badge */}
+                  <Box sx={{ width:52, height:52, borderRadius:2, bgcolor:color,
+                    display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                    <Typography sx={{ fontSize:24 }}>
+                      {ev.type === 'Birthday' ? '🎂' : '🎉'}
+                    </Typography>
+                  </Box>
+
+                  {/* Details */}
+                  <Box sx={{ flex:1, minWidth:0 }}>
+                    <Box sx={{ display:"flex", alignItems:"center", gap:1, mb:0.25 }}>
+                      <Typography sx={{ fontSize:14, fontWeight:700, color:"#0f172a" }}>
+                        {ev.customer.contactPerson}
+                      </Typography>
+                      <Box sx={{ px:0.75, py:0.1, borderRadius:1, bgcolor:tCfg.bg,
+                        fontSize:10, fontWeight:800, color:tCfg.color,
+                        border:`1px solid ${tCfg.color}30` }}>
+                        {t}
+                      </Box>
+                    </Box>
+                    <Typography sx={{ fontSize:12, color:"#64748b" }}>
+                      {ev.type}
+                      {ev.customer.designation ? ` · ${ev.customer.designation}` : ''}
+                      {ev.customer.area        ? ` · ${ev.customer.area}`        : ''}
+                    </Typography>
+                    <Typography sx={{ fontSize:11, color:tCfg.color, fontWeight:600, mt:0.25 }}>
+                      Total purchases: ₹{ev.customer.totalValue.toLocaleString('en-IN')}
+                    </Typography>
+                  </Box>
+
+                  {/* Right: day + phone + action */}
+                  <Box sx={{ textAlign:"right", flexShrink:0 }}>
+                    <Typography sx={{ fontSize:13, fontWeight:800, color }}>{text}</Typography>
+                    {ev.customer.phone && (
+                      <Typography sx={{ fontSize:11, color:"#94a3b8", fontFamily:"monospace", mt:0.25 }}>
+                        {ev.customer.phone}
+                      </Typography>
+                    )}
+                    <Button size="small"
+                      onClick={() => setDistGift(gifts[0] || null)}
+                      sx={{ fontSize:10, mt:0.75, bgcolor:color+'20', color,
+                        borderRadius:1.5, fontWeight:700, minWidth:0, px:1.5, py:0.25 }}>
+                      🎁 Send Gift
+                    </Button>
+                  </Box>
+
+                </Paper>
+              )
+            })}
+          </Box>
+        )
+      })()}
+
       {/* ── Dialogs ── */}
-      <GiftFormDialog open={formOpen} onClose={() => { setFormOpen(false); setEditGift(null); }}
+      <GiftFormDialog open={formOpen} onClose={() => { setFormOpen(false); setEditGift(null) }}
         onSaved={fetchAll} initial={editGift} />
 
       <DistributeDialog open={!!distGift} onClose={() => setDistGift(null)}
         gift={distGift} onSaved={fetchAll} />
 
       {/* Delete confirm */}
-      <Dialog open={!!deleteId} onClose={() => setDeleteId(null)} PaperProps={{ sx: { borderRadius: 3, p: 1 } }}>
-        <DialogTitle sx={{ fontWeight: 800, fontSize: 16, pb: 0.5 }}>Delete Gift?</DialogTitle>
+      <Dialog open={!!deleteId} onClose={() => setDeleteId(null)}
+        PaperProps={{ sx:{ borderRadius:3, p:1 } }}>
+        <DialogTitle sx={{ fontWeight:800, fontSize:16, pb:0.5 }}>Delete Gift?</DialogTitle>
         <DialogContent>
-          <Typography sx={{ fontSize: 13, color: "#64748b" }}>
+          <Typography sx={{ fontSize:13, color:"#64748b" }}>
             This will permanently remove the gift and its image. This cannot be undone.
           </Typography>
         </DialogContent>
-        <DialogActions sx={{ px: 2.5, pb: 2, gap: 1 }}>
-          <Button onClick={() => setDeleteId(null)} size="small" sx={{ color: "#64748b", textTransform: "none" }}>Cancel</Button>
+        <DialogActions sx={{ px:2.5, pb:2, gap:1 }}>
+          <Button onClick={() => setDeleteId(null)} size="small"
+            sx={{ color:"#64748b", textTransform:"none" }}>Cancel</Button>
           <Button onClick={handleDelete} variant="contained" size="small" disabled={deleting}
-            startIcon={deleting ? <CircularProgress size={13} color="inherit" /> : <Delete sx={{ fontSize: 14 }} />}
-            sx={{ bgcolor: "#ef4444", "&:hover": { bgcolor: "#dc2626" }, textTransform: "none", fontWeight: 700, borderRadius: 2 }}>
+            startIcon={deleting ? <CircularProgress size={13} color="inherit" /> : <Delete sx={{ fontSize:14 }} />}
+            sx={{ bgcolor:"#ef4444", "&:hover":{ bgcolor:"#dc2626" }, textTransform:"none", fontWeight:700, borderRadius:2 }}>
             {deleting ? "Deleting…" : "Delete"}
           </Button>
         </DialogActions>

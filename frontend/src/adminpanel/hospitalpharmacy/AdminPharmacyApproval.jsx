@@ -2,8 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-const BASE_API = import.meta.env.VITE_API_BASE_URL || 'https://bioburglifescience-1.onrender.com';
-
+const BASE_API = import.meta.env.VITE_API_BASE_URL || 'https://bioburgapp.onrender.com';
 const STATUS = {
   pending:  { label: 'Pending',  color: '#92400e', bg: '#fffbeb', border: '#fde68a', dot: '#f59e0b' },
   approved: { label: 'Approved', color: '#065f46', bg: '#ecfdf5', border: '#6ee7b7', dot: '#10b981' },

@@ -68,7 +68,13 @@ export const getAllPayouts = async (req, res) => {
 //  PATCH /api/points/admin/payouts/:id 
 export const updatePayoutStatus = async (req, res) => {
   try {
-    const { status, adminNote, transactionId } = req.body;
+    const {
+      status, adminNote, transactionId,deductions,
+      // Slip fields
+      companyName, companyLogo, companyAddress, companyPhone,
+      companyEmail, companyGST, companyWebsite,
+      slipTitle, slipNote, adminSignature, designation, paymentMode,
+    } = req.body;
     const payout = await PayoutRequest.findById(req.params.id);
     if (!payout) return res.status(404).json({ success: false, message: "Payout request not found" });
 
@@ -100,11 +106,58 @@ export const updatePayoutStatus = async (req, res) => {
     }
 
     payout.status = status;
-    if (adminNote) payout.adminNote = adminNote;
-    if (transactionId) payout.transactionId = transactionId;
+    if (adminNote)       payout.adminNote     = adminNote;
+    if (transactionId)   payout.transactionId = transactionId;
     payout.processedAt = new Date();
     await payout.save();
 
+    if (!payout.agentName && payout.agentId) {
+  const MarketingAgent = (await import("../models/MarketingAgent.model.js")).default;
+  const agent = await MarketingAgent.findById(payout.agentId).select("name phone").lean();
+  if (agent) {
+    payout.agentName  = agent.name;
+    payout.agentPhone = agent.phone;
+  }
+}
+    // Generate slip when marking as paid
+    if (status === "paid") {
+  const PayoutSlip = (await import("../models/payoutSlip.js")).default;
+  const deductions = req.body.deductions || [];  // [{category, amount, note}]
+  const totalDeductions = deductions.reduce((s, d) => s + Number(d.amount || 0), 0);
+  const netAmount = payout.amountRequested - totalDeductions;
+
+  await PayoutSlip.findOneAndUpdate(
+    { payoutId: payout._id },
+    {
+      payoutId:       payout._id,
+      agentId:        payout.agentId,
+      agentName:      payout.agentName  || "",
+      agentPhone:     payout.agentPhone || "",
+      amount:         payout.amountRequested,
+      deductions,
+      netAmount,
+      pointsRedeemed: payout.pointsRedeemed || 0,
+      salaryAmount:   payout.salaryAmount   || 0,
+      transactionId:  transactionId || "",
+      paidOn:         new Date(),
+      paymentMode:    paymentMode    || "Bank Transfer",
+      companyName:    companyName    || "BioBurg Lifesciences Pvt. Ltd.",
+      companyLogo:    companyLogo    || "",
+      companyAddress: companyAddress || "",
+      companyPhone:   companyPhone   || "",
+      companyEmail:   companyEmail   || "",
+      companyGST:     companyGST     || "",
+      companyWebsite: companyWebsite || "",
+      slipTitle:      slipTitle      || "Payment Receipt",
+      slipNote:       slipNote       || "",
+      adminSignature: adminSignature || "",
+      designation:    designation    || "Authorized Signatory",
+      isVisible:      true,
+      lastEditedAt:   new Date(),
+    },
+    { upsert: true, new: true }
+  );
+}
     return res.json({ success: true, data: payout });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -299,6 +352,34 @@ export const getLeadsByAgent = async (req, res) => {
       pointsBalance: balance,
       pointsHistory,
     });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// GET /api/points/admin/slip/:payoutId
+export const getSlipByPayout = async (req, res) => {
+  try {
+    const PayoutSlip = (await import("../models/payoutSlip.js")).default;
+    const slip = await PayoutSlip.findOne({ payoutId: req.params.payoutId }).lean();
+    if (!slip) return res.status(404).json({ success: false, message: "Slip not found" });
+    return res.json({ success: true, data: slip });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// GET /api/points/agent/slip/:payoutId  (agent fetches their own slip)
+export const getAgentSlip = async (req, res) => {
+  try {
+    const PayoutSlip = (await import("../models/payoutSlip.js")).default;
+    const slip = await PayoutSlip.findOne({
+      payoutId: req.params.payoutId,
+      agentId:  req.user.id,
+      isVisible: true,
+    }).lean();
+    if (!slip) return res.status(404).json({ success: false, message: "Slip not available" });
+    return res.json({ success: true, data: slip });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }

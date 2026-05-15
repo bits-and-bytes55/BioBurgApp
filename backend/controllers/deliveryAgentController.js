@@ -1,7 +1,8 @@
 import DeliveryAgent from "../models/DeliveryAgent.js";
 import generateToken from "../utils/generateToken.js";
+import EmployeeIDCard from "../models/employeeIdCards.js";
 
-/* ================= REGISTER ================= */
+/* REGISTER  */
 export const registerDeliveryAgent = async (req, res) => {
   try {
     const {
@@ -54,7 +55,7 @@ export const registerDeliveryAgent = async (req, res) => {
   }
 };
 
-/* ================= LOGIN ================= */
+/* LOGIN  */
 export const loginDeliveryAgent = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -91,7 +92,7 @@ export const loginDeliveryAgent = async (req, res) => {
   }
 };
 
-/* ================= PROFILE ================= */
+/* PROFILE  */
 export const getDeliveryAgentProfile = async (req, res) => {
   try {
     const agent = await DeliveryAgent.findById(req.user.id).select("-password");
@@ -103,10 +104,20 @@ export const getDeliveryAgentProfile = async (req, res) => {
       });
     }
 
+        const idCard = await EmployeeIDCard.findOne({
+      employeeRef: agent._id,
+      sourceModel: "DeliveryAgent",
+      isActive: true,
+    }).sort({ issuedAt: -1 });
+
     res.status(200).json({
       success: true,
-      data: agent,
+      data: {
+        ...agent.toObject(),
+        idCard,
+      },
     });
+
   } catch (error) {
     res.status(500).json({
       success: false,

@@ -10,6 +10,7 @@ const PayoutRequestSchema = new mongoose.Schema(
     agentName: { type: String, default: "" },
     agentPhone: { type: String, default: "" },
     pointsRedeemed: { type: Number, required: true },
+    salaryAmount: { type: Number, default: 0 },
     amountRequested: { type: Number, required: true },
     bankDetails: {
       accountHolder: { type: String, default: "" },

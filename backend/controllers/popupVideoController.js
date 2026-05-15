@@ -136,5 +136,58 @@ export const togglePopupActive = async (req, res) => {
   }
 };
 
-export const createPopupVideo = savePopupVideoConfig;
-export const updatePopupVideo = savePopupVideoConfig;
+export const createPopupVideo = async (req, res) => {
+  try {
+    const { config } = req.body;
+    if (!config || typeof config !== "object") {
+      return res.status(400).json({ message: "config object is required" });
+    }
+    const doc = await PopupVideoConfig.create({ config });
+    return res.status(201).json({ success: true, config: doc.config, _id: doc._id });
+  } catch (err) {
+    console.error("createPopupVideo:", err);
+    return res.status(500).json({ message: "Failed to create popup" });
+  }
+};
+
+export const updatePopupVideo = async (req, res) => {
+  try {
+    const { config } = req.body;
+    if (!config || typeof config !== "object") {
+      return res.status(400).json({ message: "config object is required" });
+    }
+    const doc = await PopupVideoConfig.findByIdAndUpdate(
+      req.params.id,
+      { $set: { config } },
+      { new: true }
+    );
+    if (!doc) return res.status(404).json({ message: "Popup not found" });
+    return res.json({ success: true, config: doc.config });
+  } catch (err) {
+    console.error("updatePopupVideo:", err);
+    return res.status(500).json({ message: "Failed to update popup" });
+  }
+};
+
+export const deletePopupVideo = async (req, res) => {
+  try {
+    const doc = await PopupVideoConfig.findByIdAndDelete(req.params.id);
+    if (!doc) return res.status(404).json({ message: "Popup not found" });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("deletePopupVideo:", err);
+    return res.status(500).json({ message: "Failed to delete popup" });
+  }
+};
+
+export const getAllActivePopups = async (req, res) => {
+  try {
+    const docs = await PopupVideoConfig.find({ "config.enabled": true })
+      .sort({ createdAt: -1 })
+      .lean();
+    return res.json({ success: true, configs: docs.map(d => d.config) });
+  } catch (err) {
+    console.error("getAllActivePopups:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};

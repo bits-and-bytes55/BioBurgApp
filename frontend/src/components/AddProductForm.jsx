@@ -1307,9 +1307,6 @@ const buildRatePayload = (fd, customRoles = []) => {
   };
 };
 
-// ════════════════════════════════════════════════════════════════════════════
-// MAIN FORM COMPONENT
-// ════════════════════════════════════════════════════════════════════════════
 const PharmaProductForm = ({
   editProductId = null, onSuccess,
   authTokenKey = "adminToken",
@@ -1347,7 +1344,7 @@ const PharmaProductForm = ({
   const [authors, setAuthors]                 = useState([]);
   const [recommendations, setRecommendations] = useState([]);
   const [certifications, setCertifications]   = useState([]);
-  // ── NEW: custom role categories ──────────────────────────────────────────
+  //  NEW: custom role categories 
   const [customRoles, setCustomRoles]         = useState([]);
   const [injectionTypes, setInjectionTypes]   = useState([]);
   const [tabletTypes, setTabletTypes]         = useState([]);
@@ -1375,7 +1372,7 @@ const PharmaProductForm = ({
     vendorRate:        "",   // Vendor
     franchiseRate:     "",   // Franchise
     manufacturerRate:  "",   // Manufacturer
-    // ── Auto-computed totals ─────────────────────────────────────────────
+    //  Auto-computed totals 
     totalSaleValue:         "0.00",
     totalBusinessSaleValue: "0.00",
     totalWholesaleValue:    "0.00",
@@ -1390,7 +1387,7 @@ const PharmaProductForm = ({
     currentStatus1: "active", currentStatus2: "appear",
     topReviewFromIndia: "", isOTC: true,
     marketerName: "", marketerAddress: "", countryOfOrigin: "", lastUpdated: "",
-    // ── MR level rates L1–L14 ────────────────────────────────────────────
+    //  MR level rates L1–L14 
     mrL1Rate:"",  mrL2Rate:"",  mrL3Rate:"",  mrL4Rate:"",
     mrL5Rate:"",  mrL6Rate:"",  mrL7Rate:"",  mrL8Rate:"",
     mrL9Rate:"",  mrL10Rate:"", mrL11Rate:"", mrL12Rate:"",
@@ -1473,7 +1470,7 @@ const PharmaProductForm = ({
       .finally(() => setSubCatLoading(false));
   }, [authTokenKey, mainCategories, selectedMainCat]);
 
-  // ── Edit-load ────────────────────────────────────────────────────────────
+  //  Edit-load 
   useEffect(() => {
     if (!editProductId) return;
     requestClient.get(getProductPath(editProductId)).then((res) => {
@@ -1580,7 +1577,7 @@ const PharmaProductForm = ({
       hospitalTotalValue:     fmt(n(p.hospitalSaleRate)   * stocks),
       pharmacyTotalValue:     fmt(n(p.pharmacySaleRate)   * stocks),
     }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [
     fd.totalStocks, fd.mrp, fd.amp,
     fd.saleRatePTR, fd.b2bRate, fd.wholesaleSaleRate,
