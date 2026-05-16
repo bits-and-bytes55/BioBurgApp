@@ -9,22 +9,29 @@ import {
   getMyDistributions,
   getAllDistributions,
 } from "../controllers/giftController.js";
-import { protectAgent } from "../middleware/authMiddleware.js";
+import {
+  protectAgent,
+  requireAgentPermission,
+} from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 router.use(protectAgent);
 
 // Stats
-router.get("/stats", getGiftStats);
+router.get("/stats", requireAgentPermission("giftManagement"), getGiftStats);
 
-// Catalog CRUD
-router.route("/").get(getAllGifts).post(createGift);
-router.route("/:id").put(updateGift).delete(deleteGift);
+router.route("/")
+  .get(requireAgentPermission("giftManagement"), getAllGifts)
+  .post(requireAgentPermission("giftManagement"), createGift);
 
-// Distribution
-router.post("/distribute",          distributeGift);
-router.get("/my-distributions",     getMyDistributions);
-router.get("/all-distributions",    getAllDistributions);
+router.route("/:id")
+  .put(requireAgentPermission("giftManagement"), updateGift)
+  .delete(requireAgentPermission("giftManagement"), deleteGift);
+
+router.post("/distribute", requireAgentPermission("giftManagement"), distributeGift);
+router.get("/my-distributions", requireAgentPermission("giftManagement"), getMyDistributions);
+router.get("/all-distributions", requireAgentPermission("giftManagement"), getAllDistributions);
+
 
 export default router;

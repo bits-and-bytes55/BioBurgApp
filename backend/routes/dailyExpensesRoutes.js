@@ -6,7 +6,11 @@ import {
   getBudget, setBudget,
   getAllAgentsExpenses, approveExpense, rejectExpense,
 } from "../controllers/dailyExpensesController.js";
-import { protectAgent } from "../middleware/marketingAgenTauthMiddleware.js";
+import {
+  protectAgent,
+  requireAgentPermission,
+} from "../middleware/authMiddleware.js";
+
 import { adminProtect } from "../middleware/adminAuth.js";
 
 const router = express.Router();
@@ -17,12 +21,13 @@ router.patch("/admin/:expenseId/approve", adminProtect, approveExpense);
 router.patch("/admin/:expenseId/reject",  adminProtect, rejectExpense);
 
 //  Agent routes 
-router.get("/budget",               protectAgent, getBudget);
-router.patch("/budget",             protectAgent, setBudget);
-router.get("/month/:year/:month",   protectAgent, getMonthExpenses);
-router.get("/summary/:year/:month", protectAgent, getMonthlySummary);
-router.get("/:date",                protectAgent, getExpense);
-router.post("/upsert",              protectAgent, upsertExpense);
-router.post("/:date/submit",        protectAgent, submitExpense);
+router.get("/budget", protectAgent, requireAgentPermission("dailyExpenses"), getBudget);
+router.patch("/budget", protectAgent, requireAgentPermission("dailyExpenses"), setBudget);
+router.get("/month/:year/:month", protectAgent, requireAgentPermission("dailyExpenses"), getMonthExpenses);
+router.get("/summary/:year/:month", protectAgent, requireAgentPermission("dailyExpenses"), getMonthlySummary);
+router.get("/:date", protectAgent, requireAgentPermission("dailyExpenses"), getExpense);
+router.post("/upsert", protectAgent, requireAgentPermission("dailyExpenses"), upsertExpense);
+router.post("/:date/submit", protectAgent, requireAgentPermission("dailyExpenses"), submitExpense);
+
 
 export default router;

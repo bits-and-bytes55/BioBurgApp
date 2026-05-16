@@ -5,16 +5,20 @@ import {
   getMonthLog, getMonthlySummary,
   updateRecord, getHistory,
 } from "../controllers/attendanceController.js";
-import { protectAgent } from "../middleware/marketingAgenTauthMiddleware.js";
+import {
+  protectAgent,
+  requireAgentPermission,
+} from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.get("/today",                    protectAgent, getToday);
-router.post("/checkin",                 protectAgent, checkIn);
-router.post("/checkout",                protectAgent, checkOut);
-router.get("/month/:year/:month",       protectAgent, getMonthLog);
-router.get("/summary/:year/:month",     protectAgent, getMonthlySummary);
-router.get("/history",                  protectAgent, getHistory);
-router.patch("/:date",                  protectAgent, updateRecord);
+router.get("/today", protectAgent, requireAgentPermission("jobActivity"), getToday);
+router.post("/checkin", protectAgent, requireAgentPermission("jobActivity"), checkIn);
+router.post("/checkout", protectAgent, requireAgentPermission("jobActivity"), checkOut);
+router.get("/month/:year/:month", protectAgent, requireAgentPermission("jobActivity"), getMonthLog);
+router.get("/summary/:year/:month", protectAgent, requireAgentPermission("jobActivity"), getMonthlySummary);
+router.get("/history", protectAgent, requireAgentPermission("jobActivity"), getHistory);
+router.patch("/:date", protectAgent, requireAgentPermission("jobActivity"), updateRecord);
+
 
 export default router;

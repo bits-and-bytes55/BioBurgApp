@@ -103,6 +103,7 @@ import AdminPopupVideoManager from "../adminpanel/pages/AdminPopupVideoManager";
 import AdminCalendar from "./MarketingAgent/adminCalendar";
 import AdminExpenseManager from "./MarketingAgent/AdminExpenseManager";
 import AdminTargetManagement from "./MarketingAgent/targetManagement";
+import AdminLeaveManagement from "./MarketingAgent/Adminleavemanagement";
 
 // diagnostics admin imports
 import AdminLabs from "./diagnostics/AdminLabs";
@@ -926,6 +927,9 @@ const Dashboard = () => {
 </Button>
 <Button onClick={() => setActiveSection("target-management")} sx={subMenuBtnSx}>
   Target Management
+</Button>
+<Button onClick={() => setActiveSection("leave-management")} sx={subMenuBtnSx}>
+  Leave Management
 </Button>
 
           </Box>
@@ -2565,6 +2569,8 @@ const Dashboard = () => {
         {activeSection === "admin-calendar" && <AdminCalendar />}
         {activeSection === "marketing-expenses" && <AdminExpenseManager />}
         {activeSection === "target-management" && <AdminTargetManagement />}
+        {activeSection === "leave-management" && <AdminLeaveManagement />}
+
 
         {/* ================= Delivery ZONE ================= */}
         {activeSection === "delivery-overview" && <DeliveryOverview />}

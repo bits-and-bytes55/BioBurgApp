@@ -44,6 +44,74 @@ const scheduleCloudinaryDelete = (publicId, delayMs = 24 * 60 * 60 * 1000) => {
   }, delayMs);
 };
 
+const getVisibleAgentIds = async (agentId) => {
+  const rootId = agentId.toString();
+
+  const rootAgent = await MarketingAgent.findById(rootId)
+  .select("teamMembers role permissions")
+  .lean();
+
+if (!rootAgent) return [rootId];
+
+if (rootAgent.permissions?.allAgentsAccess) {
+  const allAgents = await MarketingAgent.find().select("_id").lean();
+  return allAgents.map((a) => a._id.toString());
+}
+
+
+  const visibleIds = new Set([rootId]);
+  const queue = [
+    ...(rootAgent.teamMembers || []).map((id) => id.toString()),
+  ];
+
+  const directReports = await MarketingAgent.find({ reportsTo: rootId })
+    .select("_id")
+    .lean();
+
+  directReports.forEach((agent) => {
+    if (agent._id) queue.push(agent._id.toString());
+  });
+
+  while (queue.length) {
+    const currentId = queue.shift();
+
+    if (!currentId || visibleIds.has(currentId)) continue;
+
+    visibleIds.add(currentId);
+
+    const children = await MarketingAgent.find({
+      reportsTo: currentId,
+    })
+      .select("_id teamMembers")
+      .lean();
+
+    children.forEach((child) => {
+      if (child._id) queue.push(child._id.toString());
+    });
+
+    const currentAgent = await MarketingAgent.findById(currentId)
+      .select("teamMembers")
+      .lean();
+
+    (currentAgent?.teamMembers || []).forEach((id) => {
+      queue.push(id.toString());
+    });
+  }
+
+  return [...visibleIds];
+};
+
+
+const findVisibleAgentBySubdoc = async (viewerAgentId, arrayField, subdocId) => {
+  const visibleAgentIds = await getVisibleAgentIds(viewerAgentId);
+
+  return MarketingAgent.findOne({
+    _id: { $in: visibleAgentIds },
+    [`${arrayField}._id`]: new mongoose.Types.ObjectId(subdocId),
+  });
+};
+
+
 /* ── REGISTER ── */
 export const registerAgent = async (req, res) => {
   try {
@@ -76,7 +144,10 @@ export const registerAgent = async (req, res) => {
 export const loginAgent = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const agent = await MarketingAgent.findOne({ email });
+
+    const agent = await MarketingAgent.findOne({ email })
+      .populate("reportsTo", "name email phone role assignedArea")
+      .populate("teamMembers", "name email phone role assignedArea");
 
     if (!agent || !(await agent.matchPassword(password))) {
       return res.status(401).json({ message: "Invalid email or password" });
@@ -91,24 +162,50 @@ export const loginAgent = async (req, res) => {
     res.json({
       success: true,
       token: generateToken(agent._id, agent.role),
-      agent: { id: agent._id, name: agent.name, email: agent.email, role: agent.role },
+      agent: {
+        id: agent._id,
+        _id: agent._id,
+        name: agent.name,
+        email: agent.email,
+        phone: agent.phone,
+        assignedArea: agent.assignedArea,
+        role: agent.role,
+        permissions: agent.permissions || {},
+        reportsTo: agent.reportsTo || null,
+        teamMembers: agent.teamMembers || [],
+        level: agent.level || 1,
+        isApproved: agent.isApproved,
+      },
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
+
 /* ── PROFILE ── */
 export const getAgentProfile = async (req, res) => {
   try {
-    console.log("req.user →", req.user); // ADD THIS
-    const agent = await MarketingAgent.findById(req.user.id).select("-password");
-    res.json({ success: true, data: agent });
+    const agent = await MarketingAgent.findById(req.user.id)
+      .select("-password")
+      .populate("reportsTo", "name email phone role assignedArea")
+      .populate("teamMembers", "name email phone role assignedArea");
+
+    if (!agent) {
+      return res.status(404).json({ message: "Agent not found" });
+    }
+
+    res.json({
+      success: true,
+      data: agent,
+      agent,
+    });
   } catch (err) {
-    console.error("getAgentProfile crash →", err.message); // AND THIS
+    console.error("getAgentProfile crash →", err.message);
     res.status(500).json({ message: err.message });
   }
 };
+
 
 /* ── GET JOB REQUIREMENTS (for agent frontend) ── */
 export const getJobRequirements = async (req, res) => {
@@ -369,7 +466,12 @@ export const saveJobDetails = async (req, res) => {
 
 /* ── PROFILE WITH JOB ── */
 export const getAgentProfileWithJob = async (req, res) => {
-  const agent = await MarketingAgent.findById(req.user.id).lean();
+  const agent = await MarketingAgent.findById(req.user.id)
+    .select("-password")
+    .populate("reportsTo", "name email phone role assignedArea")
+    .populate("teamMembers", "name email phone role assignedArea")
+    .lean();
+
   if (!agent) return res.status(404).json({ message: "Agent not found" });
 
   const currentJob =
@@ -380,10 +482,18 @@ export const getAgentProfileWithJob = async (req, res) => {
   res.json({
     success: true,
     agent: {
+      id: agent._id,
+      _id: agent._id,
       name: agent.name,
       email: agent.email,
       phone: agent.phone,
       assignedArea: agent.assignedArea,
+      role: agent.role,
+      permissions: agent.permissions || {},
+      reportsTo: agent.reportsTo || null,
+      teamMembers: agent.teamMembers || [],
+      level: agent.level || 1,
+      isApproved: agent.isApproved,
       isOnJob: agent.isOnJob,
       gpsViolationCount: agent.gpsViolationCount,
       isGpsBlocked: agent.isGpsBlocked,
@@ -393,36 +503,53 @@ export const getAgentProfileWithJob = async (req, res) => {
   });
 };
 
+
 /* ── COMPLETED LEADS ── */
 export const getCompletedLeads = async (req, res) => {
-  const agent = await MarketingAgent.findById(req.user.id);
-  if (!agent) return res.status(404).json({ message: "Agent not found" });
+  try {
+    const visibleAgentIds = await getVisibleAgentIds(req.user.id);
 
-  const leads = agent.jobHistory
-    .filter((j) => j.jobStatus === "closed" || j.jobStatus === "force_closed")
-    .map((j) => ({
-      id: j._id,
-      jobStatus: j.jobStatus,
-      jobStartTime: j.jobStartTime,
-      jobEndTime: j.jobEndTime,
-      totalDistanceKm: j.totalDistanceKm,
-      state: j.state,
-      district: j.district,
-      area: j.area,
-      address: j.address,
-      partner: j.partner,
-      hospitalName: j.hospitalName,
-      doctorName: j.doctorName,
-      degree: j.degree,
-      mobile: j.mobile,
-      whatsapp: j.whatsapp,
-      startKmPhoto: j.startKmPhoto?.url || null,
-      closeKmPhoto: j.closeKmPhoto?.url || null,
-      hospitalImage: j.hospitalImage?.url || null,
-    }));
+    const agents = await MarketingAgent.find({
+      _id: { $in: visibleAgentIds },
+    })
+      .select("name assignedArea role jobHistory")
+      .lean();
 
-  res.json({ success: true, count: leads.length, leads });
+    const leads = agents.flatMap((agent) =>
+      (agent.jobHistory || [])
+        .filter((j) => j.jobStatus === "closed" || j.jobStatus === "force_closed")
+        .map((j) => ({
+          id: j._id,
+          agentId: agent._id,
+          agentName: agent.name,
+          agentArea: agent.assignedArea,
+          agentRole: agent.role,
+          jobStatus: j.jobStatus,
+          jobStartTime: j.jobStartTime,
+          jobEndTime: j.jobEndTime,
+          totalDistanceKm: j.totalDistanceKm,
+          state: j.state,
+          district: j.district,
+          area: j.area,
+          address: j.address,
+          partner: j.partner,
+          hospitalName: j.hospitalName,
+          doctorName: j.doctorName,
+          degree: j.degree,
+          mobile: j.mobile,
+          whatsapp: j.whatsapp,
+          startKmPhoto: j.startKmPhoto?.url || null,
+          closeKmPhoto: j.closeKmPhoto?.url || null,
+          hospitalImage: j.hospitalImage?.url || null,
+        }))
+    );
+
+    res.json({ success: true, count: leads.length, leads });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };
+
 
 /* ── AGENT PRODUCTS ── */
 export const getAgentProducts = async (req, res) => {
@@ -442,48 +569,60 @@ export const getAgentProducts = async (req, res) => {
 /* ── JOB HISTORY ── */
 export const getJobHistory = async (req, res) => {
   try {
-    const agent = await MarketingAgent.findById(req.user.id);
-    if (!agent) return res.status(404).json({ message: "Agent not found" });
+    const visibleAgentIds = await getVisibleAgentIds(req.user.id);
 
-    const jobs = [...agent.jobHistory]
-      .sort((a, b) => new Date(b.jobStartTime) - new Date(a.jobStartTime))
-      .map((j) => ({
-        _id: j._id,
-        dutyDate: j.jobStartTime,
-        dutyTime: j.jobStartTime
-          ? new Date(j.jobStartTime).toLocaleTimeString("en-IN")
-          : null,
-        status:
-          j.jobStatus === "closed"
-            ? "completed"
-            : j.jobStatus === "force_closed"
-            ? "cancelled"
-            : j.jobStatus === "started"
-            ? "in-progress"
-            : "pending",
-        hospitalName: j.hospitalName,
-        doctorName: j.doctorName,
-        degree: j.degree,
-        mobile: j.mobile,
-        whatsapp: j.whatsapp,
-        partner: j.partner,
-        area: j.area,
-        district: j.district,
-        state: j.state,
-        address: j.address,
-        startKm: j.startKm,
-        closeKm: j.closeKm,
-        totalDistanceKm: j.totalDistanceKm,
-        hospitalImage: j.hospitalImage,
-        jobStartTime: j.jobStartTime,
-        jobEndTime: j.jobEndTime,
-      }));
+    const agents = await MarketingAgent.find({
+      _id: { $in: visibleAgentIds },
+    })
+      .select("name assignedArea role jobHistory")
+      .lean();
+
+    const jobs = agents
+      .flatMap((agent) =>
+        (agent.jobHistory || []).map((j) => ({
+          _id: j._id,
+          agentId: agent._id,
+          agentName: agent.name,
+          agentArea: agent.assignedArea,
+          agentRole: agent.role,
+          dutyDate: j.jobStartTime,
+          dutyTime: j.jobStartTime
+            ? new Date(j.jobStartTime).toLocaleTimeString("en-IN")
+            : null,
+          status:
+            j.jobStatus === "closed"
+              ? "completed"
+              : j.jobStatus === "force_closed"
+              ? "cancelled"
+              : j.jobStatus === "started"
+              ? "in-progress"
+              : "pending",
+          hospitalName: j.hospitalName,
+          doctorName: j.doctorName,
+          degree: j.degree,
+          mobile: j.mobile,
+          whatsapp: j.whatsapp,
+          partner: j.partner,
+          area: j.area,
+          district: j.district,
+          state: j.state,
+          address: j.address,
+          startKm: j.startKm,
+          closeKm: j.closeKm,
+          totalDistanceKm: j.totalDistanceKm,
+          hospitalImage: j.hospitalImage,
+          jobStartTime: j.jobStartTime,
+          jobEndTime: j.jobEndTime,
+        }))
+      )
+      .sort((a, b) => new Date(b.jobStartTime) - new Date(a.jobStartTime));
 
     res.status(200).json({ jobs });
   } catch {
     res.status(500).json({ message: "Failed to fetch job history" });
   }
 };
+
 
 /* ── RESPONSES ── */
 export const saveResponse = async (req, res) => {
@@ -503,33 +642,75 @@ export const saveResponse = async (req, res) => {
 
 export const getResponses = async (req, res) => {
   try {
-    const agent = await MarketingAgent.findById(req.user.id)
-      .select("responses")
-      .lean();
-    if (!agent) return res.status(404).json({ message: "Agent not found" });
+    const visibleAgentIds = await getVisibleAgentIds(req.user.id);
 
-    const responses = (agent.responses || []).sort(
-      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    const agents = await MarketingAgent.find({
+      _id: { $in: visibleAgentIds },
+    })
+      .select("name email phone assignedArea role responses")
+      .lean();
+
+    const responses = agents.flatMap((agent) =>
+      (agent.responses || []).map((response) => ({
+        ...response,
+        agentId: agent._id,
+        agentName: agent.name,
+        agentArea: agent.assignedArea,
+        agentRole: agent.role,
+      }))
     );
+
+    responses.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
     res.json({ success: true, responses });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
+
 export const getWorkPerformance = async (req, res) => {
   try {
-    const agent = await MarketingAgent.findById(req.user.id).lean();
-    if (!agent) return res.status(404).json({ message: "Agent not found" });
+    const visibleAgentIds = await getVisibleAgentIds(req.user.id);
 
-    const now            = new Date();
+const agents = await MarketingAgent.find({
+  _id: { $in: visibleAgentIds },
+}).lean();
+
+if (!agents.length) {
+  return res.status(404).json({ message: "Agent not found" });
+}
+
+const currentAgent =
+  agents.find((a) => a._id.toString() === req.user.id) || agents[0];
+
+const now = new Date();
+
+
     const startOfMonth   = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfWeek    = new Date(now);
     startOfWeek.setDate(now.getDate() - now.getDay());
     const startOfToday   = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    const jobs      = agent.jobHistory || [];
-    const responses = agent.responses  || [];
+    const jobs = agents.flatMap((a) =>
+  (a.jobHistory || []).map((job) => ({
+    ...job,
+    agentId: a._id,
+    agentName: a.name,
+    agentArea: a.assignedArea,
+    agentRole: a.role,
+  }))
+);
+
+const responses = agents.flatMap((a) =>
+  (a.responses || []).map((response) => ({
+    ...response,
+    agentId: a._id,
+    agentName: a.name,
+    agentArea: a.assignedArea,
+    agentRole: a.role,
+  }))
+);
 
     //Date filters
     const filterByDate = (arr, dateField, from) =>
@@ -567,8 +748,9 @@ export const getWorkPerformance = async (req, res) => {
       totalOrders      : countOrders(responses),
       totalProducts    : countProducts(jobs),
       totalSamples     : countSamples(jobs),
-      gpsViolations    : agent.gpsViolationCount || 0,
-      isGpsBlocked     : agent.isGpsBlocked || false,
+      gpsViolations: agents.reduce((s, a) => s + (a.gpsViolationCount || 0), 0),
+       isGpsBlocked: agents.some((a) => a.isGpsBlocked),
+
       completionRate   : safeRate(countClosed(jobs), jobs.length),
     };
 
@@ -615,23 +797,30 @@ export const getWorkPerformance = async (req, res) => {
 
       // Target vs Achievement (from agent.monthlyTarget set by admin)
       target: {
-        jobs          : agent.monthlyTarget?.jobs          || 0,
-        doctors       : agent.monthlyTarget?.doctors       || 0,
-        orders        : agent.monthlyTarget?.orders        || 0,
-        revenueTarget : agent.monthlyTarget?.revenueTarget || 0,
-      },
+  jobs: agents.reduce((s, a) => s + (a.monthlyTarget?.jobs || 0), 0),
+  doctors: agents.reduce((s, a) => s + (a.monthlyTarget?.doctors || 0), 0),
+  orders: agents.reduce((s, a) => s + (a.monthlyTarget?.orders || 0), 0),
+  revenueTarget: agents.reduce((s, a) => s + (a.monthlyTarget?.revenueTarget || 0), 0),
+},
+
       achievement: {
-        jobsRate   : safeRate(monthJobs.length,   agent.monthlyTarget?.jobs   || 0),
-        ordersRate : safeRate(monthOrders,         agent.monthlyTarget?.orders || 0),
-        // unique doctor names visited this month
-        doctorsCovered: [...new Set(
-          monthJobs.map(j => j.doctorName).filter(Boolean)
-        )].length,
-        doctorsRate: safeRate(
-          [...new Set(monthJobs.map(j => j.doctorName).filter(Boolean))].length,
-          agent.monthlyTarget?.doctors || 0
-        ),
-      },
+  jobsRate: safeRate(
+    monthJobs.length,
+    agents.reduce((s, a) => s + (a.monthlyTarget?.jobs || 0), 0)
+  ),
+  ordersRate: safeRate(
+    monthOrders,
+    agents.reduce((s, a) => s + (a.monthlyTarget?.orders || 0), 0)
+  ),
+  doctorsCovered: [...new Set(
+    monthJobs.map(j => j.doctorName).filter(Boolean)
+  )].length,
+  doctorsRate: safeRate(
+    [...new Set(monthJobs.map(j => j.doctorName).filter(Boolean))].length,
+    agents.reduce((s, a) => s + (a.monthlyTarget?.doctors || 0), 0)
+  ),
+},
+
     };
 
     //Daily breakdown
@@ -728,12 +917,28 @@ export const getWorkPerformance = async (req, res) => {
       .slice(0, 10);
 
     //Sample stock summary 
-    const sampleStockSummary = (agent.sampleStock || []).map(s => ({
-      productName : s.productName,
-      openingStock: s.openingStock,
-      issued      : s.issued,
-      balance     : s.balance,
-    }));
+    const sampleStockMap = {};
+
+agents.forEach((a) => {
+  (a.sampleStock || []).forEach((s) => {
+    const key = s.productName || "Unknown";
+    if (!sampleStockMap[key]) {
+      sampleStockMap[key] = {
+        productName: key,
+        openingStock: 0,
+        issued: 0,
+        balance: 0,
+      };
+    }
+
+    sampleStockMap[key].openingStock += s.openingStock || 0;
+    sampleStockMap[key].issued += s.issued || 0;
+    sampleStockMap[key].balance += s.balance || 0;
+  });
+});
+
+const sampleStockSummary = Object.values(sampleStockMap);
+
 
     //Recent activity
     const recentActivity = [...jobs]
@@ -781,26 +986,36 @@ export const getWorkPerformance = async (req, res) => {
 
 export const getAllMRPerformance = async (req, res) => {
   try {
-    const agents = await MarketingAgent.find().lean();
+    const visibleAgentIds = await getVisibleAgentIds(req.user.id);
 
-    const data = agents.map(agent => {
+    const agents = await MarketingAgent.find({
+      _id: { $in: visibleAgentIds },
+    }).lean();
+
+    const data = agents.map((agent) => {
       const jobs = agent.jobHistory || [];
       const responses = agent.responses || [];
 
       const totalJobs = jobs.length;
-      const completed = jobs.filter(j => j.jobStatus === "closed").length;
-      const orders = responses.filter(r => r.hasOrder).length;
+      const completed = jobs.filter((j) => j.jobStatus === "closed").length;
+      const orders = responses.filter((r) => r.hasOrder).length;
       const totalResponses = responses.length;
       const distance = jobs.reduce((s, j) => s + (j.totalDistanceKm || 0), 0);
 
       return {
+        id: agent._id,
         name: agent.name,
         area: agent.assignedArea,
+        role: agent.role,
+        level: agent.level || 1,
+        reportsTo: agent.reportsTo || null,
+        teamMembersCount: agent.teamMembers?.length || 0,
         jobs: totalJobs,
         orders,
         responses: totalResponses,
-        distanceKm: distance,
-        completionRate: totalJobs > 0 ? ((completed / totalJobs) * 100).toFixed(1) : 0,
+        distanceKm: Number(distance.toFixed(1)),
+        completionRate:
+          totalJobs > 0 ? Number(((completed / totalJobs) * 100).toFixed(1)) : 0,
       };
     });
 
@@ -809,6 +1024,7 @@ export const getAllMRPerformance = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 export const createCampaign = async (req, res) => {
   try {
@@ -873,206 +1089,299 @@ export const createCampaign = async (req, res) => {
   }
 };
  
-/* ── GET ALL CAMPAIGNS ── */
 export const getCampaigns = async (req, res) => {
   try {
     const { type, status } = req.query;
-    const agent = await MarketingAgent.findById(req.user.id).select("campaigns").lean();
-    if (!agent) return res.status(404).json({ message: "Agent not found" });
- 
-    let campaigns = agent.campaigns || [];
- 
-    if (type)   campaigns = campaigns.filter(c => c.type === type);
-    if (status) campaigns = campaigns.filter(c => c.status === status);
- 
-    campaigns = campaigns.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
- 
+    const visibleAgentIds = await getVisibleAgentIds(req.user.id);
+
+    const agents = await MarketingAgent.find({
+      _id: { $in: visibleAgentIds },
+    })
+      .select("name assignedArea role campaigns")
+      .lean();
+
+    let campaigns = agents.flatMap((agent) =>
+      (agent.campaigns || []).map((campaign) => ({
+        ...campaign,
+        agentId: agent._id,
+        agentName: agent.name,
+        agentArea: agent.assignedArea,
+        agentRole: agent.role,
+      }))
+    );
+
+    if (type) campaigns = campaigns.filter((c) => c.type === type);
+    if (status) campaigns = campaigns.filter((c) => c.status === status);
+
+    campaigns.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
     res.json({ success: true, count: campaigns.length, campaigns });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
- 
+
 /* ── GET SINGLE CAMPAIGN ── */
 export const getCampaign = async (req, res) => {
   try {
-    const agent = await MarketingAgent.findById(req.user.id).select("campaigns").lean();
-    if (!agent) return res.status(404).json({ message: "Agent not found" });
- 
+    const agent = await findVisibleAgentBySubdoc(req.user.id, "campaigns", req.params.id);
+    if (!agent) return res.status(404).json({ message: "Campaign not found" });
+
     const campaign = (agent.campaigns || []).find(
-      c => c._id.toString() === req.params.id
+      (c) => c._id.toString() === req.params.id
     );
+
     if (!campaign) return res.status(404).json({ message: "Campaign not found" });
- 
-    res.json({ success: true, campaign });
+
+    res.json({
+      success: true,
+      campaign: {
+        ...campaign.toObject(),
+        agentId: agent._id,
+        agentName: agent.name,
+        agentArea: agent.assignedArea,
+        agentRole: agent.role,
+      },
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
  
 /* ── UPDATE CAMPAIGN ── */
 export const updateCampaign = async (req, res) => {
   try {
-    const agent = await MarketingAgent.findById(req.user.id);
-    if (!agent) return res.status(404).json({ message: "Agent not found" });
- 
-    const idx = (agent.campaigns || []).findIndex(
-      c => c._id.toString() === req.params.id
+    const agent = await findVisibleAgentBySubdoc(
+      req.user.id,
+      "campaigns",
+      req.params.id
     );
+
+    if (!agent) return res.status(404).json({ message: "Campaign not found" });
+
+    const idx = (agent.campaigns || []).findIndex(
+      (c) => c._id.toString() === req.params.id
+    );
+
     if (idx === -1) return res.status(404).json({ message: "Campaign not found" });
- 
+
     const c = agent.campaigns[idx];
+
     if (c.status === "sent") {
       return res.status(400).json({ message: "Cannot edit a sent campaign" });
     }
- 
+
     const { imageBase64, imageMimeType, removeImage } = req.body;
- 
-    // Handle image changes
+
     if (removeImage && c.image?.public_id) {
-      try { await cloudinary.uploader.destroy(c.image.public_id); } catch (_) {}
+      try {
+        await cloudinary.uploader.destroy(c.image.public_id);
+      } catch (_) {}
       c.image = null;
     } else if (imageBase64) {
-      // Delete old image
       if (c.image?.public_id) {
-        try { await cloudinary.uploader.destroy(c.image.public_id); } catch (_) {}
+        try {
+          await cloudinary.uploader.destroy(c.image.public_id);
+        } catch (_) {}
       }
-      // Upload new
+
       try {
         const mime = imageMimeType || "image/jpeg";
         const uploadResult = await cloudinary.uploader.upload(
           `data:${mime};base64,${imageBase64}`,
           { folder: "agent_campaigns", resource_type: "image" }
         );
-        c.image = { url: uploadResult.secure_url, public_id: uploadResult.public_id };
+
+        c.image = {
+          url: uploadResult.secure_url,
+          public_id: uploadResult.public_id,
+        };
       } catch (uploadErr) {
-        return res.status(500).json({ message: "Image upload failed: " + uploadErr.message });
+        return res.status(500).json({
+          message: "Image upload failed: " + uploadErr.message,
+        });
       }
     }
- 
-    // Update scalar fields
-    const allowed = ["title","type","status","subject","message","platform","scheduledAt"];
-    allowed.forEach(key => {
+
+    const allowed = [
+      "title",
+      "type",
+      "status",
+      "subject",
+      "message",
+      "platform",
+      "scheduledAt",
+    ];
+
+    allowed.forEach((key) => {
       if (req.body[key] !== undefined) c[key] = req.body[key];
     });
-    if (req.body.recipients !== undefined)
+
+    if (req.body.recipients !== undefined) {
       c.recipients = Array.isArray(req.body.recipients) ? req.body.recipients : [];
-    if (req.body.tags !== undefined)
+    }
+
+    if (req.body.tags !== undefined) {
       c.tags = Array.isArray(req.body.tags) ? req.body.tags : [];
+    }
+
     c.updatedAt = new Date();
- 
+
     await agent.save();
-    res.json({ success: true, campaign: agent.campaigns[idx] });
+
+    res.json({
+      success: true,
+      campaign: {
+        ...agent.campaigns[idx].toObject(),
+        agentId: agent._id,
+        agentName: agent.name,
+        agentArea: agent.assignedArea,
+        agentRole: agent.role,
+      },
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
  
 /* ── DELETE CAMPAIGN ── */
 export const deleteCampaign = async (req, res) => {
   try {
-    const agent = await MarketingAgent.findById(req.user.id);
-    if (!agent) return res.status(404).json({ message: "Agent not found" });
- 
-    const campaign = (agent.campaigns || []).find(
-      c => c._id.toString() === req.params.id
+    const agent = await findVisibleAgentBySubdoc(
+      req.user.id,
+      "campaigns",
+      req.params.id
     );
+
+    if (!agent) return res.status(404).json({ message: "Campaign not found" });
+
+    const campaign = (agent.campaigns || []).find(
+      (c) => c._id.toString() === req.params.id
+    );
+
     if (!campaign) return res.status(404).json({ message: "Campaign not found" });
- 
-    // Delete image from Cloudinary FIRST
+
     if (campaign.image?.public_id) {
       try {
         await cloudinary.uploader.destroy(campaign.image.public_id);
-        console.log("Deleted campaign image from Cloudinary:", campaign.image.public_id);
-      } catch (cloudErr) {
-        console.error("Cloudinary delete error (non-fatal):", cloudErr.message);
-      }
+      } catch (_) {}
     }
- 
-    // Remove from DB
+
     agent.campaigns = agent.campaigns.filter(
-      c => c._id.toString() !== req.params.id
+      (c) => c._id.toString() !== req.params.id
     );
+
     await agent.save();
- 
+
     res.json({ success: true, message: "Campaign deleted" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
  
 /* ── SEND CAMPAIGN ── */
 export const sendCampaign = async (req, res) => {
   try {
-    const agent = await MarketingAgent.findById(req.user.id);
-    if (!agent) return res.status(404).json({ message: "Agent not found" });
- 
-    const campaign = (agent.campaigns || []).find(
-      c => c._id.toString() === req.params.id
+    const agent = await findVisibleAgentBySubdoc(
+      req.user.id,
+      "campaigns",
+      req.params.id
     );
+
+    if (!agent) return res.status(404).json({ message: "Campaign not found" });
+
+    const campaign = (agent.campaigns || []).find(
+      (c) => c._id.toString() === req.params.id
+    );
+
     if (!campaign) return res.status(404).json({ message: "Campaign not found" });
+
     if (campaign.status === "sent") {
       return res.status(400).json({ message: "Already sent" });
     }
- 
-    // TODO: Integrate real send logic:
-    // - Email: nodemailer / SendGrid / AWS SES
-    // - WhatsApp: Twilio / WATI / Meta Cloud API
-    // - SMS: Twilio / Fast2SMS
-    // - Social: handled client-side (open platform URL)
- 
-    campaign.status  = "sent";
-    campaign.sentAt  = new Date();
-    campaign.reach   = (campaign.recipients || []).length;
-    campaign.opens   = 0;
-    campaign.clicks  = 0;
+
+    campaign.status = "sent";
+    campaign.sentAt = new Date();
+    campaign.reach = (campaign.recipients || []).length;
+    campaign.opens = 0;
+    campaign.clicks = 0;
     campaign.conversions = 0;
- 
+    campaign.updatedAt = new Date();
+
     await agent.save();
-    res.json({ success: true, message: "Campaign sent", campaign });
+
+    res.json({
+      success: true,
+      message: "Campaign sent",
+      campaign: {
+        ...campaign.toObject(),
+        agentId: agent._id,
+        agentName: agent.name,
+        agentArea: agent.assignedArea,
+        agentRole: agent.role,
+      },
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
  
 /* ── CAMPAIGN ROI / ANALYTICS ── */
 export const getCampaignROI = async (req, res) => {
   try {
-    const agent = await MarketingAgent.findById(req.user.id).select("campaigns").lean();
-    if (!agent) return res.status(404).json({ message: "Agent not found" });
- 
-    const campaigns = agent.campaigns || [];
- 
+    const visibleAgentIds = await getVisibleAgentIds(req.user.id);
+
+    const agents = await MarketingAgent.find({
+      _id: { $in: visibleAgentIds },
+    })
+      .select("campaigns")
+      .lean();
+
+    const campaigns = agents.flatMap((agent) => agent.campaigns || []);
+
     const byType = {};
-    campaigns.forEach(c => {
-      if (!byType[c.type]) byType[c.type] = {
-        total: 0, sent: 0, reach: 0, opens: 0, clicks: 0, conversions: 0,
-      };
+    campaigns.forEach((c) => {
+      if (!byType[c.type]) {
+        byType[c.type] = {
+          total: 0,
+          sent: 0,
+          reach: 0,
+          opens: 0,
+          clicks: 0,
+          conversions: 0,
+        };
+      }
+
       byType[c.type].total++;
       if (c.status === "sent") byType[c.type].sent++;
-      byType[c.type].reach       += c.reach       || 0;
-      byType[c.type].opens       += c.opens       || 0;
-      byType[c.type].clicks      += c.clicks      || 0;
+      byType[c.type].reach += c.reach || 0;
+      byType[c.type].opens += c.opens || 0;
+      byType[c.type].clicks += c.clicks || 0;
       byType[c.type].conversions += c.conversions || 0;
     });
- 
+
     const roi = {
-      total:            campaigns.length,
-      sent:             campaigns.filter(c => c.status === "sent").length,
-      scheduled:        campaigns.filter(c => c.status === "scheduled").length,
-      draft:            campaigns.filter(c => c.status === "draft").length,
-      totalReach:       campaigns.reduce((s, c) => s + (c.reach || 0), 0),
-      totalOpens:       campaigns.reduce((s, c) => s + (c.opens || 0), 0),
-      totalClicks:      campaigns.reduce((s, c) => s + (c.clicks || 0), 0),
+      total: campaigns.length,
+      sent: campaigns.filter((c) => c.status === "sent").length,
+      scheduled: campaigns.filter((c) => c.status === "scheduled").length,
+      draft: campaigns.filter((c) => c.status === "draft").length,
+      totalReach: campaigns.reduce((s, c) => s + (c.reach || 0), 0),
+      totalOpens: campaigns.reduce((s, c) => s + (c.opens || 0), 0),
+      totalClicks: campaigns.reduce((s, c) => s + (c.clicks || 0), 0),
       totalConversions: campaigns.reduce((s, c) => s + (c.conversions || 0), 0),
       byType,
     };
- 
+
     res.json({ success: true, roi });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
 export const getAgentVisualAds = async (req, res) => {
   try {
     const agentId = req.user.id;
@@ -1119,91 +1428,136 @@ export const createLead = async (req, res) => {
 /* ── GET ALL LEADS ── */
 export const getLeads = async (req, res) => {
   try {
-    const agent = await MarketingAgent.findById(req.user.id).select('leads').lean();
-    if (!agent) return res.status(404).json({ message: 'Agent not found' });
- 
-    const leads = (agent.leads || []).sort(
-      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    const visibleAgentIds = await getVisibleAgentIds(req.user.id);
+
+    const agents = await MarketingAgent.find({
+      _id: { $in: visibleAgentIds },
+    })
+      .select("name email phone assignedArea role leads")
+      .lean();
+
+    const leads = agents.flatMap((agent) =>
+      (agent.leads || []).map((lead) => ({
+        ...lead,
+        agentId: agent._id,
+        agentName: agent.name,
+        agentArea: agent.assignedArea,
+        agentRole: agent.role,
+      }))
     );
+
+    leads.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
     res.json({ success: true, count: leads.length, leads });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
  
 /* ── UPDATE LEAD ── */
 export const updateLead = async (req, res) => {
   try {
-    const agent = await MarketingAgent.findById(req.user.id);
-    if (!agent) return res.status(404).json({ message: 'Agent not found' });
- 
+    const agent = await findVisibleAgentBySubdoc(req.user.id, "leads", req.params.id);
+    if (!agent) return res.status(404).json({ message: "Lead not found" });
+
     const idx = (agent.leads || []).findIndex(
-      l => l._id.toString() === req.params.id
+      (l) => l._id.toString() === req.params.id
     );
-    if (idx === -1) return res.status(404).json({ message: 'Lead not found' });
- 
+
+    if (idx === -1) return res.status(404).json({ message: "Lead not found" });
+
     const allowed = [
-      'placeName','placeType','placeTypeOther','address','city',
-      'contactPerson','contactRole','contactRoleOther','phone','whatsapp','email',
-      'stage','source','sourceOther','priority',
-      'productInterest','productInterestOther','estimatedValue',
-      'nextAction','nextActionOther','followUpDate','notes',
+      "placeName","placeType","placeTypeOther","address","city",
+      "contactPerson","contactRole","contactRoleOther","phone","whatsapp","email",
+      "stage","source","sourceOther","priority",
+      "productInterest","productInterestOther","estimatedValue",
+      "nextAction","nextActionOther","followUpDate","notes",
     ];
-    allowed.forEach(key => {
+
+    allowed.forEach((key) => {
       if (req.body[key] !== undefined) agent.leads[idx][key] = req.body[key];
     });
+
     agent.leads[idx].updatedAt = new Date();
- 
+
     await agent.save();
-    res.json({ success: true, lead: agent.leads[idx] });
+
+    res.json({
+      success: true,
+      lead: {
+        ...agent.leads[idx].toObject(),
+        agentId: agent._id,
+        agentName: agent.name,
+        agentArea: agent.assignedArea,
+        agentRole: agent.role,
+      },
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
  
 /* ── DELETE LEAD ── */
 export const deleteLead = async (req, res) => {
   try {
-    const agent = await MarketingAgent.findById(req.user.id);
-    if (!agent) return res.status(404).json({ message: 'Agent not found' });
- 
+    const agent = await findVisibleAgentBySubdoc(req.user.id, "leads", req.params.id);
+    if (!agent) return res.status(404).json({ message: "Lead not found" });
+
     const before = (agent.leads || []).length;
-    agent.leads = agent.leads.filter(l => l._id.toString() !== req.params.id);
-    if (agent.leads.length === before)
-      return res.status(404).json({ message: 'Lead not found' });
- 
+    agent.leads = agent.leads.filter((l) => l._id.toString() !== req.params.id);
+
+    if (agent.leads.length === before) {
+      return res.status(404).json({ message: "Lead not found" });
+    }
+
     await agent.save();
-    res.json({ success: true, message: 'Lead deleted' });
+
+    res.json({ success: true, message: "Lead deleted" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
- 
+
 /* ── UPDATE LEAD STAGE ONLY ── */
 export const updateLeadStage = async (req, res) => {
   try {
     const { stage } = req.body;
-    if (!stage) return res.status(400).json({ message: 'stage is required' });
- 
-    const agent = await MarketingAgent.findById(req.user.id);
-    if (!agent) return res.status(404).json({ message: 'Agent not found' });
- 
-    const lead = (agent.leads || []).find(l => l._id.toString() === req.params.id);
-    if (!lead) return res.status(404).json({ message: 'Lead not found' });
- 
+    if (!stage) return res.status(400).json({ message: "stage is required" });
+
+    const agent = await findVisibleAgentBySubdoc(req.user.id, "leads", req.params.id);
+    if (!agent) return res.status(404).json({ message: "Lead not found" });
+
+    const lead = (agent.leads || []).find(
+      (l) => l._id.toString() === req.params.id
+    );
+
+    if (!lead) return res.status(404).json({ message: "Lead not found" });
+
     lead.stage = stage;
     lead.updatedAt = new Date();
- 
-    // Push to stage history
+
     lead.stageHistory = lead.stageHistory || [];
     lead.stageHistory.push({ stage, changedAt: new Date() });
- 
+
     await agent.save();
-    res.json({ success: true, lead });
+
+    res.json({
+      success: true,
+      lead: {
+        ...lead.toObject(),
+        agentId: agent._id,
+        agentName: agent.name,
+        agentArea: agent.assignedArea,
+        agentRole: agent.role,
+      },
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
 
 export const getAllStaff = async (req, res) => {
   const data = await Staff.find();
@@ -1305,63 +1659,79 @@ export const createSupportTicket = async (req, res) => {
   }
 };
  
-/**
- * GET /api/marketing-agent/support/tickets
- * Get all support tickets for this agent
- */
 export const getSupportTickets = async (req, res) => {
   try {
-    const agent = await MarketingAgent.findById(req.user.id)
-      .select("supportTickets")
+    const visibleAgentIds = await getVisibleAgentIds(req.user.id);
+
+    const agents = await MarketingAgent.find({
+      _id: { $in: visibleAgentIds },
+    })
+      .select("name assignedArea role supportTickets")
       .lean();
-    if (!agent) return res.status(404).json({ message: "Agent not found" });
- 
-    const tickets = (agent.supportTickets || []).sort(
-      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+
+    const tickets = agents.flatMap((agent) =>
+      (agent.supportTickets || []).map((ticket) => ({
+        ...ticket,
+        agentId: agent._id,
+        agentName: agent.name,
+        agentArea: agent.assignedArea,
+        agentRole: agent.role,
+      }))
     );
+
+    tickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
     res.json({ success: true, count: tickets.length, tickets });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
- 
-/**
- * PATCH /api/marketing-agent/support/tickets/:id/status
- * Update ticket status (agent can close their own ticket)
- */
+
+
 export const updateTicketStatus = async (req, res) => {
   try {
     const { status } = req.body;
     const allowed = ["open", "in_progress", "resolved", "closed"];
-    if (!status || !allowed.includes(status))
+
+    if (!status || !allowed.includes(status)) {
       return res.status(400).json({ message: "Invalid status" });
- 
-    const agent = await MarketingAgent.findById(req.user.id);
-    if (!agent) return res.status(404).json({ message: "Agent not found" });
- 
+    }
+
+    const agent = await findVisibleAgentBySubdoc(
+      req.user.id,
+      "supportTickets",
+      req.params.id
+    );
+
+    if (!agent) return res.status(404).json({ message: "Ticket not found" });
+
     const ticket = (agent.supportTickets || []).find(
       (t) => t._id.toString() === req.params.id
     );
+
     if (!ticket) return res.status(404).json({ message: "Ticket not found" });
- 
-    ticket.status    = status;
+
+    ticket.status = status;
     ticket.updatedAt = new Date();
- 
+
     await agent.save();
-    res.json({ success: true, ticket });
+
+    res.json({
+      success: true,
+      ticket: {
+        ...ticket.toObject(),
+        agentId: agent._id,
+        agentName: agent.name,
+        agentArea: agent.assignedArea,
+        agentRole: agent.role,
+      },
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
- 
-// ─────────────────────────────────────────
-//  WORKFLOW STATUS
-// ─────────────────────────────────────────
- 
-/**
- * POST /api/marketing-agent/support/workflows
- * Create a new workflow entry
- */
+
+
 export const createWorkflow = async (req, res) => {
   try {
     const {
@@ -1435,61 +1805,83 @@ export const createWorkflow = async (req, res) => {
   }
 };
  
-/**
- * GET /api/marketing-agent/support/workflows
- * Get all workflows for this agent
- */
 export const getWorkflows = async (req, res) => {
   try {
-    const agent = await MarketingAgent.findById(req.user.id)
-      .select("workflows")
+    const visibleAgentIds = await getVisibleAgentIds(req.user.id);
+
+    const agents = await MarketingAgent.find({
+      _id: { $in: visibleAgentIds },
+    })
+      .select("name assignedArea role workflows")
       .lean();
-    if (!agent) return res.status(404).json({ message: "Agent not found" });
- 
-    const workflows = (agent.workflows || []).sort(
-      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+
+    const workflows = agents.flatMap((agent) =>
+      (agent.workflows || []).map((workflow) => ({
+        ...workflow,
+        agentId: agent._id,
+        agentName: agent.name,
+        agentArea: agent.assignedArea,
+        agentRole: agent.role,
+      }))
     );
+
+    workflows.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
     res.json({ success: true, count: workflows.length, workflows });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
- 
-/**
- * PATCH /api/marketing-agent/support/workflows/:id/stage
- * Update the stage of a workflow
- */
+
 export const updateWorkflowStage = async (req, res) => {
   try {
     const { stage, note } = req.body;
- 
-    if (!stage?.trim())
+
+    if (!stage?.trim()) {
       return res.status(400).json({ message: "Stage is required" });
- 
-    const agent = await MarketingAgent.findById(req.user.id);
-    if (!agent) return res.status(404).json({ message: "Agent not found" });
- 
+    }
+
+    const agent = await findVisibleAgentBySubdoc(
+      req.user.id,
+      "workflows",
+      req.params.id
+    );
+
+    if (!agent) return res.status(404).json({ message: "Workflow not found" });
+
     const wf = (agent.workflows || []).find(
       (w) => w._id.toString() === req.params.id
     );
+
     if (!wf) return res.status(404).json({ message: "Workflow not found" });
- 
+
     wf.currentStage = stage.trim();
-    wf.updatedAt    = new Date();
- 
+    wf.updatedAt = new Date();
+
     wf.stageHistory = wf.stageHistory || [];
     wf.stageHistory.push({
-      stage:     stage.trim(),
-      note:      note?.trim() || "",
+      stage: stage.trim(),
+      note: note?.trim() || "",
       changedAt: new Date(),
     });
- 
+
     await agent.save();
-    res.json({ success: true, workflow: wf });
+
+    res.json({
+      success: true,
+      workflow: {
+        ...wf.toObject(),
+        agentId: agent._id,
+        agentName: agent.name,
+        agentArea: agent.assignedArea,
+        agentRole: agent.role,
+      },
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
 
 export const getMyIdCard = async (req, res) => {
   try {

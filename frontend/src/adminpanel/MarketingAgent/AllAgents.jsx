@@ -39,6 +39,60 @@ const fmtDate = (d) =>
       })
     : "—";
 
+const DEFAULT_ROLE_OPTIONS = [
+  "marketing_agent",
+  "senior_marketing_agent",
+  "area_manager",
+  "regional_manager",
+  "zonal_manager",
+  "marketing_head",
+];
+
+const CUSTOM_ROLE_VALUE = "__custom_role__";
+
+const formatRoleLabel = (role = "") =>
+  role.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+const normalizeRole = (value = "") =>
+  value.trim().toLowerCase().replace(/\s+/g, "_");
+
+const PERMISSION_OPTIONS = [
+  ["dashboard", "Dashboard"],
+  ["workingPlan", "Working Plan"],
+  ["dcr", "Daily Call Report"],
+  ["geoTracking", "Geo Tracking"],
+  ["routePlanning", "Route Planning"],
+  ["dailyExpenses", "Daily Expenses"],
+  ["workPerformance", "Work Performance"],
+  ["jobActivity", "Job Activity"],
+  ["responses", "Responses"],
+  ["products", "Products"],
+  ["giftManagement", "Gift Management"],
+  ["productFeedback", "Product Feedback"],
+  ["orders", "Orders"],
+  ["billing", "Billing"],
+  ["targets", "Targets"],
+  ["pointsPayout", "Points & Payout"],
+  ["marketing", "Campaign Marketing"],
+  ["visualAds", "Visual Ads"],
+  ["leads", "Leads"],
+  ["reports", "Reports"],
+  ["staff", "Staff Management"],
+  ["training", "Training"],
+  ["support", "Support"],
+  ["calendar", "Calendar"],
+  ["profile", "Profile"],
+  ["allAgentsAccess", "All Agents Access"],
+];
+
+const getAgentId = (value) => {
+  if (!value) return "";
+  if (typeof value === "object") return value._id || "";
+  return value;
+};
+
+const getAgentIds = (values = []) => values.map(getAgentId).filter(Boolean);
+
 /* ── Sub-components ── */
 
 function Avatar({ name, size = 36 }) {
@@ -96,11 +150,36 @@ function Badge({ children, variant = "neutral" }) {
 
 function Btn({ label, onClick, disabled, variant = "neutral" }) {
   const map = {
-    green: { bg: "#EAF3DE", color: "#3B6D11", border: "#C0DD97", hover: "#D4ECC0" },
-    red: { bg: "#FCEBEB", color: "#A32D2D", border: "#F7C1C1", hover: "#FADADA" },
-    blue: { bg: "#E6F1FB", color: "#185FA5", border: "#B5D4F4", hover: "#CCE1F7" },
-    amber: { bg: "#FAEEDA", color: "#854F0B", border: "#FAC775", hover: "#F5DDB8" },
-    purple: { bg: "#F3EEFF", color: "#6D28D9", border: "#D4AEFF", hover: "#E8D5FF" },
+    green: {
+      bg: "#EAF3DE",
+      color: "#3B6D11",
+      border: "#C0DD97",
+      hover: "#D4ECC0",
+    },
+    red: {
+      bg: "#FCEBEB",
+      color: "#A32D2D",
+      border: "#F7C1C1",
+      hover: "#FADADA",
+    },
+    blue: {
+      bg: "#E6F1FB",
+      color: "#185FA5",
+      border: "#B5D4F4",
+      hover: "#CCE1F7",
+    },
+    amber: {
+      bg: "#FAEEDA",
+      color: "#854F0B",
+      border: "#FAC775",
+      hover: "#F5DDB8",
+    },
+    purple: {
+      bg: "#F3EEFF",
+      color: "#6D28D9",
+      border: "#D4AEFF",
+      hover: "#E8D5FF",
+    },
     neutral: { bg: "#F8F8F6", color: "#444", border: "#DDD", hover: "#EEE" },
   };
   const s = map[variant] || map.neutral;
@@ -121,8 +200,12 @@ function Btn({ label, onClick, disabled, variant = "neutral" }) {
         whiteSpace: "nowrap",
         transition: "background 0.12s",
       }}
-      onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.background = s.hover; }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = s.bg; }}
+      onMouseEnter={(e) => {
+        if (!disabled) e.currentTarget.style.background = s.hover;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = s.bg;
+      }}
     >
       {label}
     </button>
@@ -134,31 +217,34 @@ function LiveDataModal({ agent, onClose }) {
   const [liveData, setLiveData] = useState(null);
   const [loading, setLoading] = useState(true);
 
- useEffect(() => {
-  if (!agent) return;
+  useEffect(() => {
+    if (!agent) return;
 
-  const fetchData = async () => {
-    try {
-      const res = await fetch(`${BASE}/admin/marketing-agents/${agent._id}/live-data`, {
-        headers: authHeaders(),
-      });
+    const fetchData = async () => {
+      try {
+        const res = await fetch(
+          `${BASE}/admin/marketing-agents/${agent._id}/live-data`,
+          {
+            headers: authHeaders(),
+          },
+        );
 
-      if (!res.ok) throw new Error("API failed");
+        if (!res.ok) throw new Error("API failed");
 
-      const data = await res.json();
+        const data = await res.json();
 
-      if (data.success) {
-        setLiveData(data);
+        if (data.success) {
+          setLiveData(data);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
-  fetchData();
-}, [agent]);
+    fetchData();
+  }, [agent]);
 
   if (!agent) return null;
 
@@ -209,13 +295,16 @@ function LiveDataModal({ agent, onClose }) {
             </div>
             <div style={{ fontSize: 12, color: "#64748b", marginTop: 3 }}>
               {agent.isOnJob ? (
-                <span style={{ color: "#16a34a", fontWeight: 600 }}>Currently on job</span>
+                <span style={{ color: "#16a34a", fontWeight: 600 }}>
+                  Currently on job
+                </span>
               ) : (
                 <span style={{ color: "#94a3b8" }}>Not on job</span>
               )}
               {updatedAt && (
                 <span style={{ marginLeft: 8 }}>
-                  · Location updated {new Date(updatedAt).toLocaleTimeString("en-IN")}
+                  · Location updated{" "}
+                  {new Date(updatedAt).toLocaleTimeString("en-IN")}
                 </span>
               )}
             </div>
@@ -237,7 +326,14 @@ function LiveDataModal({ agent, onClose }) {
         </div>
 
         {loading ? (
-          <div style={{ padding: "48px 20px", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>
+          <div
+            style={{
+              padding: "48px 20px",
+              textAlign: "center",
+              color: "#94a3b8",
+              fontSize: 13,
+            }}
+          >
             Loading live data...
           </div>
         ) : (
@@ -268,18 +364,46 @@ function LiveDataModal({ agent, onClose }) {
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700, letterSpacing: "0.08em" }}>
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: "#94a3b8",
+                        fontWeight: 700,
+                        letterSpacing: "0.08em",
+                      }}
+                    >
                       LATITUDE
                     </div>
-                    <div style={{ fontSize: 13, fontWeight: 700, fontFamily: "monospace", color: "#0f172a" }}>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        fontFamily: "monospace",
+                        color: "#0f172a",
+                      }}
+                    >
                       {lat.toFixed(6)}
                     </div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700, letterSpacing: "0.08em" }}>
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: "#94a3b8",
+                        fontWeight: 700,
+                        letterSpacing: "0.08em",
+                      }}
+                    >
                       LONGITUDE
                     </div>
-                    <div style={{ fontSize: 13, fontWeight: 700, fontFamily: "monospace", color: "#0f172a" }}>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        fontFamily: "monospace",
+                        color: "#0f172a",
+                      }}
+                    >
                       {lng.toFixed(6)}
                     </div>
                   </div>
@@ -303,8 +427,21 @@ function LiveDataModal({ agent, onClose }) {
                 </div>
               </>
             ) : (
-              <div style={{ padding: "32px 20px", textAlign: "center", borderBottom: "1px solid #f1f5f9" }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#334155", marginBottom: 4 }}>
+              <div
+                style={{
+                  padding: "32px 20px",
+                  textAlign: "center",
+                  borderBottom: "1px solid #f1f5f9",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: "#334155",
+                    marginBottom: 4,
+                  }}
+                >
                   No location data available
                 </div>
                 <div style={{ fontSize: 13, color: "#94a3b8" }}>
@@ -395,7 +532,7 @@ function AgentSettingsModal({ agent, onClose, onSaved }) {
           method: "PATCH",
           headers: authHeaders(),
           body: JSON.stringify(form),
-        }
+        },
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Save failed");
@@ -421,9 +558,13 @@ function AgentSettingsModal({ agent, onClose, onSaved }) {
       }}
     >
       <div>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{label}</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>
+          {label}
+        </div>
         {description && (
-          <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{description}</div>
+          <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>
+            {description}
+          </div>
         )}
       </div>
       <button
@@ -578,10 +719,24 @@ function AgentSettingsModal({ agent, onClose, onSaved }) {
           />
 
           {form.geofenceEnabled && (
-            <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+            <div
+              style={{
+                marginTop: 12,
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
               <div style={{ display: "flex", gap: 10 }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4, fontWeight: 600 }}>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "#64748b",
+                      marginBottom: 4,
+                      fontWeight: 600,
+                    }}
+                  >
                     Center Latitude
                   </div>
                   <input
@@ -595,7 +750,14 @@ function AgentSettingsModal({ agent, onClose, onSaved }) {
                   />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4, fontWeight: 600 }}>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "#64748b",
+                      marginBottom: 4,
+                      fontWeight: 600,
+                    }}
+                  >
                     Center Longitude
                   </div>
                   <input
@@ -610,7 +772,14 @@ function AgentSettingsModal({ agent, onClose, onSaved }) {
                 </div>
               </div>
               <div style={{ maxWidth: 180 }}>
-                <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4, fontWeight: 600 }}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "#64748b",
+                    marginBottom: 4,
+                    fontWeight: 600,
+                  }}
+                >
                   Radius (km)
                 </div>
                 <input
@@ -655,7 +824,14 @@ function AgentSettingsModal({ agent, onClose, onSaved }) {
             </div>
           )}
 
-          <div style={{ display: "flex", gap: 8, marginTop: 20, justifyContent: "flex-end" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              marginTop: 20,
+              justifyContent: "flex-end",
+            }}
+          >
             <Btn label="Cancel" onClick={onClose} />
             <Btn
               label={saving ? "Saving..." : "Save Settings"}
@@ -670,8 +846,428 @@ function AgentSettingsModal({ agent, onClose, onSaved }) {
   );
 }
 
+function AgentAccessModal({ agent, agents, roleOptions, onClose, onSaved }) {
+
+const allRoleOptions = [
+  ...new Set(roleOptions?.length ? roleOptions : DEFAULT_ROLE_OPTIONS),
+];
+
+  const [form, setForm] = useState({
+  role: agent?.role || "marketing_agent",
+  customRole: "",
+  level: agent?.level || 1,
+  reportsTo: getAgentId(agent?.reportsTo),
+  teamMembers: getAgentIds(agent?.teamMembers),
+  permissions: {
+    ...(agent?.permissions || {}),
+  },
+});
+
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  if (!agent) return null;
+
+  const otherAgents = agents.filter((a) => a._id !== agent._id);
+
+  const inputStyle = {
+    width: "100%",
+    padding: "8px 10px",
+    fontSize: 13,
+    borderRadius: 8,
+    border: "1px solid #e2e8f0",
+    background: "#fff",
+    color: "#0f172a",
+    outline: "none",
+    boxSizing: "border-box",
+  };
+
+  const toggleTeamMember = (id) => {
+    setForm((prev) => ({
+      ...prev,
+      teamMembers: prev.teamMembers.includes(id)
+        ? prev.teamMembers.filter((x) => x !== id)
+        : [...prev.teamMembers, id],
+    }));
+  };
+
+  const togglePermission = (key) => {
+    setForm((prev) => ({
+      ...prev,
+      permissions: {
+        ...prev.permissions,
+        [key]: !prev.permissions[key],
+      },
+    }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError("");
+
+    try {
+      const finalRole =
+  form.role === CUSTOM_ROLE_VALUE
+    ? normalizeRole(form.customRole)
+    : form.role;
+
+if (!finalRole) {
+  setError("Role is required");
+  setSaving(false);
+  return;
+}
+
+if (form.role === CUSTOM_ROLE_VALUE) {
+  const roleRes = await fetch(`${BASE}/admin/marketing-agents/roles`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({
+      value: finalRole,
+      label: formatRoleLabel(finalRole),
+    }),
+  });
+
+  const roleData = await roleRes.json();
+  if (!roleRes.ok) {
+    throw new Error(roleData.message || "Failed to save role");
+  }
+}
+      const payload = {
+        role: finalRole,
+        level: Number(form.level) || 1,
+        reportsTo: form.reportsTo || null,
+        teamMembers: form.teamMembers,
+        permissions: form.permissions,
+      };
+
+      const res = await fetch(
+        `${BASE}/admin/marketing-agents/${agent._id}/access`,
+        {
+          method: "PATCH",
+          headers: authHeaders(),
+          body: JSON.stringify(payload),
+        },
+      );
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to update access");
+
+      onSaved(data.agent);
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.45)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1300,
+        padding: 16,
+      }}
+    >
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 14,
+          width: "100%",
+          maxWidth: 760,
+          maxHeight: "92vh",
+          overflowY: "auto",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+        }}
+      >
+        <div
+          style={{
+            padding: "16px 20px",
+            borderBottom: "1px solid #f1f5f9",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            position: "sticky",
+            top: 0,
+            background: "#fff",
+            zIndex: 1,
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>
+              Access & Hierarchy
+            </div>
+            <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+              {agent.name}
+            </div>
+          </div>
+
+          <button
+            onClick={onClose}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              fontSize: 20,
+              color: "#94a3b8",
+              padding: 4,
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        <div style={{ padding: "16px 20px" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: 12,
+              marginBottom: 18,
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "#64748b",
+                  marginBottom: 4,
+                  fontWeight: 700,
+                }}
+              >
+                ROLE
+              </div>
+              <select
+  value={form.role}
+  onChange={(e) =>
+    setForm((p) => ({
+      ...p,
+      role: e.target.value,
+      customRole: e.target.value === CUSTOM_ROLE_VALUE ? p.customRole : "",
+    }))
+  }
+  style={inputStyle}
+>
+  {allRoleOptions.map((role) => (
+    <option key={role} value={role}>
+      {formatRoleLabel(role)}
+    </option>
+  ))}
+  <option value={CUSTOM_ROLE_VALUE}>+ Create Custom Role</option>
+</select>
+
+{form.role === CUSTOM_ROLE_VALUE && (
+  <input
+    value={form.customRole}
+    onChange={(e) =>
+      setForm((p) => ({ ...p, customRole: e.target.value }))
+    }
+    placeholder="Example: Sales Supervisor"
+    style={{ ...inputStyle, marginTop: 8 }}
+  />
+)}
+            </div>
+
+            <div>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "#64748b",
+                  marginBottom: 4,
+                  fontWeight: 700,
+                }}
+              >
+                LEVEL
+              </div>
+              <input
+                type="number"
+                min="1"
+                value={form.level}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, level: e.target.value }))
+                }
+                style={inputStyle}
+              />
+            </div>
+
+            <div>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "#64748b",
+                  marginBottom: 4,
+                  fontWeight: 700,
+                }}
+              >
+                REPORTS TO
+              </div>
+              <select
+                value={form.reportsTo}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, reportsTo: e.target.value }))
+                }
+                style={inputStyle}
+              >
+                <option value="">No upper agent</option>
+                {otherAgents.map((a) => (
+                  <option key={a._id} value={a._id}>
+                    {a.name} {a.role ? `(${formatRoleLabel(a.role)})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: "#94a3b8",
+              letterSpacing: "0.08em",
+              marginBottom: 10,
+            }}
+          >
+            TEAM MEMBERS UNDER THIS AGENT
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+              gap: 8,
+              background: "#f8fafc",
+              border: "1px solid #f1f5f9",
+              borderRadius: 10,
+              padding: 12,
+              marginBottom: 18,
+            }}
+          >
+            {otherAgents.map((a) => (
+              <label
+                key={a._id}
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "center",
+                  fontSize: 12,
+                  color: "#334155",
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={form.teamMembers.includes(a._id)}
+                  onChange={() => toggleTeamMember(a._id)}
+                />
+                <span>
+                  <strong>{a.name}</strong>
+                  <span style={{ color: "#94a3b8" }}>
+                    {" "}
+                    · {a.assignedArea || "No area"}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: "#94a3b8",
+              letterSpacing: "0.08em",
+              marginBottom: 10,
+            }}
+          >
+            MODULE PERMISSIONS
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: 8,
+              background: "#f8fafc",
+              border: "1px solid #f1f5f9",
+              borderRadius: 10,
+              padding: 12,
+            }}
+          >
+            {PERMISSION_OPTIONS.map(([key, label]) => (
+              <label
+                key={key}
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "center",
+                  fontSize: 12,
+                  color: "#334155",
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={!!form.permissions[key]}
+                  onChange={() => togglePermission(key)}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+
+          {error && (
+            <div
+              style={{
+                marginTop: 14,
+                padding: "10px 14px",
+                background: "#FCEBEB",
+                border: "1px solid #F7C1C1",
+                borderRadius: 8,
+                fontSize: 13,
+                color: "#A32D2D",
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              marginTop: 18,
+              justifyContent: "flex-end",
+            }}
+          >
+            <Btn label="Cancel" onClick={onClose} />
+            <Btn
+              label={saving ? "Saving..." : "Save Access"}
+              variant="blue"
+              disabled={saving}
+              onClick={handleSave}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Detail Modal ── */
-function AgentModal({ agent, onClose, onAction, actionLoading, onOpenSettings }) {
+function AgentModal({
+  agent,
+  onClose,
+  onAction,
+  actionLoading,
+  onOpenSettings,
+  onOpenAccess,
+}) {
   if (!agent) return null;
 
   const rows = [
@@ -742,7 +1338,9 @@ function AgentModal({ agent, onClose, onAction, actionLoading, onOpenSettings })
             <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
               {agent.name}
             </div>
-            <div style={{ fontSize: 12, color: "#64748b" }}>Marketing Agent</div>
+            <div style={{ fontSize: 12, color: "#64748b" }}>
+              Marketing Agent
+            </div>
           </div>
           <button
             onClick={onClose}
@@ -761,7 +1359,14 @@ function AgentModal({ agent, onClose, onAction, actionLoading, onOpenSettings })
         </div>
 
         <div style={{ padding: "14px 20px" }}>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
+              marginBottom: 14,
+            }}
+          >
             {agent.isApproved ? (
               <Badge variant="green">Approved</Badge>
             ) : (
@@ -792,7 +1397,8 @@ function AgentModal({ agent, onClose, onAction, actionLoading, onOpenSettings })
                   alignItems: "center",
                   fontSize: 12,
                   padding: "9px 14px",
-                  borderBottom: i < rows.length - 1 ? "1px solid #f1f5f9" : "none",
+                  borderBottom:
+                    i < rows.length - 1 ? "1px solid #f1f5f9" : "none",
                   background: i % 2 === 0 ? "#fff" : "#f8fafc",
                 }}
               >
@@ -811,7 +1417,9 @@ function AgentModal({ agent, onClose, onAction, actionLoading, onOpenSettings })
             ))}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
+          <div
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}
+          >
             {!agent.isApproved && (
               <Btn
                 label={actionLoading === "approve" ? "Approving..." : "Approve"}
@@ -830,7 +1438,9 @@ function AgentModal({ agent, onClose, onAction, actionLoading, onOpenSettings })
             )}
             {agent.isGpsBlocked ? (
               <Btn
-                label={actionLoading === "unblock" ? "Unblocking..." : "Unblock GPS"}
+                label={
+                  actionLoading === "unblock" ? "Unblocking..." : "Unblock GPS"
+                }
                 variant="blue"
                 disabled={!!actionLoading}
                 onClick={() => onAction("unblock", agent._id)}
@@ -853,6 +1463,11 @@ function AgentModal({ agent, onClose, onAction, actionLoading, onOpenSettings })
               variant="blue"
               onClick={() => onOpenSettings(agent)}
             />
+            <Btn
+              label="Access"
+              variant="purple"
+              onClick={() => onOpenAccess(agent)}
+            />
             <Btn label="Close" onClick={onClose} />
           </div>
         </div>
@@ -861,9 +1476,6 @@ function AgentModal({ agent, onClose, onAction, actionLoading, onOpenSettings })
   );
 }
 
-/* ════════════════════════════════════════
-   MAIN COMPONENT
-════════════════════════════════════════ */
 export default function AllAgents() {
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -873,8 +1485,10 @@ export default function AllAgents() {
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [locationAgent, setLocationAgent] = useState(null);
   const [settingsAgent, setSettingsAgent] = useState(null);
+  const [accessAgent, setAccessAgent] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
   const [toast, setToast] = useState(null);
+  const [roleOptions, setRoleOptions] = useState(DEFAULT_ROLE_OPTIONS);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   useEffect(() => {
@@ -905,9 +1519,29 @@ export default function AllAgents() {
     }
   }, []);
 
+  const fetchRoles = useCallback(async () => {
+  try {
+    const res = await fetch(`${BASE}/admin/marketing-agents/roles/list`, {
+      headers: authHeaders(),
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      setRoleOptions(data.roles.map((role) => role.value));
+    }
+  } catch (err) {
+    console.error("Failed to load roles:", err);
+  }
+}, []);
+
   useEffect(() => {
     fetchAgents();
   }, [fetchAgents]);
+
+  useEffect(() => {
+  fetchRoles();
+}, [fetchRoles]);
 
   const handleAction = async (action, agentId) => {
     if (action === "viewLocation") {
@@ -938,7 +1572,7 @@ export default function AllAgents() {
       }
       const data = await res.json();
       setAgents((prev) =>
-        prev.map((a) => (a._id === agentId ? { ...a, ...data.agent } : a))
+        prev.map((a) => (a._id === agentId ? { ...a, ...data.agent } : a)),
       );
       if (selectedAgent?._id === agentId)
         setSelectedAgent((p) => ({ ...p, ...data.agent }));
@@ -958,9 +1592,27 @@ export default function AllAgents() {
 
   const handleSettingsSaved = (updatedAgent) => {
     setAgents((prev) =>
-      prev.map((a) => (a._id === updatedAgent._id ? { ...a, ...updatedAgent } : a))
+      prev.map((a) =>
+        a._id === updatedAgent._id ? { ...a, ...updatedAgent } : a,
+      ),
     );
     showToast("Agent settings saved");
+  };
+
+  const handleAccessSaved = (updatedAgent) => {
+    setAgents((prev) =>
+      prev.map((a) =>
+        a._id === updatedAgent._id ? { ...a, ...updatedAgent } : a,
+      ),
+    );
+
+    if (selectedAgent?._id === updatedAgent._id) {
+      setSelectedAgent((p) => ({ ...p, ...updatedAgent }));
+    }
+
+    fetchRoles();
+
+    showToast("Agent access and hierarchy saved");
   };
 
   const quickApprove = (agentId) => handleAction("approve", agentId);
@@ -990,11 +1642,11 @@ export default function AllAgents() {
   });
 
   /* ── Column widths — fixed so header and rows always align ── */
-  const COL = "44px 1fr 130px 76px 72px 90px 82px 220px";
+  const COL = "44px 1fr 130px 76px 72px 90px 82px 300px";
 
-//   const cellStyle = {
-//     display: "contents",
-//   };
+  //   const cellStyle = {
+  //     display: "contents",
+  //   };
 
   return (
     <div
@@ -1058,7 +1710,11 @@ export default function AllAgents() {
             Marketing Zone
           </div>
           <div
-            style={{ fontSize: isMobile ? 20 : 24, fontWeight: 700, color: "#0f172a" }}
+            style={{
+              fontSize: isMobile ? 20 : 24,
+              fontWeight: 700,
+              color: "#0f172a",
+            }}
           >
             All Agents
           </div>
@@ -1139,7 +1795,10 @@ export default function AllAgents() {
           }}
         >
           <span>Failed to load: {error}</span>
-          <span style={{ cursor: "pointer", fontWeight: 700 }} onClick={fetchAgents}>
+          <span
+            style={{ cursor: "pointer", fontWeight: 700 }}
+            onClick={fetchAgents}
+          >
             Retry
           </span>
         </div>
@@ -1329,8 +1988,8 @@ export default function AllAgents() {
                     !agent.isApproved
                       ? "#EF9F27"
                       : agent.isGpsBlocked
-                      ? "#E24B4A"
-                      : "#1D9E75"
+                        ? "#E24B4A"
+                        : "#1D9E75"
                   }`,
                   boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
                 }}
@@ -1375,7 +2034,12 @@ export default function AllAgents() {
                   )}
                 </div>
                 <div
-                  style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}
+                  style={{
+                    display: "flex",
+                    gap: 6,
+                    flexWrap: "wrap",
+                    marginBottom: 8,
+                  }}
                 >
                   {agent.isApproved ? (
                     <Badge variant="green">Approved</Badge>
@@ -1383,7 +2047,9 @@ export default function AllAgents() {
                     <Badge variant="amber">Pending</Badge>
                   )}
                   {agent.isOnJob && <Badge variant="blue">On Job</Badge>}
-                  {agent.isGpsBlocked && <Badge variant="red">GPS Blocked</Badge>}
+                  {agent.isGpsBlocked && (
+                    <Badge variant="red">GPS Blocked</Badge>
+                  )}
                 </div>
                 <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
                   <Btn label="View" onClick={() => setSelectedAgent(agent)} />
@@ -1396,6 +2062,11 @@ export default function AllAgents() {
                     label="Settings"
                     variant="blue"
                     onClick={() => setSettingsAgent(agent)}
+                  />
+                  <Btn
+                    label="Access"
+                    variant="purple"
+                    onClick={() => setAccessAgent(agent)}
                   />
                   {!agent.isApproved && (
                     <Btn
@@ -1469,8 +2140,8 @@ export default function AllAgents() {
                   const rowBg = agent.isOnJob
                     ? "rgba(240,253,244,0.6)"
                     : !agent.isApproved
-                    ? "rgba(254,243,199,0.3)"
-                    : "#fff";
+                      ? "rgba(254,243,199,0.3)"
+                      : "#fff";
 
                   return (
                     <div
@@ -1483,7 +2154,9 @@ export default function AllAgents() {
                         padding: "11px 16px",
                         alignItems: "center",
                         borderBottom:
-                          i < filtered.length - 1 ? "1px solid #f8fafc" : "none",
+                          i < filtered.length - 1
+                            ? "1px solid #f8fafc"
+                            : "none",
                         background: rowBg,
                         transition: "background 0.1s",
                       }}
@@ -1588,7 +2261,9 @@ export default function AllAgents() {
                       </div>
 
                       {/* Actions */}
-                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                      <div
+                        style={{ display: "flex", gap: 5, flexWrap: "wrap" }}
+                      >
                         <Btn
                           label="View"
                           onClick={() => setSelectedAgent(agent)}
@@ -1602,6 +2277,11 @@ export default function AllAgents() {
                           label="Settings"
                           variant="blue"
                           onClick={() => setSettingsAgent(agent)}
+                        />
+                        <Btn
+                          label="Access"
+                          variant="purple"
+                          onClick={() => setAccessAgent(agent)}
                         />
                         {!agent.isApproved && (
                           <Btn
@@ -1659,7 +2339,12 @@ export default function AllAgents() {
           }}
         >
           <div
-            style={{ fontSize: 15, fontWeight: 600, color: "#0f172a", marginBottom: 6 }}
+            style={{
+              fontSize: 15,
+              fontWeight: 600,
+              color: "#0f172a",
+              marginBottom: 6,
+            }}
           >
             No agents found
           </div>
@@ -1672,12 +2357,18 @@ export default function AllAgents() {
       {/* Detail Modal */}
       {selectedAgent && (
         <AgentModal
-          agent={agents.find((a) => a._id === selectedAgent._id) || selectedAgent}
+          agent={
+            agents.find((a) => a._id === selectedAgent._id) || selectedAgent
+          }
           onClose={() => setSelectedAgent(null)}
           onAction={handleAction}
           actionLoading={actionLoading}
           onOpenSettings={(a) => {
             setSettingsAgent(a);
+            setSelectedAgent(null);
+          }}
+          onOpenAccess={(a) => {
+            setAccessAgent(a);
             setSelectedAgent(null);
           }}
         />
@@ -1686,7 +2377,9 @@ export default function AllAgents() {
       {/* Live Data Modal */}
       {locationAgent && (
         <LiveDataModal
-          agent={agents.find((a) => a._id === locationAgent._id) || locationAgent}
+          agent={
+            agents.find((a) => a._id === locationAgent._id) || locationAgent
+          }
           onClose={() => setLocationAgent(null)}
         />
       )}
@@ -1694,11 +2387,23 @@ export default function AllAgents() {
       {/* Settings Modal */}
       {settingsAgent && (
         <AgentSettingsModal
-          agent={agents.find((a) => a._id === settingsAgent._id) || settingsAgent}
+          agent={
+            agents.find((a) => a._id === settingsAgent._id) || settingsAgent
+          }
           onClose={() => setSettingsAgent(null)}
           onSaved={handleSettingsSaved}
         />
       )}
+
+      {accessAgent && (
+  <AgentAccessModal
+    agent={agents.find((a) => a._id === accessAgent._id) || accessAgent}
+    agents={agents}
+    roleOptions={roleOptions}
+    onClose={() => setAccessAgent(null)}
+    onSaved={handleAccessSaved}
+  />
+)}
     </div>
   );
 }

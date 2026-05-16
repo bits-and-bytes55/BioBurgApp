@@ -33,4 +33,5 @@ const PayoutRequestSchema = new mongoose.Schema(
 
 PayoutRequestSchema.index({ agentId: 1, status: 1 });
 
-export default mongoose.model("PayoutRequest", PayoutRequestSchema);
+export default mongoose.models.PayoutRequest ||
+  mongoose.model("PayoutRequest", PayoutRequestSchema);

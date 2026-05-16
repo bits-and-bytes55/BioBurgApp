@@ -7,13 +7,18 @@ import {
   createSaleBill
 } from "../controllers/saleBillController.js";
 
-import { protectAgent } from '../middleware/marketingAgenTauthMiddleware.js'
+import {
+  protectAgent,
+  requireAgentPermission,
+} from "../middleware/authMiddleware.js";
+
 
 const router = express.Router();
 
-router.post("/create-party", protectAgent, createParty);
-router.get("/products", protectAgent, getAgentProducts);
-router.get("/parties", protectAgent, getAgentParties);
-router.post("/sale-bill", protectAgent, createSaleBill);
+router.post("/create-party", protectAgent, requireAgentPermission("orders"), createParty);
+router.get("/products", protectAgent, requireAgentPermission("products"), getAgentProducts);
+router.get("/parties", protectAgent, requireAgentPermission("orders"), getAgentParties);
+router.post("/sale-bill", protectAgent, requireAgentPermission("orders"), createSaleBill);
+
 
 export default router;

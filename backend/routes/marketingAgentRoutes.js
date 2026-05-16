@@ -12,7 +12,8 @@ import {
 } from "../controllers/marketingAgentController.js";
 
 
-import { protectAgent } from "../middleware/authMiddleware.js";
+import { protectAgent, requireAgentPermission,} from "../middleware/authMiddleware.js";
+
 
 const router = express.Router();
 
@@ -23,45 +24,48 @@ router.post("/login",    loginAgent);
 // Protected
 router.use(protectAgent);
 
-router.get("/profile",           getAgentProfile);
-router.patch("/profile",         updateAgentProfile);      
+router.get("/profile", requireAgentPermission("profile"), getAgentProfile);
+router.patch("/profile", requireAgentPermission("profile"), updateAgentProfile);
+ 
 router.get("/profile-with-job",  getAgentProfileWithJob);
-router.get("/job-requirements",  getJobRequirements);
+router.get("/job-requirements", requireAgentPermission("jobActivity"), getJobRequirements);
+router.post("/start-job", requireAgentPermission("jobActivity"), startJob);
+router.get("/job-status", requireAgentPermission("jobActivity"), getJobStatus);
+router.post("/location/update", requireAgentPermission("geoTracking"), updateLiveLocation);
+router.post("/close-job", requireAgentPermission("jobActivity"), closeJob);
+router.post("/job/save", requireAgentPermission("jobActivity"), saveJobDetails);
+router.get("/job-history", requireAgentPermission("jobActivity"), getJobHistory);
 
-router.post("/start-job",        startJob);
-router.get("/job-status",        getJobStatus);
-router.post("/location/update",  updateLiveLocation);
-router.post("/close-job",        closeJob);
-router.post("/job/save",         saveJobDetails);
-router.get("/job-history",       getJobHistory);
 
-router.post("/leads-crm",              createLead);
-router.get("/leads-crm",               getLeads);
-router.put("/leads-crm/:id",           updateLead);
-router.delete("/leads-crm/:id",        deleteLead);
-router.patch("/leads-crm/:id/stage",   updateLeadStage);
-router.get("/leads",                   getCompletedLeads);
-router.get("/products",                getAgentProducts);
+router.post("/leads-crm", requireAgentPermission("leads"), createLead);
+router.get("/leads-crm", requireAgentPermission("leads"), getLeads);
+router.put("/leads-crm/:id", requireAgentPermission("leads"), updateLead);
+router.delete("/leads-crm/:id", requireAgentPermission("leads"), deleteLead);
+router.patch("/leads-crm/:id/stage", requireAgentPermission("leads"), updateLeadStage);
+router.get("/leads", requireAgentPermission("leads"), getCompletedLeads);
+router.get("/products", requireAgentPermission("products"), getAgentProducts);
 
-router.post("/responses",   saveResponse);
-router.get("/responses",    getResponses);
+router.post("/responses", requireAgentPermission("responses"), saveResponse);
+router.get("/responses", requireAgentPermission("responses"), getResponses);
 
-router.get("/work-performance",    getWorkPerformance);
-router.get("/all-mr-performance",  getAllMRPerformance);
-router.get("/visual-ads",          getAgentVisualAds);
+router.get("/work-performance", requireAgentPermission("workPerformance"), getWorkPerformance);
+router.get("/all-mr-performance", requireAgentPermission("reports"), getAllMRPerformance);
+router.get("/visual-ads", requireAgentPermission("visualAds"), getAgentVisualAds);
 
-router.get("/staff",        getAllStaff);
-router.post("/staff",       createStaff);
-router.put("/staff/:id",    updateStaff);
-router.delete("/staff/:id", deleteStaff);
+router.get("/staff", requireAgentPermission("staff"), getAllStaff);
+router.post("/staff", requireAgentPermission("staff"), createStaff);
+router.put("/staff/:id", requireAgentPermission("staff"), updateStaff);
+router.delete("/staff/:id", requireAgentPermission("staff"), deleteStaff);
 
-router.post("/support/tickets",              createSupportTicket);
-router.get("/support/tickets",               getSupportTickets);
-router.patch("/support/tickets/:id/status",  updateTicketStatus);
 
-router.post("/support/workflows",             createWorkflow);
-router.get("/support/workflows",              getWorkflows);
-router.patch("/support/workflows/:id/stage",  updateWorkflowStage);
+router.post("/support/tickets", requireAgentPermission("support"), createSupportTicket);
+router.get("/support/tickets", requireAgentPermission("support"), getSupportTickets);
+router.patch("/support/tickets/:id/status", requireAgentPermission("support"), updateTicketStatus);
+
+router.post("/support/workflows", requireAgentPermission("support"), createWorkflow);
+router.get("/support/workflows", requireAgentPermission("support"), getWorkflows);
+router.patch("/support/workflows/:id/stage", requireAgentPermission("support"), updateWorkflowStage);
+
 
 router.get("/my-id-card",     getMyIdCard);       
 router.get("/leaves",         getMyLeaves);        

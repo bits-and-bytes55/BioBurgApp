@@ -11,18 +11,25 @@ import {
   syncPointsTargetsAchieved,
 } from "../controllers/targetController.js";
 
-import { protectAgent } from "../middleware/marketingAgenTauthMiddleware.js";
+import {
+  protectAgent,
+  requireAgentPermission,
+  protect,
+  adminMiddleware,
+} from "../middleware/authMiddleware.js";
+
 
 const router = express.Router();
 
-router.get("/options/all", getOptions);
-router.post("/options/:key", addOption);
+router.get("/options/all", protect, adminMiddleware, getOptions);
+router.post("/options/:key", protect, adminMiddleware, addOption);
 
-router.get("/my", protectAgent, getMyTargets);
+router.get("/my", protectAgent, requireAgentPermission("targets"), getMyTargets);
 
-router.get("/", getTargets);
-router.post("/", createTarget);
-router.put("/:id", updateTarget);
-router.delete("/:id", deleteTarget);
-router.post("/sync-points", syncPointsTargetsAchieved);
+router.get("/", protect, adminMiddleware, getTargets);
+router.post("/", protect, adminMiddleware, createTarget);
+router.post("/sync-points", protect, adminMiddleware, syncPointsTargetsAchieved);
+router.put("/:id", protect, adminMiddleware, updateTarget);
+router.delete("/:id", protect, adminMiddleware, deleteTarget);
+
 export default router;

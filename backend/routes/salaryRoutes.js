@@ -7,13 +7,23 @@ import {
   fixExistingPayoutWallets,
 } from "../controllers/salaryController.js";
 
-import { protectAgent } from "../middleware/marketingAgenTauthMiddleware.js";
+import {
+  protectAgent,
+  requireAgentPermission,
+} from "../middleware/authMiddleware.js";
+
 import { adminProtect } from "../middleware/adminAuth.js";
 
 const router = express.Router();
 
 // AGENT
-router.get("/agent/summary",protectAgent,getAgentSalarySummary);
+router.get(
+  "/agent/summary",
+  protectAgent,
+  requireAgentPermission("pointsPayout"),
+  getAgentSalarySummary
+);
+
 
 // ADMIN
 router.get("/admin/all",adminProtect,getAllSalaryWallets);

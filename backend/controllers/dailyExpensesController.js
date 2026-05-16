@@ -1,16 +1,96 @@
 // controllers/dailyExpensesController.js
+import mongoose from "mongoose";
 import DailyExpense from "../models/dailyExpenses.js";
-import MarketingAgent from "../models/MarketingAgent.model.js"; 
+import MarketingAgent from "../models/MarketingAgent.model.js";
 import SalaryWallet from "../models/salaryWallet.js";
 import SalaryTransaction from "../models/salaryTransaction.js";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
+const getAgentId = (req) => req.user?.id || req.user?._id || req.agent?.id;
+
+const getVisibleAgentIds = async (agentId) => {
+  const rootId = agentId.toString();
+
+  const rootAgent = await MarketingAgent.findById(rootId)
+  .select("teamMembers role permissions")
+  .lean();
+
+if (!rootAgent) return [rootId];
+
+if (rootAgent.permissions?.allAgentsAccess) {
+  const allAgents = await MarketingAgent.find().select("_id").lean();
+  return allAgents.map((a) => a._id.toString());
+}
+
+
+  const visibleIds = new Set([rootId]);
+  const queue = [...(rootAgent.teamMembers || []).map((id) => id.toString())];
+
+  const directReports = await MarketingAgent.find({ reportsTo: rootId })
+    .select("_id")
+    .lean();
+
+  directReports.forEach((agent) => {
+    if (agent._id) queue.push(agent._id.toString());
+  });
+
+  while (queue.length) {
+    const currentId = queue.shift();
+    if (!currentId || visibleIds.has(currentId)) continue;
+
+    visibleIds.add(currentId);
+
+    const children = await MarketingAgent.find({ reportsTo: currentId })
+      .select("_id teamMembers")
+      .lean();
+
+    children.forEach((child) => {
+      if (child._id) queue.push(child._id.toString());
+    });
+
+    const currentAgent = await MarketingAgent.findById(currentId)
+      .select("teamMembers")
+      .lean();
+
+    (currentAgent?.teamMembers || []).forEach((id) => {
+      queue.push(id.toString());
+    });
+  }
+
+  return [...visibleIds];
+};
+
+const getVisibleAgentObjectIds = async (agentId) => {
+  const ids = await getVisibleAgentIds(agentId);
+  return ids.map((id) => new mongoose.Types.ObjectId(id));
+};
+
+const getExpenseVisibleToViewer = async (viewerAgentId, expenseId) => {
+  const visibleAgentIds = await getVisibleAgentObjectIds(viewerAgentId);
+
+  return DailyExpense.findOne({
+    _id: expenseId,
+    agent: { $in: visibleAgentIds },
+  });
+};
 
 export const getBudget = async (req, res) => {
   try {
-    const agent = await MarketingAgent.findById(req.user.id).select("monthlyExpenseBudget name");
+    const agentId = getAgentId(req);
+
+    const agent = await MarketingAgent.findById(agentId).select(
+      "monthlyExpenseBudget name"
+    );
+
     const limit = agent?.monthlyExpenseBudget || 8000;
-    res.json({ success: true, budget: { monthlyLimit: limit, currency: "INR" } });
+
+    res.json({
+      success: true,
+      budget: {
+        monthlyLimit: limit,
+        currency: "INR",
+      },
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -18,71 +98,152 @@ export const getBudget = async (req, res) => {
 
 export const setBudget = async (req, res) => {
   try {
+    const agentId = getAgentId(req);
     const { monthlyLimit } = req.body;
-    if (!monthlyLimit || isNaN(monthlyLimit) || monthlyLimit < 0)
-      return res.status(400).json({ success: false, message: "Invalid budget amount" });
-    await MarketingAgent.findByIdAndUpdate(req.user.id, { monthlyExpenseBudget: parseFloat(monthlyLimit) });
-    res.json({ success: true, budget: { monthlyLimit: parseFloat(monthlyLimit) } });
+
+    if (!monthlyLimit || isNaN(monthlyLimit) || monthlyLimit < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid budget amount",
+      });
+    }
+
+    await MarketingAgent.findByIdAndUpdate(agentId, {
+      monthlyExpenseBudget: parseFloat(monthlyLimit),
+    });
+
+    res.json({
+      success: true,
+      budget: {
+        monthlyLimit: parseFloat(monthlyLimit),
+      },
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 };
 
-//  GET /api/expenses/:date 
+// GET /api/expenses/:date
 export const getExpense = async (req, res) => {
   try {
-    const agentId = req.user.id;
-    const date    = req.params.date || todayStr();
-    let record    = await DailyExpense.findOne({ agent: agentId, date });
-    if (!record) record = await DailyExpense.create({ agent: agentId, date, entries: [], totalAmount: 0 });
+    const agentId = getAgentId(req);
+    const date = req.params.date || todayStr();
+
+    let record = await DailyExpense.findOne({
+      agent: agentId,
+      date,
+    });
+
+    if (!record) {
+      record = await DailyExpense.create({
+        agent: agentId,
+        date,
+        entries: [],
+        totalAmount: 0,
+      });
+    }
+
     res.json({ success: true, expense: record });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 };
 
-//  POST /api/expenses/upsert 
+// POST /api/expenses/upsert
 export const upsertExpense = async (req, res) => {
   try {
-    const agentId = req.user.id;
-    const { date, entries, notes } = req.body;
-    const total = entries.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
-    const record = await DailyExpense.findOneAndUpdate(
-      { agent: agentId, date: date || todayStr() },
-      { entries, totalAmount: parseFloat(total.toFixed(2)), notes },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
+    const agentId = getAgentId(req);
+    const { date, entries = [], notes } = req.body;
+
+    const total = entries.reduce(
+      (s, e) => s + (parseFloat(e.amount) || 0),
+      0
     );
+
+    const record = await DailyExpense.findOneAndUpdate(
+      {
+        agent: agentId,
+        date: date || todayStr(),
+      },
+      {
+        entries,
+        totalAmount: parseFloat(total.toFixed(2)),
+        notes,
+      },
+      {
+        new: true,
+        upsert: true,
+        setDefaultsOnInsert: true,
+      }
+    );
+
     res.json({ success: true, expense: record });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 };
 
-//  POST /api/expenses/:date/submit 
+// POST /api/expenses/:date/submit
 export const submitExpense = async (req, res) => {
   try {
-    const agentId = req.user.id;
-    const date    = req.params.date || todayStr();
-    const record  = await DailyExpense.findOne({ agent: agentId, date });
-    if (!record)                     return res.status(404).json({ success: false, message: "No expense record found" });
-    if (record.status === "submitted") return res.status(400).json({ success: false, message: "Already submitted" });
-    if (!record.entries.length)        return res.status(400).json({ success: false, message: "No entries to submit" });
-    record.status = "submitted"; record.submittedAt = new Date();
+    const agentId = getAgentId(req);
+    const date = req.params.date || todayStr();
+
+    const record = await DailyExpense.findOne({
+      agent: agentId,
+      date,
+    });
+
+    if (!record) {
+      return res.status(404).json({
+        success: false,
+        message: "No expense record found",
+      });
+    }
+
+    if (record.status === "submitted") {
+      return res.status(400).json({
+        success: false,
+        message: "Already submitted",
+      });
+    }
+
+    if (!record.entries.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No entries to submit",
+      });
+    }
+
+    record.status = "submitted";
+    record.submittedAt = new Date();
+
     await record.save();
+
     res.json({ success: true, expense: record });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 };
 
-//  GET /api/expenses/month/:year/:month 
+// GET /api/expenses/month/:year/:month
 export const getMonthExpenses = async (req, res) => {
   try {
-    const agentId = req.user.id;
+    const viewerAgentId = getAgentId(req);
+    const visibleAgentIds = await getVisibleAgentObjectIds(viewerAgentId);
+
     const { year, month } = req.params;
     const from = `${year}-${String(month).padStart(2, "0")}-01`;
-    const to   = `${year}-${String(month).padStart(2, "0")}-31`;
-    const records = await DailyExpense.find({ agent: agentId, date: { $gte: from, $lte: to } }).sort({ date: 1 });
+    const to = `${year}-${String(month).padStart(2, "0")}-31`;
+
+    const records = await DailyExpense.find({
+      agent: { $in: visibleAgentIds },
+      date: { $gte: from, $lte: to },
+    })
+      .populate("agent", "name email phone assignedArea role")
+      .sort({ date: 1 })
+      .lean();
+
     res.json({ success: true, records });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -91,37 +252,85 @@ export const getMonthExpenses = async (req, res) => {
 
 export const getMonthlySummary = async (req, res) => {
   try {
-    const agentId = req.user.id;
+    const viewerAgentId = getAgentId(req);
+    const visibleAgentIds = await getVisibleAgentObjectIds(viewerAgentId);
+
     const { year, month } = req.params;
     const from = `${year}-${String(month).padStart(2, "0")}-01`;
-    const to   = `${year}-${String(month).padStart(2, "0")}-31`;
+    const to = `${year}-${String(month).padStart(2, "0")}-31`;
 
-    const [records, agent] = await Promise.all([
-      DailyExpense.find({ agent: agentId, date: { $gte: from, $lte: to } }),
-      MarketingAgent.findById(agentId).select("monthlyExpenseBudget"),
+    const [records, agents] = await Promise.all([
+      DailyExpense.find({
+        agent: { $in: visibleAgentIds },
+        date: { $gte: from, $lte: to },
+      })
+        .populate("agent", "name email phone assignedArea role")
+        .lean(),
+      MarketingAgent.find({
+        _id: { $in: visibleAgentIds },
+      })
+        .select("monthlyExpenseBudget")
+        .lean(),
     ]);
 
-    const totalSpent   = records.reduce((s, r) => s + (r.totalAmount || 0), 0);
-    const monthlyLimit = agent?.monthlyExpenseBudget || 8000;
+    const totalSpent = records.reduce((s, r) => s + (r.totalAmount || 0), 0);
+    const monthlyLimit = agents.reduce(
+      (s, agent) => s + (agent.monthlyExpenseBudget || 8000),
+      0
+    );
 
     const breakdown = {};
-    records.forEach(r =>
-      r.entries.forEach(e => {
-        if (e.category) breakdown[e.category] = (breakdown[e.category] || 0) + (e.amount || 0);
-      })
-    );
+    records.forEach((record) => {
+      (record.entries || []).forEach((entry) => {
+        if (entry.category) {
+          breakdown[entry.category] =
+            (breakdown[entry.category] || 0) + (entry.amount || 0);
+        }
+      });
+    });
+
+    const agentSummaries = visibleAgentIds.map((agentId) => {
+      const agentRecords = records.filter(
+        (record) =>
+          record.agent?._id?.toString() === agentId.toString() ||
+          record.agent?.toString?.() === agentId.toString()
+      );
+
+      const spent = agentRecords.reduce(
+        (s, record) => s + (record.totalAmount || 0),
+        0
+      );
+
+      return {
+        agentId,
+        totalSpent: parseFloat(spent.toFixed(2)),
+        totalDays: agentRecords.length,
+        submitted: agentRecords.filter((r) =>
+          ["submitted", "approved"].includes(r.status)
+        ).length,
+        approved: agentRecords.filter((r) => r.status === "approved").length,
+      };
+    });
 
     res.json({
       success: true,
       summary: {
-        totalSpent:   parseFloat(totalSpent.toFixed(2)),
-        totalDays:    records.length,
-        submitted:    records.filter(r => ["submitted", "approved"].includes(r.status)).length,
-        approved:     records.filter(r => r.status === "approved").length,
+        totalSpent: parseFloat(totalSpent.toFixed(2)),
+        totalDays: records.length,
+        submitted: records.filter((r) =>
+          ["submitted", "approved"].includes(r.status)
+        ).length,
+        approved: records.filter((r) => r.status === "approved").length,
         breakdown,
-        monthlyLimit,                                                              // ← real from DB
-        balanceLeft:  parseFloat(Math.max(0, monthlyLimit - totalSpent).toFixed(2)),
-        budgetPct:    monthlyLimit > 0 ? Math.min(Math.round((totalSpent / monthlyLimit) * 100), 100) : 0,
+        monthlyLimit,
+        balanceLeft: parseFloat(
+          Math.max(0, monthlyLimit - totalSpent).toFixed(2)
+        ),
+        budgetPct:
+          monthlyLimit > 0
+            ? Math.min(Math.round((totalSpent / monthlyLimit) * 100), 100)
+            : 0,
+        agentSummaries,
       },
     });
   } catch (err) {
@@ -129,18 +338,19 @@ export const getMonthlySummary = async (req, res) => {
   }
 };
 
-//  GET /api/expenses/admin/all/:year/:month 
+// GET /api/expenses/admin/all/:year/:month
 export const getAllAgentsExpenses = async (req, res) => {
   try {
     const { year, month } = req.params;
     const from = `${year}-${String(month).padStart(2, "0")}-01`;
-    const to   = `${year}-${String(month).padStart(2, "0")}-31`;
+    const to = `${year}-${String(month).padStart(2, "0")}-31`;
 
     const records = await DailyExpense.find({
       date: { $gte: from, $lte: to },
     })
-      .populate("agent", "name email phone assignedArea")
-      .sort({ date: -1 });
+      .populate("agent", "name email phone assignedArea role")
+      .sort({ date: -1 })
+      .lean();
 
     res.json({ success: true, records });
   } catch (err) {
@@ -148,10 +358,16 @@ export const getAllAgentsExpenses = async (req, res) => {
   }
 };
 
-//  PATCH /api/expenses/admin/:expenseId/approve 
+// PATCH /api/expenses/admin/:expenseId/approve
 export const approveExpense = async (req, res) => {
   try {
-    const record = await DailyExpense.findById(req.params.expenseId);
+    let record;
+
+    if (req.user?.role && req.user.role !== "admin") {
+      record = await getExpenseVisibleToViewer(getAgentId(req), req.params.expenseId);
+    } else {
+      record = await DailyExpense.findById(req.params.expenseId);
+    }
 
     if (!record) {
       return res.status(404).json({
@@ -160,7 +376,6 @@ export const approveExpense = async (req, res) => {
       });
     }
 
-    // Prevent double credit
     if (record.status === "approved") {
       return res.status(400).json({
         success: false,
@@ -168,7 +383,6 @@ export const approveExpense = async (req, res) => {
       });
     }
 
-    // Approve expense
     record.status = "approved";
     record.approvedBy = req.user?.name || req.user?.email || "Admin";
     record.approvedAt = new Date();
@@ -182,7 +396,6 @@ export const approveExpense = async (req, res) => {
       agent: record.agent,
     });
 
-    // Create wallet if not exists
     if (!wallet) {
       wallet = await SalaryWallet.create({
         agent: record.agent,
@@ -192,13 +405,11 @@ export const approveExpense = async (req, res) => {
       });
     }
 
-    // Credit amount
     wallet.balance += amount;
     wallet.totalEarned += amount;
 
     await wallet.save();
 
-    // Transaction history
     await SalaryTransaction.create({
       agent: record.agent,
       amount,
@@ -213,7 +424,6 @@ export const approveExpense = async (req, res) => {
       success: true,
       expense: record,
     });
-
   } catch (err) {
     console.error(err);
 
@@ -224,17 +434,31 @@ export const approveExpense = async (req, res) => {
   }
 };
 
-// PATCH /api/expenses/admin/:expenseId/reject 
+// PATCH /api/expenses/admin/:expenseId/reject
 export const rejectExpense = async (req, res) => {
   try {
     const { reason } = req.body;
-    const record = await DailyExpense.findById(req.params.expenseId);
-    if (!record) return res.status(404).json({ success: false, message: "Not found" });
 
-    record.status          = "rejected";
-    record.rejectedReason  = reason || "Rejected by admin";
-    record.approvedBy      = undefined;
-    record.approvedAt      = undefined;
+    let record;
+
+    if (req.user?.role && req.user.role !== "admin") {
+      record = await getExpenseVisibleToViewer(getAgentId(req), req.params.expenseId);
+    } else {
+      record = await DailyExpense.findById(req.params.expenseId);
+    }
+
+    if (!record) {
+      return res.status(404).json({
+        success: false,
+        message: "Not found",
+      });
+    }
+
+    record.status = "rejected";
+    record.rejectedReason = reason || "Rejected by admin";
+    record.approvedBy = undefined;
+    record.approvedAt = undefined;
+
     await record.save();
 
     res.json({ success: true, expense: record });

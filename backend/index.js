@@ -190,8 +190,8 @@ if (!fs.existsSync(resumePath)) {
   fs.mkdirSync(resumePath, { recursive: true });
 }
 app.use("/agent/campaigns", campaignRoutes);
-app.use("/api/marketing-agent", marketingAgentRoutes);
 app.use("/api/marketing-agent/leaves", leaveRoutes);
+app.use("/api/marketing-agent", marketingAgentRoutes);
 app.use("/api/agent/referrals", agentReferralRoutes);
 app.use("/api/agent", marketingAgentRoutes); 
 app.use("/api/sale-orders", saleOrderRoutes);

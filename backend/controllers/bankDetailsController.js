@@ -1,20 +1,20 @@
-// controllers/bankDetailsController.js
 import AgentBankDetails from "../models/agentBankDetails.js";
 import cloudinary from "../config/cloudinary.js";
 
-const getAgentId = req => req.user?.id || req.user?._id;
+const getAgentId = (req) => req.user?.id || req.user?._id || req.agent?.id;
 
-// Upload base64 to Cloudinary 
 const uploadBase64 = (base64String, folder) =>
   cloudinary.uploader.upload(base64String, {
     folder,
     resource_type: "auto",
   });
 
-// GET bank details 
 export const getBankDetails = async (req, res) => {
   try {
-    const doc = await AgentBankDetails.findOne({ agentId: getAgentId(req) }).lean();
+    const doc = await AgentBankDetails.findOne({
+      agentId: getAgentId(req),
+    }).lean();
+
     return res.json({ success: true, data: doc || null });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -48,10 +48,10 @@ export const saveBankDetails = async (req, res) => {
         agentId,
         accountHolder: accountHolder || "",
         accountNumber: accountNumber || "",
-        ifsc:          (ifsc || "").toUpperCase(),
-        bankName:      bankName || "",
-        upiId:         upiId || "",
-        isLocked:      true,
+        ifsc: (ifsc || "").toUpperCase(),
+        bankName: bankName || "",
+        upiId: upiId || "",
+        isLocked: true,
       },
       { upsert: true, new: true }
     );
@@ -68,8 +68,12 @@ export const submitCorrectionRequest = async (req, res) => {
     const existing = await AgentBankDetails.findOne({ agentId });
 
     if (!existing) {
-      return res.status(404).json({ success: false, message: "No bank details found" });
+      return res.status(404).json({
+        success: false,
+        message: "No bank details found",
+      });
     }
+
     if (existing.correctionStatus === "pending") {
       return res.status(400).json({
         success: false,
@@ -80,31 +84,41 @@ export const submitCorrectionRequest = async (req, res) => {
     const { reason, documents } = req.body;
 
     if (!reason?.trim()) {
-      return res.status(400).json({ success: false, message: "Reason is required" });
+      return res.status(400).json({
+        success: false,
+        message: "Reason is required",
+      });
     }
 
     const uploaded = [];
+
     for (const doc of documents || []) {
       if (!doc.base64) continue;
+
       const result = await uploadBase64(doc.base64, "agent_bank_corrections");
+
       uploaded.push({
-        url:       result.secure_url,
+        url: result.secure_url,
         public_id: result.public_id,
-        label:     doc.label || "Document",
+        label: doc.label || "Document",
       });
     }
 
     existing.correctionStatus = "pending";
     existing.correctionRequest = {
       reason,
-      documents:   uploaded,
+      documents: uploaded,
       submittedAt: new Date(),
-      adminNote:   "",
-      resolvedAt:  null,
+      adminNote: "",
+      resolvedAt: null,
     };
+
     await existing.save();
 
-    return res.json({ success: true, message: "Correction request submitted successfully" });
+    return res.json({
+      success: true,
+      message: "Correction request submitted successfully",
+    });
   } catch (err) {
     console.error("[submitCorrectionRequest]", err);
     return res.status(500).json({ success: false, message: err.message });
@@ -114,8 +128,9 @@ export const submitCorrectionRequest = async (req, res) => {
 export const adminGetCorrectionRequests = async (req, res) => {
   try {
     const docs = await AgentBankDetails.find({ correctionStatus: "pending" })
-      .populate("agentId", "name phone email")
+      .populate("agentId", "name phone email assignedArea role")
       .lean();
+
     return res.json({ success: true, data: docs });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -125,21 +140,28 @@ export const adminGetCorrectionRequests = async (req, res) => {
 export const adminResolveCorrectionRequest = async (req, res) => {
   try {
     const { agentId } = req.params;
-    const { action, adminNote } = req.body; 
+    const { action, adminNote } = req.body;
 
     const doc = await AgentBankDetails.findOne({ agentId });
-    if (!doc) return res.status(404).json({ success: false, message: "Not found" });
+
+    if (!doc) {
+      return res.status(404).json({ success: false, message: "Not found" });
+    }
 
     doc.correctionStatus = action === "approve" ? "approved" : "rejected";
-    doc.correctionRequest.adminNote  = adminNote || "";
+    doc.correctionRequest.adminNote = adminNote || "";
     doc.correctionRequest.resolvedAt = new Date();
 
     if (action === "approve") {
-      doc.isLocked = false; 
+      doc.isLocked = false;
     }
 
     await doc.save();
-    return res.json({ success: true, message: `Correction ${doc.correctionStatus}` });
+
+    return res.json({
+      success: true,
+      message: `Correction ${doc.correctionStatus}`,
+    });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }

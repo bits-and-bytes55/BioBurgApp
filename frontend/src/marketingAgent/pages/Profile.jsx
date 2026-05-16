@@ -698,7 +698,9 @@ export default function AgentProfile() {
   const fetchSlips = async () => {
     setSlipsLoading(true);
     try {
-      const res = await axios.get(`${API}/api/points/agent/slip/$`, { headers: agentHeaders() });
+      const res = await axios.get(`${API}/api/points/agent/payouts`, {
+  headers: agentHeaders(),
+});
       setSlips(res.data.slips || res.data.data || []);
     } catch { setSlips([]); }
     setSlipsLoading(false);
@@ -999,24 +1001,61 @@ export default function AgentProfile() {
                     </thead>
                     <tbody>
                       {leaves.slice(0, 10).map((l, i) => {
-                        const days = l.fromDate && l.toDate
-                          ? Math.max(1, Math.ceil((new Date(l.toDate) - new Date(l.fromDate)) / 86400000) + 1) : "—";
-                        const ss = lss(l.status);
-                        return (
-                          <tr key={i}>
-  <td style={{ fontWeight:600 }}>{l.leaveType || "Leave"}</td>
-  <td>{fmtDateShort(l.fromDate)}</td>
-  <td>{fmtDateShort(l.toDate)}</td>
-  <td style={{ textAlign:"center", fontWeight:700 }}>{l.totalDays || days}</td>
-  <td style={{ fontSize:11, color:"#6b7280" }}>{l.leaveAddressType || "—"}</td>
-  <td>
-    <span style={{ display:"inline-block", padding:"3px 10px", borderRadius:20, fontSize:11, fontWeight:700, background:ss.bg, color:ss.color }}>
-      {l.status ? l.status.charAt(0).toUpperCase() + l.status.slice(1) : "Pending"}
-    </span>
-  </td>
-</tr>
-                        );
-                      })}
+  const days = l.fromDate && l.toDate
+    ? Math.max(1, Math.ceil((new Date(l.toDate) - new Date(l.fromDate)) / 86400000) + 1)
+    : "—";
+  const ss = lss(l.status);
+  return (
+    <tr key={i}>
+      <td style={{ fontWeight: 600 }}>{l.leaveType || "Leave"}</td>
+      <td>{fmtDateShort(l.fromDate)}</td>
+      <td>{fmtDateShort(l.toDate)}</td>
+      <td style={{ textAlign: "center", fontWeight: 700 }}>{l.totalDays || days}</td>
+      <td style={{ fontSize: 11, color: "#6b7280" }}>{l.leaveAddressType || "—"}</td>
+      <td>
+        {/* Status badge */}
+        <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: ss.bg, color: ss.color }}>
+          {l.status ? l.status.charAt(0).toUpperCase() + l.status.slice(1) : "Pending"}
+        </span>
+ 
+        {/* Rejection reason — shown only when rejected */}
+        {l.status === "rejected" && l.adminRemark && (
+          <div style={{
+            marginTop: 4,
+            padding: "4px 8px",
+            background: "#fef2f2",
+            border: "1px solid #fca5a5",
+            borderRadius: 6,
+            fontSize: 10.5,
+            color: "#dc2626",
+            fontWeight: 600,
+            maxWidth: 160,
+          }}>
+            ✕ {l.adminRemark}
+          </div>
+        )}
+ 
+        {/* Approval note — shown only when approved with remark */}
+        {l.status === "approved" && l.adminRemark && (
+          <div style={{
+            marginTop: 4,
+            padding: "4px 8px",
+            background: "#f0fdf4",
+            border: "1px solid #86efac",
+            borderRadius: 6,
+            fontSize: 10.5,
+            color: "#15803d",
+            fontWeight: 600,
+            maxWidth: 160,
+          }}>
+            ✓ {l.adminRemark}
+          </div>
+        )}
+      </td>
+    </tr>
+  );
+})}
+ 
                     </tbody>
                   </table>
                 </div>

@@ -1,4 +1,3 @@
-// adminpanel/MarketingAgent/AdminPointsPayout.jsx
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -60,7 +59,7 @@ const EMPTY_SLIP = {
   deductions:     [],
 };
 
-// ── Slip Preview Component (used in both admin modal and agent view) ──
+// ── Slip Preview Component ──
 export function SlipPreview({ slip, payoutId }) {
   const totalDeductions = (slip.deductions || []).reduce((s, d) => s + Number(d.amount || 0), 0);
   const netAmount = slip.netAmount ?? (slip.amount - totalDeductions);
@@ -123,7 +122,7 @@ export function SlipPreview({ slip, payoutId }) {
         </div>
 
         {/* Paid To */}
-        <div style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "14px 18px", marginBottom: 18 }}>
+        <div style={{ background: "#f8fafc", borderWidth: "1.5px", borderStyle: "solid", borderColor: "#e2e8f0", borderRadius: 10, padding: "14px 18px", marginBottom: 18 }}>
           <div style={{ fontSize: 10, fontWeight: 800, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Paid To</div>
           <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a" }}>{slip.agentName}</div>
           {slip.agentPhone && <div style={{ fontSize: 12, color: "#475569", marginTop: 2 }}>📱 {slip.agentPhone}</div>}
@@ -178,7 +177,7 @@ export function SlipPreview({ slip, payoutId }) {
               </tbody>
             </table>
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
-              <div style={{ background: "#f0fdf4", border: "1.5px solid #86efac", borderRadius: 8, padding: "8px 20px", fontSize: 15, fontWeight: 900, color: "#059669" }}>
+              <div style={{ background: "#f0fdf4", borderWidth: "1.5px", borderStyle: "solid", borderColor: "#86efac", borderRadius: 8, padding: "8px 20px", fontSize: 15, fontWeight: 900, color: "#059669" }}>
                 Net Amount Paid: {fmt(netAmount)}
               </div>
             </div>
@@ -193,7 +192,7 @@ export function SlipPreview({ slip, payoutId }) {
             { label: "Payment Date",   value: slip.paidOn ? new Date(slip.paidOn).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—" },
             { label: "Status",         value: "✅ Paid" },
           ].map(r => (
-            <div key={r.label} style={{ padding: "10px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8 }}>
+            <div key={r.label} style={{ padding: "10px 12px", background: "#f8fafc", borderWidth: "1px", borderStyle: "solid", borderColor: "#e2e8f0", borderRadius: 8 }}>
               <div style={{ fontSize: 10, color: "#9ca3af", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>{r.label}</div>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#1f2937" }}>{r.value}</div>
             </div>
@@ -202,7 +201,7 @@ export function SlipPreview({ slip, payoutId }) {
 
         {/* Note */}
         {slip.slipNote && (
-          <div style={{ background: "#fffbeb", border: "1.5px solid #fde68a", borderRadius: 8, padding: "12px 16px", marginBottom: 18 }}>
+          <div style={{ background: "#fffbeb", borderWidth: "1.5px", borderStyle: "solid", borderColor: "#fde68a", borderRadius: 8, padding: "12px 16px", marginBottom: 18 }}>
             <div style={{ fontSize: 10, fontWeight: 800, color: "#92400e", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Message</div>
             <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.6 }}>{slip.slipNote}</div>
           </div>
@@ -223,7 +222,7 @@ export function SlipPreview({ slip, payoutId }) {
   );
 }
 
-// ── Issue Timeline Component ──────────────────────────────────────
+// ── Issue Timeline Component ──
 function IssueTimeline({ issue, onReply, onStatusChange, isAdmin }) {
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
@@ -239,7 +238,7 @@ function IssueTimeline({ issue, onReply, onStatusChange, isAdmin }) {
   const sc = ISSUE_STATUS_META[issue.status] || ISSUE_STATUS_META.open;
 
   return (
-    <div style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 14, padding: "18px 20px", marginBottom: 12 }}>
+    <div style={{ background: "#fff", borderWidth: "1.5px", borderStyle: "solid", borderColor: "#e2e8f0", borderRadius: 14, padding: "18px 20px", marginBottom: 12 }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
         <div>
@@ -255,12 +254,13 @@ function IssueTimeline({ issue, onReply, onStatusChange, isAdmin }) {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ padding: "3px 12px", borderRadius: 20, fontSize: 11, fontWeight: 800, background: sc.bg, color: sc.text, border: `1px solid ${sc.border}` }}>
+          {/* FIX: split border shorthand into longhands to silence React warning */}
+          <span style={{ padding: "3px 12px", borderRadius: 20, fontSize: 11, fontWeight: 800, background: sc.bg, color: sc.text, borderWidth: "1px", borderStyle: "solid", borderColor: sc.border }}>
             {sc.label}
           </span>
           {isAdmin && (
             <select value={issue.status} onChange={e => onStatusChange(issue._id, e.target.value)}
-              style={{ fontSize: 11, padding: "4px 8px", borderRadius: 8, border: "1px solid #e5e7eb", fontFamily: "inherit", cursor: "pointer" }}>
+              style={{ fontSize: 11, padding: "4px 8px", borderRadius: 8, borderWidth: "1px", borderStyle: "solid", borderColor: "#e5e7eb", fontFamily: "inherit", cursor: "pointer" }}>
               <option value="open">Open</option>
               <option value="in_progress">In Progress</option>
               <option value="resolved">Resolved</option>
@@ -282,7 +282,9 @@ function IssueTimeline({ issue, onReply, onStatusChange, isAdmin }) {
               <div style={{
                 maxWidth: "75%", padding: "8px 12px", borderRadius: 10,
                 background: byAdmin ? "#1e1b4b" : "#f8fafc",
-                border: byAdmin ? "none" : "1.5px solid #e2e8f0",
+                borderWidth: byAdmin ? 0 : "1.5px",
+                borderStyle: "solid",
+                borderColor: byAdmin ? "transparent" : "#e2e8f0",
                 color: byAdmin ? "#fff" : "#1f2937",
               }}>
                 <div style={{ fontSize: 12, fontWeight: 600 }}>{entry.message}</div>
@@ -305,7 +307,7 @@ function IssueTimeline({ issue, onReply, onStatusChange, isAdmin }) {
             value={reply} onChange={e => setReply(e.target.value)}
             onKeyDown={e => e.key === "Enter" && handleReply()}
             placeholder="Type a reply..."
-            style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e5e7eb", fontSize: 13, outline: "none", fontFamily: "inherit" }}
+            style={{ flex: 1, padding: "8px 12px", borderRadius: 8, borderWidth: "1.5px", borderStyle: "solid", borderColor: "#e5e7eb", fontSize: 13, outline: "none", fontFamily: "inherit" }}
           />
           <button onClick={handleReply} disabled={sending || !reply.trim()}
             style={{ padding: "8px 16px", background: "#6366f1", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: sending ? 0.7 : 1 }}>
@@ -330,30 +332,25 @@ export default function AdminPointsPayout() {
   const [loading,   setLoading]   = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
 
-  // Payout action modal
   const [actionModal,   setActionModal]   = useState(null);
   const [actionNote,    setActionNote]    = useState("");
   const [txnId,         setTxnId]         = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Slip editor modal
-  const [slipEditorModal, setSlipEditorModal] = useState(null); // { payoutId, slip }
+  const [slipEditorModal, setSlipEditorModal] = useState(null);
   const [slipEditing,     setSlipEditing]     = useState(false);
-  const [viewSlipModal,   setViewSlipModal]   = useState(null); // { slip }
+  const [viewSlipModal,   setViewSlipModal]   = useState(null);
 
-  // Award / salary modals
   const [awardModal, setAwardModal] = useState(false);
   const [awardForm,  setAwardForm]  = useState({ agentId: "", taskKey: "", taskLabel: "", points: "", note: "", isCustomTask: false });
   const [salAdjModal, setSalAdjModal] = useState(false);
   const [salAdjForm,  setSalAdjForm]  = useState({ agentId: "", amount: "", type: "credit", note: "" });
   const [salAdjSaving,setSalAdjSaving]= useState(false);
 
-  // Config editing
   const [editingConfig, setEditingConfig] = useState(null);
   const [addingConfig,  setAddingConfig]  = useState(false);
   const [newConfig,     setNewConfig]     = useState({ taskKey: "", taskLabel: "", points: "", description: "" });
 
-  // Slip form (for action modal — mark as paid)
   const [slipForm, setSlipForm] = useState({ ...EMPTY_SLIP });
   const [logoUploading, setLogoUploading] = useState(false);
   const logoInputRef    = useRef();
@@ -433,11 +430,10 @@ export default function AdminPointsPayout() {
     } catch { toast.error("Could not load slip"); }
   };
 
-  //  Save slip edits 
   const saveSlipEdits = async () => {
     setSlipEditing(true);
     try {
-      const { data } = await axios.patch(
+      await axios.patch(
         `${API}/api/points/admin/slip/${slipEditorModal.payoutId}`,
         slipEditorModal.slip,
         { headers: adminHeaders() }
@@ -472,7 +468,6 @@ export default function AdminPointsPayout() {
     } catch { toast.error("Failed to delete"); }
   };
 
-  // ── Award points 
   const handleAward = async () => {
     const taskKeyToSend = awardForm.isCustomTask
       ? (awardForm.taskKey || awardForm.taskLabel.toLowerCase().replace(/\s+/g, "_"))
@@ -522,12 +517,10 @@ export default function AdminPointsPayout() {
     } catch { toast.error("Failed to update status"); }
   };
 
-  // ── Deduction helpers (for action modal) ──────────────────────
   const addDeduction = () => setSlipForm(f => ({ ...f, deductions: [...(f.deductions || []), { category: "", amount: "", note: "" }] }));
   const updateDeduction = (i, key, val) => setSlipForm(f => ({ ...f, deductions: f.deductions.map((d, idx) => idx === i ? { ...d, [key]: val } : d) }));
   const removeDeduction = i => setSlipForm(f => ({ ...f, deductions: f.deductions.filter((_, idx) => idx !== i) }));
 
-  // ── Deduction helpers (for slip editor) ──────────────────────
   const addEditDeduction = () => setSlipEditorModal(m => ({ ...m, slip: { ...m.slip, deductions: [...(m.slip.deductions || []), { category: "", amount: "", note: "" }] } }));
   const updateEditDeduction = (i, key, val) => setSlipEditorModal(m => ({ ...m, slip: { ...m.slip, deductions: m.slip.deductions.map((d, idx) => idx === i ? { ...d, [key]: val } : d) } }));
   const removeEditDeduction = i => setSlipEditorModal(m => ({ ...m, slip: { ...m.slip, deductions: m.slip.deductions.filter((_, idx) => idx !== i) } }));
@@ -547,7 +540,6 @@ export default function AdminPointsPayout() {
 
   if (loading) return <div style={S.loading}>Loading…</div>;
 
-  // ── Deductions total (action modal) ──────────────────────────
   const actionDeductTotal = (slipForm.deductions || []).reduce((s, d) => s + Number(d.amount || 0), 0);
   const actionNetAmount   = actionModal ? (actionModal.payout.amountRequested - actionDeductTotal) : 0;
 
@@ -583,7 +575,6 @@ export default function AdminPointsPayout() {
         .upload-zone:hover { border-color: #6366f1; background: #e0e7ff; }
       `}</style>
 
-      {/* Hidden file inputs */}
       <input ref={logoInputRef}     type="file" accept="image/*" style={{ display:"none" }} onChange={e => handleLogoUpload(e, "action")} />
       <input ref={editLogoInputRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => handleLogoUpload(e, "edit")} />
 
@@ -665,7 +656,7 @@ export default function AdminPointsPayout() {
                               <p style={{ fontWeight: 700, margin: 0, fontSize: 14 }}>{getAgentName(p)}</p>
                               <p style={{ fontSize: 12, color: "#6b7280", margin: 0 }}>{getAgentPhone(p)}</p>
                             </div>
-                            <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 800, background: sc.bg, color: sc.text, border: `1px solid ${sc.border}`, textTransform: "uppercase" }}>{p.status}</span>
+                            <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 800, background: sc.bg, color: sc.text, borderWidth: "1px", borderStyle: "solid", borderColor: sc.border, textTransform: "uppercase" }}>{p.status}</span>
                           </div>
                           <p style={{ fontSize: 22, fontWeight: 900, color: "#1f2937", margin: "0 0 4px" }}>₹{p.amountRequested.toFixed(2)}</p>
                           <div style={{ fontSize: 12, color: "#374151" }}>
@@ -675,7 +666,7 @@ export default function AdminPointsPayout() {
                             {p.status === "pending"  && <><button onClick={() => setActionModal({ payout: p, action: "approved" })} style={S.approveBtn}>✓ Approve</button><button onClick={() => setActionModal({ payout: p, action: "rejected" })} style={S.rejectBtn}>✗ Reject</button></>}
                             {p.status === "approved" && <button onClick={() => setActionModal({ payout: p, action: "paid" })} style={S.paidBtn}>Mark Paid</button>}
                             {p.status === "paid"     && <button onClick={() => openSlipEditor(p._id)} style={{ ...S.paidBtn, background: "#6366f1" }}>Edit Slip</button>}
-                            {p.status === "paid"     && <button onClick={async () => { const { data } = await axios.get(`${API}/api/points/admin/slip/${p._id}`, { headers: adminHeaders() }); setViewSlipModal({ slip: data.data, payoutId: p._id }); }} style={{ ...S.approveBtn, background: "#0891b2" }}>👁 View Slip</button>}
+                            {p.status === "paid"     && <button onClick={async () => { try { const { data } = await axios.get(`${API}/api/points/admin/slip/${p._id}`, { headers: adminHeaders() }); setViewSlipModal({ slip: data.data, payoutId: p._id }); } catch { toast.error("Slip not found"); } }} style={{ ...S.approveBtn, background: "#0891b2" }}>👁 View Slip</button>}
                           </div>
                         </div>
                       );
@@ -721,7 +712,7 @@ export default function AdminPointsPayout() {
                                 {new Date(p.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                               </td>
                               <td style={S.td}>
-                                <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 800, background: sc.bg, color: sc.text, border: `1px solid ${sc.border}`, textTransform: "uppercase" }}>{p.status}</span>
+                                <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 800, background: sc.bg, color: sc.text, borderWidth: "1px", borderStyle: "solid", borderColor: sc.border, textTransform: "uppercase" }}>{p.status}</span>
                                 {p.transactionId && <p style={{ fontSize: 10, color: "#6b7280", marginTop: 2 }}>Txn: {p.transactionId}</p>}
                               </td>
                               <td style={S.td}>
@@ -802,7 +793,7 @@ export default function AdminPointsPayout() {
               <button onClick={() => setAddingConfig(true)} style={S.approveBtn}>+ Add Task</button>
             </div>
             {addingConfig && (
-              <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 10, padding: 16, marginBottom: 16 }}>
+              <div style={{ background: "#f9fafb", borderWidth: "1px", borderStyle: "solid", borderColor: "#e5e7eb", borderRadius: 10, padding: 16, marginBottom: 16 }}>
                 <h4 style={{ margin: "0 0 12px" }}>New Task Config</h4>
                 <div className="ppp-config-form">
                   <div style={S.formGroup}><label style={S.label}>Task Key</label><input value={newConfig.taskKey} onChange={e => setNewConfig({ ...newConfig, taskKey: e.target.value })} placeholder="e.g. lead_submitted" style={S.input} /></div>
@@ -900,7 +891,7 @@ export default function AdminPointsPayout() {
               </div>
             </div>
             {issues.length === 0 ? (
-              <div style={{ ...S.empty, background: "#fff", borderRadius: 16, border: "1px solid #f0f0f0" }}>
+              <div style={{ ...S.empty, background: "#fff", borderRadius: 16, borderWidth: "1px", borderStyle: "solid", borderColor: "#f0f0f0" }}>
                 <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
                 <div style={{ fontWeight: 700, fontSize: 16, color: "#374151" }}>No payment issues raised</div>
                 <div style={{ fontSize: 13, color: "#9ca3af", marginTop: 4 }}>Agents can raise issues from their Payout History tab</div>
@@ -921,7 +912,7 @@ export default function AdminPointsPayout() {
           </div>
         )}
 
-        {/* ── ACTION MODAL (Approve / Reject / Mark Paid) ── */}
+        {/* ── ACTION MODAL ── */}
         {actionModal && (
           <div style={S.overlay}>
             <div className="ppp-modal" style={{ maxWidth: actionModal.action === "paid" ? 700 : 500 }}>
@@ -932,7 +923,6 @@ export default function AdminPointsPayout() {
               </h3>
               <p style={{ fontSize: 13, color: "#374151", margin: "0 0 16px" }}>
                 <strong>{getAgentName(actionModal.payout)}</strong> — ₹{actionModal.payout.amountRequested.toFixed(2)}
-
               </p>
 
               {actionModal.action === "paid" && (
@@ -942,8 +932,7 @@ export default function AdminPointsPayout() {
                     <input value={txnId} onChange={e => setTxnId(e.target.value)} placeholder="UTR / TXN number" style={S.input} />
                   </div>
 
-                  {/* Deductions section */}
-                  <div style={{ marginTop: 16, padding: "14px 16px", background: "#fef2f2", borderRadius: 10, border: "1px solid #fecdd3" }}>
+                  <div style={{ marginTop: 16, padding: "14px 16px", background: "#fef2f2", borderRadius: 10, borderWidth: "1px", borderStyle: "solid", borderColor: "#fecdd3" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                       <div style={{ fontSize: 12, fontWeight: 800, color: "#dc2626", textTransform: "uppercase", letterSpacing: 1 }}>Deductions (optional)</div>
                       <button onClick={addDeduction} style={{ fontSize: 11, padding: "4px 10px", background: "#dc2626", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700 }}>+ Add</button>
@@ -956,28 +945,25 @@ export default function AdminPointsPayout() {
                           <input value={d.category} onChange={e => updateDeduction(i, "category", e.target.value)} placeholder="Category (e.g. TDS)" style={{ ...S.input, fontSize: 12 }} />
                           <input type="number" value={d.amount} onChange={e => updateDeduction(i, "amount", e.target.value)} placeholder="₹ Amount" style={{ ...S.input, fontSize: 12 }} />
                           <input value={d.note} onChange={e => updateDeduction(i, "note", e.target.value)} placeholder="Note (optional)" style={{ ...S.input, fontSize: 12 }} />
-                          <button onClick={() => removeDeduction(i)} style={{ padding: "6px 10px", background: "#fef2f2", color: "#dc2626", border: "1px solid #fecdd3", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>✕</button>
+                          <button onClick={() => removeDeduction(i)} style={{ padding: "6px 10px", background: "#fef2f2", color: "#dc2626", borderWidth: "1px", borderStyle: "solid", borderColor: "#fecdd3", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>✕</button>
                         </div>
                       ))
                     )}
                     {(slipForm.deductions || []).length > 0 && (
-                      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, padding: "8px 12px", background: "#fff", borderRadius: 8, border: "1px solid #fecdd3" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, padding: "8px 12px", background: "#fff", borderRadius: 8, borderWidth: "1px", borderStyle: "solid", borderColor: "#fecdd3" }}>
                         <span style={{ fontSize: 13, fontWeight: 700, color: "#dc2626" }}>Total Deductions: {fmt(actionDeductTotal)}</span>
                         <span style={{ fontSize: 13, fontWeight: 800, color: "#059669" }}>Net Amount: {fmt(actionNetAmount)}</span>
                       </div>
                     )}
                   </div>
 
-                  {/* Slip details */}
-                  <div style={{ marginTop: 16, padding: "16px", background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0" }}>
+                  <div style={{ marginTop: 16, padding: "16px", background: "#f8fafc", borderRadius: 12, borderWidth: "1px", borderStyle: "solid", borderColor: "#e2e8f0" }}>
                     <div style={{ fontSize: 12, fontWeight: 800, color: "#6366f1", textTransform: "uppercase", letterSpacing: 1, marginBottom: 14 }}>Payment Slip Details</div>
-
-                    {/* Logo upload */}
                     <div style={S.formGroup}>
                       <label style={S.label}>Company Logo</label>
                       {slipForm.companyLogo ? (
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <img src={slipForm.companyLogo} alt="logo" style={{ height: 40, objectFit: "contain", border: "1px solid #e2e8f0", borderRadius: 6 }} />
+                          <img src={slipForm.companyLogo} alt="logo" style={{ height: 40, objectFit: "contain", borderWidth: "1px", borderStyle: "solid", borderColor: "#e2e8f0", borderRadius: 6 }} />
                           <button onClick={() => setSlipForm(f => ({ ...f, companyLogo: "" }))} style={{ fontSize: 11, color: "#ef4444", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>Remove</button>
                           <button onClick={() => logoInputRef.current?.click()} style={{ fontSize: 11, color: "#6366f1", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>Change</button>
                         </div>
@@ -987,18 +973,17 @@ export default function AdminPointsPayout() {
                         </div>
                       )}
                     </div>
-
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
                       {[
-                        { label: "Company Name",  key: "companyName",  placeholder: "BioBurg Lifesciences" },
-                        { label: "Slip Title",    key: "slipTitle",    placeholder: "Payment Receipt" },
-                        { label: "Company Phone", key: "companyPhone", placeholder: "+91 99999 99999" },
-                        { label: "Company Email", key: "companyEmail", placeholder: "support@company.com" },
-                        { label: "GST Number",    key: "companyGST",   placeholder: "GSTIN" },
+                        { label: "Company Name",  key: "companyName",    placeholder: "BioBurg Lifesciences" },
+                        { label: "Slip Title",    key: "slipTitle",      placeholder: "Payment Receipt" },
+                        { label: "Company Phone", key: "companyPhone",   placeholder: "+91 99999 99999" },
+                        { label: "Company Email", key: "companyEmail",   placeholder: "support@company.com" },
+                        { label: "GST Number",    key: "companyGST",     placeholder: "GSTIN" },
                         { label: "Website",       key: "companyWebsite", placeholder: "www.company.com" },
-                        { label: "Payment Mode",  key: "paymentMode",  placeholder: "NEFT / UPI / Cheque" },
+                        { label: "Payment Mode",  key: "paymentMode",    placeholder: "NEFT / UPI / Cheque" },
                         { label: "Signed By",     key: "adminSignature", placeholder: "Manager name" },
-                        { label: "Designation",   key: "designation",  placeholder: "Authorized Signatory" },
+                        { label: "Designation",   key: "designation",    placeholder: "Authorized Signatory" },
                       ].map(f => (
                         <div key={f.key} style={{ ...S.formGroup, gridColumn: f.key === "companyAddress" || f.key === "slipNote" || f.key === "designation" ? "1/-1" : undefined }}>
                           <label style={S.label}>{f.label}</label>
@@ -1038,16 +1023,14 @@ export default function AdminPointsPayout() {
             <div style={{ ...S.overlay, display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto", paddingTop: 40 }}>
               <div style={{ background: "#fff", borderRadius: 16, padding: 24, width: "calc(100% - 32px)", maxWidth: 720, boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                  <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}> Edit Payment Slip</h3>
+                  <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>Edit Payment Slip</h3>
                   <div style={{ fontSize: 12, color: "#6b7280" }}>Changes reflect on agent's slip immediately</div>
                 </div>
-
-                {/* Logo */}
                 <div style={{ ...S.formGroup, marginBottom: 16 }}>
                   <label style={S.label}>Company Logo</label>
                   {slipEditorModal.slip.companyLogo ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <img src={slipEditorModal.slip.companyLogo} alt="logo" style={{ height: 44, objectFit: "contain", border: "1px solid #e2e8f0", borderRadius: 6 }} />
+                      <img src={slipEditorModal.slip.companyLogo} alt="logo" style={{ height: 44, objectFit: "contain", borderWidth: "1px", borderStyle: "solid", borderColor: "#e2e8f0", borderRadius: 6 }} />
                       <button onClick={() => setSlipEditorModal(m => ({ ...m, slip: { ...m.slip, companyLogo: "" } }))} style={{ fontSize: 11, color: "#ef4444", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>Remove</button>
                       <button onClick={() => editLogoInputRef.current?.click()} style={{ fontSize: 11, color: "#6366f1", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>Change</button>
                     </div>
@@ -1057,19 +1040,18 @@ export default function AdminPointsPayout() {
                     </div>
                   )}
                 </div>
-
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
                   {[
-                    { label: "Company Name",    key: "companyName" },
-                    { label: "Slip Title",      key: "slipTitle" },
-                    { label: "Company Phone",   key: "companyPhone" },
-                    { label: "Company Email",   key: "companyEmail" },
-                    { label: "GST Number",      key: "companyGST" },
-                    { label: "Website",         key: "companyWebsite" },
-                    { label: "Payment Mode",    key: "paymentMode" },
-                    { label: "Transaction ID",  key: "transactionId" },
-                    { label: "Signed By",       key: "adminSignature" },
-                    { label: "Designation",     key: "designation" },
+                    { label: "Company Name",   key: "companyName" },
+                    { label: "Slip Title",     key: "slipTitle" },
+                    { label: "Company Phone",  key: "companyPhone" },
+                    { label: "Company Email",  key: "companyEmail" },
+                    { label: "GST Number",     key: "companyGST" },
+                    { label: "Website",        key: "companyWebsite" },
+                    { label: "Payment Mode",   key: "paymentMode" },
+                    { label: "Transaction ID", key: "transactionId" },
+                    { label: "Signed By",      key: "adminSignature" },
+                    { label: "Designation",    key: "designation" },
                   ].map(f => (
                     <div key={f.key} style={S.formGroup}>
                       <label style={S.label}>{f.label}</label>
@@ -1085,9 +1067,7 @@ export default function AdminPointsPayout() {
                     <textarea value={slipEditorModal.slip.slipNote || ""} onChange={e => setSlipEditorModal(m => ({ ...m, slip: { ...m.slip, slipNote: e.target.value } }))} style={{ ...S.input, minHeight: 70, resize: "vertical" }} />
                   </div>
                 </div>
-
-                {/* Deductions editor */}
-                <div style={{ background: "#fef2f2", borderRadius: 10, padding: "14px 16px", border: "1px solid #fecdd3", marginBottom: 16 }}>
+                <div style={{ background: "#fef2f2", borderRadius: 10, padding: "14px 16px", borderWidth: "1px", borderStyle: "solid", borderColor: "#fecdd3", marginBottom: 16 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                     <div style={{ fontSize: 12, fontWeight: 800, color: "#dc2626", textTransform: "uppercase", letterSpacing: 1 }}>Deductions</div>
                     <button onClick={addEditDeduction} style={{ fontSize: 11, padding: "4px 10px", background: "#dc2626", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700 }}>+ Add</button>
@@ -1100,18 +1080,15 @@ export default function AdminPointsPayout() {
                         <input value={d.category} onChange={e => updateEditDeduction(i, "category", e.target.value)} placeholder="Category" style={{ ...S.input, fontSize: 12 }} />
                         <input type="number" value={d.amount} onChange={e => updateEditDeduction(i, "amount", e.target.value)} placeholder="₹" style={{ ...S.input, fontSize: 12 }} />
                         <input value={d.note} onChange={e => updateEditDeduction(i, "note", e.target.value)} placeholder="Note" style={{ ...S.input, fontSize: 12 }} />
-                        <button onClick={() => removeEditDeduction(i)} style={{ padding: "6px 10px", background: "#fef2f2", color: "#dc2626", border: "1px solid #fecdd3", borderRadius: 6, cursor: "pointer", fontWeight: 700 }}>✕</button>
+                        <button onClick={() => removeEditDeduction(i)} style={{ padding: "6px 10px", background: "#fef2f2", color: "#dc2626", borderWidth: "1px", borderStyle: "solid", borderColor: "#fecdd3", borderRadius: 6, cursor: "pointer", fontWeight: 700 }}>✕</button>
                       </div>
                     ))
                   )}
                 </div>
-
-                {/* Preview */}
-                <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: 16, marginBottom: 16, maxHeight: 400, overflowY: "auto" }}>
+                <div style={{ background: "#f8fafc", borderWidth: "1px", borderStyle: "solid", borderColor: "#e2e8f0", borderRadius: 12, padding: 16, marginBottom: 16, maxHeight: 400, overflowY: "auto" }}>
                   <div style={{ fontSize: 11, fontWeight: 800, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Live Preview</div>
                   <SlipPreview slip={slipEditorModal.slip} payoutId={slipEditorModal.payoutId} />
                 </div>
-
                 <div style={{ display: "flex", gap: 10 }}>
                   <button onClick={saveSlipEdits} disabled={slipEditing}
                     style={{ flex: 1, padding: "12px", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", opacity: slipEditing ? 0.7 : 1, fontFamily: "inherit" }}>
@@ -1160,7 +1137,7 @@ export default function AdminPointsPayout() {
                   <div style={{ display: "flex", gap: 10 }}>
                     {[["credit","Credit (Add)"],["debit","Debit (Deduct)"]].map(([v,l]) => (
                       <button key={v} type="button" onClick={() => setSalAdjForm(f => ({ ...f, type: v }))}
-                        style={{ flex: 1, padding: "10px", border: "2px solid", borderColor: salAdjForm.type === v ? (v === "credit" ? "#059669" : "#ef4444") : "#e5e7eb", background: salAdjForm.type === v ? (v === "credit" ? "#f0fdf4" : "#fef2f2") : "#fff", color: salAdjForm.type === v ? (v === "credit" ? "#059669" : "#ef4444") : "#6b7280", borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+                        style={{ flex: 1, padding: "10px", borderWidth: "2px", borderStyle: "solid", borderColor: salAdjForm.type === v ? (v === "credit" ? "#059669" : "#ef4444") : "#e5e7eb", background: salAdjForm.type === v ? (v === "credit" ? "#f0fdf4" : "#fef2f2") : "#fff", color: salAdjForm.type === v ? (v === "credit" ? "#059669" : "#ef4444") : "#6b7280", borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
                         {v === "credit" ? "+" : "-"} {l}
                       </button>
                     ))}
@@ -1229,19 +1206,20 @@ const S = {
   loading:        { padding: 40, textAlign: "center", color: "#6b7280" },
   title:          { fontSize: 20, fontWeight: 800, color: "#111827", margin: 0 },
   subtitle:       { fontSize: 13, color: "#6b7280", marginTop: 4 },
-  statCard:       { background: "#fff", border: "1px solid #e5e7eb", borderTopWidth: 3, borderRadius: 12, padding: "12px 14px", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" },
+  statCard:       { background: "#fff", borderWidth: "1px", borderStyle: "solid", borderColor: "#e5e7eb", borderTopWidth: 3, borderRadius: 12, padding: "12px 14px", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" },
   statLabel:      { fontSize: 10, color: "#6b7280", marginBottom: 4, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" },
   statValue:      { fontSize: 20, fontWeight: 800, margin: 0 },
-  tab:            { padding: "10px 16px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#6b7280", borderBottom: "3px solid transparent", marginBottom: -2, borderRadius: "8px 8px 0 0", transition: "all 0.15s", fontFamily: "inherit", whiteSpace: "nowrap" },
+  // FIX: borderBottom shorthand → three longhands so React can patch borderBottomColor without warning
+  tab:            { padding: "10px 16px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#6b7280", borderBottomWidth: "3px", borderBottomStyle: "solid", borderBottomColor: "transparent", marginBottom: -2, borderRadius: "8px 8px 0 0", transition: "all 0.15s", fontFamily: "inherit", whiteSpace: "nowrap" },
   tabActive:      { color: "#6366f1", borderBottomColor: "#6366f1", background: "#EEF2FF" },
   tabActiveSalary:{ color: "#059669", borderBottomColor: "#059669", background: "#f0fdf4" },
-  card:           { background: "#fff", borderRadius: 16, padding: "16px", boxShadow: "0 4px 20px rgba(0,0,0,0.06)", border: "1px solid #f0f0f0" },
-  filterBtn:      { padding: "6px 12px", borderRadius: 20, border: "1.5px solid #e5e7eb", background: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#6b7280", fontFamily: "inherit", whiteSpace: "nowrap" },
+  card:           { background: "#fff", borderRadius: 16, padding: "16px", boxShadow: "0 4px 20px rgba(0,0,0,0.06)", borderWidth: "1px", borderStyle: "solid", borderColor: "#f0f0f0" },
+  filterBtn:      { padding: "6px 12px", borderRadius: 20, borderWidth: "1.5px", borderStyle: "solid", borderColor: "#e5e7eb", background: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#6b7280", fontFamily: "inherit", whiteSpace: "nowrap" },
   filterBtnActive:{ background: "#EEF2FF", color: "#6366f1", borderColor: "#6366f1" },
   table:          { width: "100%", borderCollapse: "collapse" },
   thead:          { background: "#f9fafb" },
-  th:             { padding: "12px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" },
-  tr:             { borderBottomWidth: "1px", borderBottomStyle: "solid", borderBottomColor: "#f3f4f6",},
+  th:             { padding: "12px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap", borderBottomWidth: "1px", borderBottomStyle: "solid", borderBottomColor: "#e5e7eb" },
+  tr:             { borderBottomWidth: "1px", borderBottomStyle: "solid", borderBottomColor: "#f3f4f6" },
   td:             { padding: "12px 14px", fontSize: 13, color: "#374151", verticalAlign: "middle" },
   approveBtn:     { padding: "8px 14px", background: "#10b981", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "inherit" },
   rejectBtn:      { padding: "8px 14px", background: "#ef4444", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "inherit" },
@@ -1251,5 +1229,5 @@ const S = {
   overlay:        { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 },
   formGroup:      { display: "flex", flexDirection: "column", gap: 6 },
   label:          { fontSize: 12, fontWeight: 700, color: "#374151" },
-  input:          { padding: "9px 12px", borderRadius: 8, border: "1.5px solid #e5e7eb", fontSize: 13, outline: "none", fontFamily: "inherit", width: "100%", boxSizing: "border-box" },
+  input:          { padding: "9px 12px", borderRadius: 8, borderWidth: "1.5px", borderStyle: "solid", borderColor: "#e5e7eb", fontSize: 13, outline: "none", fontFamily: "inherit", width: "100%", boxSizing: "border-box" },
 };

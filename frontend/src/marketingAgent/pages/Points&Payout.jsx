@@ -192,25 +192,248 @@ function ActivityItem({ item }) {
   );
 }
 
+
+const ISSUE_STATUS_META = {
+  open:        { bg: "#fffbeb", text: "#92400e", border: "#fde68a", dot: "#f59e0b",  label: "Open" },
+  in_progress: { bg: "#eff6ff", text: "#1e3a8a", border: "#bfdbfe", dot: "#3b82f6",  label: "In Progress" },
+  resolved:    { bg: "#f0fdf4", text: "#14532d", border: "#bbf7d0", dot: "#16a34a",  label: "Resolved" },
+  closed:      { bg: "#f1f5f9", text: "#475569", border: "#e2e8f0", dot: "#94a3b8",  label: "Closed" },
+};
+
+function IssueThread({ issue, onReply, onConfirmResolved }) {
+  const [reply,   setReply]   = React.useState("");
+  const [sending, setSending] = React.useState(false);
+  const isc = ISSUE_STATUS_META[issue.status] || ISSUE_STATUS_META.open;
+
+  const handleSend = async () => {
+    if (!reply.trim()) return;
+    setSending(true);
+    await onReply(issue._id, reply);
+    setReply("");
+    setSending(false);
+  };
+
+  return (
+    <div style={{
+      marginTop: 12, borderRadius: 12,
+      border: `1.5px solid ${isc.border}`,
+      background: isc.bg, overflow: "hidden",
+    }}>
+      {/* issue header */}
+      <div style={{
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        padding: "10px 14px", borderBottom: `1px solid ${isc.border}`,
+        flexWrap: "wrap", gap: 8,
+      }}>
+        <div style={{ fontWeight: 800, fontSize: 13, color: "#1f2937" }}>
+          🚩 {issue.subject}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ width: 7, height: 7, borderRadius: "50%", background: isc.dot }} />
+          <span style={{ fontSize: 11, fontWeight: 800, color: isc.text, textTransform: "uppercase" }}>
+            {isc.label}
+          </span>
+        </div>
+      </div>
+
+      {/* timeline */}
+      <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+        {(issue.timeline || []).map((entry, i) => {
+          const byAdmin = entry.by === "admin";
+          return (
+            <div key={i} style={{
+              display: "flex", gap: 8,
+              justifyContent: byAdmin ? "flex-end" : "flex-start",
+            }}>
+              {!byAdmin && (
+                <div style={{
+                  width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+                  background: "#eef2ff", color: "#6366f1",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 11, fontWeight: 800,
+                }}>Me</div>
+              )}
+              <div style={{
+                maxWidth: "78%", padding: "8px 12px", borderRadius: 10,
+                background: byAdmin ? "#1e1b4b" : "#ffffff",
+                border: byAdmin ? "none" : "1.5px solid #e2e8f0",
+                color: byAdmin ? "#fff" : "#1f2937",
+              }}>
+                <div style={{ fontSize: 12, fontWeight: 600 }}>{entry.message}</div>
+                <div style={{ fontSize: 10, color: byAdmin ? "#a5b4fc" : "#9ca3af", marginTop: 3 }}>
+                  {byAdmin ? "Admin" : "You"} ·{" "}
+                  {new Date(entry.createdAt).toLocaleString("en-IN", {
+                    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+                  })}
+                </div>
+              </div>
+              {byAdmin && (
+                <div style={{
+                  width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+                  background: "#1e1b4b", color: "#fff",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 10, fontWeight: 800,
+                }}>Ad</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* reply box — hidden when closed */}
+      {issue.status !== "closed" && (
+        <div style={{ padding: "0 14px 12px", display: "flex", gap: 8 }}>
+          <input
+            value={reply}
+            onChange={e => setReply(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleSend()}
+            placeholder="Reply to admin…"
+            style={{
+              flex: 1, padding: "8px 12px", borderRadius: 8,
+              border: "1.5px solid #e5e7eb", fontSize: 13,
+              outline: "none", fontFamily: "inherit",
+            }}
+          />
+          <button
+            onClick={handleSend}
+            disabled={sending || !reply.trim()}
+            style={{
+              padding: "8px 16px", background: "#6366f1", color: "#fff",
+              border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700,
+              cursor: "pointer", opacity: (sending || !reply.trim()) ? 0.6 : 1,
+            }}
+          >
+            {sending ? "…" : "Send"}
+          </button>
+        </div>
+      )}
+
+      {/* confirm resolved — only shown when admin has marked resolved & agent hasn't confirmed */}
+      {issue.status === "resolved" && !issue.agentConfirmedResolved && (
+        <div style={{
+          margin: "0 14px 14px",
+          background: "#f0fdf4", border: "1.5px solid #86efac",
+          borderRadius: 10, padding: "10px 14px",
+          display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10,
+        }}>
+          <div style={{ fontSize: 12, color: "#166534", fontWeight: 700 }}>
+            Admin marked this as resolved. Is your issue fixed?
+          </div>
+          <button
+            onClick={() => onConfirmResolved(issue._id)}
+            style={{
+              padding: "6px 14px", background: "#059669", color: "#fff",
+              border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700,
+              cursor: "pointer", whiteSpace: "nowrap",
+            }}
+          >
+            ✓ Yes, resolved
+          </button>
+        </div>
+      )}
+
+      {issue.agentConfirmedResolved && (
+        <div style={{ padding: "0 14px 12px", fontSize: 12, color: "#059669", fontWeight: 700 }}>
+          ✅ You confirmed this issue is resolved
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PayoutCard({ payout }) {
-  const sc = STATUS_META[payout.status] || STATUS_META.pending;
-  const bd = payout.bankDetails || {};
-  const hasSalary = (payout.salaryAmount || 0) > 0;
+  const sc        = STATUS_META[payout.status] || STATUS_META.pending;
+  const bd        = payout.bankDetails || {};
+  const hasSalary = (payout.salaryAmount   || 0) > 0;
   const hasPoints = (payout.pointsRedeemed || 0) > 0;
-  const [slip,     setSlip]     = useState(null);
-  const [showSlip, setShowSlip] = useState(false);
+
+  // slip
+  const [slip,        setSlip]        = useState(null);
+  const [showSlip,    setShowSlip]    = useState(false);
   const [loadingSlip, setLoadingSlip] = useState(false);
+
+  // issues
+  const [issues,        setIssues]        = useState([]);
+  const [loadingIssues, setLoadingIssues] = useState(false);
+  const [showIssueForm, setShowIssueForm] = useState(false);
+  const [issueForm,     setIssueForm]     = useState({ subject: "", description: "" });
+  const [submitting,    setSubmitting]    = useState(false);
+
+  // fetch issues for this payout (only if paid)
+  const loadIssues = React.useCallback(async () => {
+    if (payout.status !== "paid") return;
+    setLoadingIssues(true);
+    try {
+      const { data } = await axios.get(
+        `${API}/api/points/agent/issues?payoutId=${payout._id}`,
+        { headers: agentHeaders() }
+      );
+      setIssues(data.data || []);
+    } catch { /* silently ignore */ }
+    finally { setLoadingIssues(false); }
+  }, [payout._id, payout.status]);
+
+  useEffect(() => { loadIssues(); }, [loadIssues]);
+
+  const hasActiveIssue = issues.some(
+    i => i.status === "open" || i.status === "in_progress"
+  );
+
+  const handleRaiseIssue = async () => {
+    if (!issueForm.subject.trim() || !issueForm.description.trim()) {
+      toast.error("Fill in subject and description"); return;
+    }
+    setSubmitting(true);
+    try {
+      await axios.post(
+        `${API}/api/points/agent/issues`,
+        { payoutId: payout._id, subject: issueForm.subject, description: issueForm.description },
+        { headers: agentHeaders() }
+      );
+      toast.success("Issue raised! Admin will respond shortly.");
+      setShowIssueForm(false);
+      setIssueForm({ subject: "", description: "" });
+      loadIssues();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to raise issue");
+    } finally { setSubmitting(false); }
+  };
+
+  const handleReply = async (issueId, message) => {
+    try {
+      await axios.post(
+        `${API}/api/points/agent/issues/${issueId}/reply`,
+        { message },
+        { headers: agentHeaders() }
+      );
+      loadIssues();
+    } catch { toast.error("Failed to send reply"); }
+  };
+
+  const handleConfirmResolved = async (issueId) => {
+    try {
+      await axios.patch(
+        `${API}/api/points/agent/issues/${issueId}/confirm`,
+        {},
+        { headers: agentHeaders() }
+      );
+      toast.success("Thanks for confirming!");
+      loadIssues();
+    } catch { toast.error("Failed"); }
+  };
 
   const fetchSlip = async () => {
     if (slip) { setShowSlip(true); return; }
     setLoadingSlip(true);
     try {
-      const { data } = await axios.get(`${API}/api/points/agent/slip/${payout._id}`, { headers: agentHeaders() });
+      const { data } = await axios.get(
+        `${API}/api/points/agent/slip/${payout._id}`,
+        { headers: agentHeaders() }
+      );
       setSlip(data.data);
       setShowSlip(true);
-    } catch {
-      toast.error("Slip not available yet");
-    } finally { setLoadingSlip(false); }
+    } catch { toast.error("Slip not available yet"); }
+    finally { setLoadingSlip(false); }
   };
 
   const handlePrint = () => {
@@ -229,69 +452,265 @@ function PayoutCard({ payout }) {
 
   return (
     <>
-      <div style={{ padding: "18px 20px", borderRadius: 14, border: `1.5px solid ${sc.border}`, background: "#fff", marginBottom: 12, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+      {/* ── MAIN CARD ── */}
+      <div style={{
+        padding: "18px 20px", borderRadius: 14,
+        border: `1.5px solid ${sc.border}`, background: "#fff",
+        marginBottom: 12, boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+      }}>
+        {/* top row */}
+        <div style={{
+          display: "flex", alignItems: "flex-start",
+          justifyContent: "space-between", gap: 12, flexWrap: "wrap",
+        }}>
           <div>
-            <div style={{ fontSize: 26, fontWeight: 900, color: "#1f2937" }}>{fmt(payout.amountRequested)}</div>
-{payout.status === "paid" && (
-  <div style={{ fontSize: 12, color: "#059669", fontWeight: 700, marginTop: 4 }}>
-    ✓ Deducted from your balance
-  </div>
-)}
-            <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
-              {hasPoints && <span style={{ fontSize: 11, background: "#eef2ff", color: "#4338ca", borderRadius: 20, padding: "2px 8px", fontWeight: 700 }}>{payout.pointsRedeemed} pts</span>}
-              {hasSalary && <span style={{ fontSize: 11, background: "#f0fdf4", color: "#15803d", borderRadius: 20, padding: "2px 8px", fontWeight: 700 }}>{fmt(payout.salaryAmount)} salary</span>}
-            </div>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 20, background: sc.bg, border: `1px solid ${sc.border}` }}>
-              <div style={{ width: 7, height: 7, borderRadius: "50%", background: sc.dot }} />
-              <span style={{ fontSize: 12, fontWeight: 800, color: sc.text, textTransform: "uppercase", letterSpacing: 0.5 }}>{sc.label}</span>
+            <div style={{ fontSize: 26, fontWeight: 900, color: "#1f2937" }}>
+              {fmt(payout.amountRequested)}
             </div>
             {payout.status === "paid" && (
-              <button onClick={fetchSlip} disabled={loadingSlip}
-                style={{ padding: "6px 14px", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                {loadingSlip ? "Loading…" : "View Payment Slip"}
-              </button>
+              <div style={{ fontSize: 12, color: "#059669", fontWeight: 700, marginTop: 4 }}>
+                ✓ Deducted from your balance
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+              {hasPoints && (
+                <span style={{ fontSize: 11, background: "#eef2ff", color: "#4338ca", borderRadius: 20, padding: "2px 8px", fontWeight: 700 }}>
+                  {payout.pointsRedeemed} pts
+                </span>
+              )}
+              {hasSalary && (
+                <span style={{ fontSize: 11, background: "#f0fdf4", color: "#15803d", borderRadius: 20, padding: "2px 8px", fontWeight: 700 }}>
+                  {fmt(payout.salaryAmount)} salary
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* right column: status + action buttons */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+            <div style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "5px 12px", borderRadius: 20,
+              background: sc.bg, border: `1px solid ${sc.border}`,
+            }}>
+              <div style={{ width: 7, height: 7, borderRadius: "50%", background: sc.dot }} />
+              <span style={{ fontSize: 12, fontWeight: 800, color: sc.text, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                {sc.label}
+              </span>
+            </div>
+
+            {/* buttons — only on paid payouts */}
+            {payout.status === "paid" && (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                {/* view slip */}
+                <button
+                  onClick={fetchSlip}
+                  disabled={loadingSlip}
+                  style={{
+                    padding: "6px 14px",
+                    background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
+                    color: "#fff", border: "none", borderRadius: 8,
+                    fontSize: 12, fontWeight: 700, cursor: "pointer",
+                  }}
+                >
+                  {loadingSlip ? "Loading…" : "View Payment Slip"}
+                </button>
+
+                {/* raise issue — hidden when an active issue already exists */}
+                {!hasActiveIssue && !showIssueForm && (
+                  <button
+                    onClick={() => setShowIssueForm(true)}
+                    style={{
+                      padding: "6px 14px",
+                      background: "#fff1f2", color: "#dc2626",
+                      border: "1.5px solid #fecdd3", borderRadius: 8,
+                      fontSize: 12, fontWeight: 700, cursor: "pointer",
+                    }}
+                  >
+                    🚩 Raise Issue
+                  </button>
+                )}
+
+                {/* cancel raise-issue */}
+                {showIssueForm && (
+                  <button
+                    onClick={() => { setShowIssueForm(false); setIssueForm({ subject: "", description: "" }); }}
+                    style={{
+                      padding: "6px 14px",
+                      background: "#f3f4f6", color: "#374151",
+                      border: "none", borderRadius: 8,
+                      fontSize: 12, fontWeight: 700, cursor: "pointer",
+                    }}
+                  >
+                    ✕ Cancel
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>
+
+        {/* bank / txn info */}
         <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #f3f4f6" }}>
           {bd.upiId
             ? <div style={{ fontSize: 13, color: "#374151" }}>UPI: <strong>{bd.upiId}</strong></div>
             : bd.accountNumber
-            ? <div style={{ fontSize: 13, color: "#374151" }}>{bd.bankName} · A/C ****{bd.accountNumber.slice(-4)}{bd.ifsc && <span style={{ color: "#9ca3af" }}> · {bd.ifsc}</span>}</div>
+            ? <div style={{ fontSize: 13, color: "#374151" }}>
+                {bd.bankName} · A/C ****{bd.accountNumber.slice(-4)}
+                {bd.ifsc && <span style={{ color: "#9ca3af" }}> · {bd.ifsc}</span>}
+              </div>
             : null}
-          {payout.transactionId && <div style={{ fontSize: 12, color: "#10b981", fontWeight: 700, marginTop: 4 }}>Txn: {payout.transactionId}</div>}
-          {payout.adminNote     && <div style={{ fontSize: 12, color: "#dc2626", marginTop: 4 }}>Note: {payout.adminNote}</div>}
+          {payout.transactionId && (
+            <div style={{ fontSize: 12, color: "#10b981", fontWeight: 700, marginTop: 4 }}>
+              Txn: {payout.transactionId}
+            </div>
+          )}
+          {payout.adminNote && (
+            <div style={{ fontSize: 12, color: "#dc2626", marginTop: 4 }}>
+              Note: {payout.adminNote}
+            </div>
+          )}
         </div>
+
         <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 10 }}>
-          Requested {new Date(payout.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
-          {payout.processedAt && ` · Processed ${new Date(payout.processedAt).toLocaleDateString("en-IN")}`}
+          Requested{" "}
+          {new Date(payout.createdAt).toLocaleDateString("en-IN", {
+            day: "numeric", month: "long", year: "numeric",
+          })}
+          {payout.processedAt &&
+            ` · Processed ${new Date(payout.processedAt).toLocaleDateString("en-IN")}`}
         </div>
+
+        {/* ── RAISE ISSUE FORM (inline) ── */}
+        {showIssueForm && (
+          <div style={{
+            marginTop: 14, padding: "16px 18px",
+            background: "#fff1f2", border: "1.5px solid #fecdd3", borderRadius: 12,
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#dc2626", marginBottom: 12 }}>
+              🚩 Raise a Payment Issue
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", display: "block", marginBottom: 4 }}>
+                  Subject <span style={{ color: "#ef4444" }}>*</span>
+                </label>
+                <input
+                  value={issueForm.subject}
+                  onChange={e => setIssueForm(f => ({ ...f, subject: e.target.value }))}
+                  placeholder="e.g. Payment not received, wrong amount…"
+                  style={{
+                    width: "100%", padding: "9px 12px", borderRadius: 8,
+                    border: "1.5px solid #fca5a5", fontSize: 13,
+                    outline: "none", fontFamily: "inherit", boxSizing: "border-box",
+                    background: "#fff",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", display: "block", marginBottom: 4 }}>
+                  Description <span style={{ color: "#ef4444" }}>*</span>
+                </label>
+                <textarea
+                  value={issueForm.description}
+                  onChange={e => setIssueForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder="Describe the issue in detail…"
+                  rows={3}
+                  style={{
+                    width: "100%", padding: "9px 12px", borderRadius: 8,
+                    border: "1.5px solid #fca5a5", fontSize: 13,
+                    outline: "none", fontFamily: "inherit", resize: "vertical",
+                    boxSizing: "border-box", background: "#fff",
+                  }}
+                />
+              </div>
+
+              <button
+                onClick={handleRaiseIssue}
+                disabled={submitting}
+                style={{
+                  padding: "10px 20px", background: "#dc2626", color: "#fff",
+                  border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700,
+                  cursor: submitting ? "not-allowed" : "pointer",
+                  opacity: submitting ? 0.7 : 1, fontFamily: "inherit",
+                  alignSelf: "flex-start",
+                }}
+              >
+                {submitting ? "Submitting…" : "Submit Issue"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── EXISTING ISSUES ── */}
+        {payout.status === "paid" && (
+          <div style={{ marginTop: issues.length > 0 ? 12 : 0 }}>
+            {loadingIssues && (
+              <div style={{ fontSize: 12, color: "#9ca3af", padding: "8px 0" }}>
+                Loading issues…
+              </div>
+            )}
+            {issues.map(issue => (
+              <IssueThread
+                key={issue._id}
+                issue={issue}
+                onReply={handleReply}
+                onConfirmResolved={handleConfirmResolved}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* SLIP MODAL */}
+      {/* ── SLIP MODAL (unchanged from original) ── */}
       {showSlip && slip && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 680, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
-            {/* Modal header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid #f1f5f9", background: "#0f172a", borderRadius: "16px 16px 0 0" }}>
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.6)", zIndex: 1000,
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
+        }}>
+          <div style={{
+            background: "#fff", borderRadius: 16,
+            width: "100%", maxWidth: 680, maxHeight: "90vh", overflowY: "auto",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+          }}>
+            {/* modal header */}
+            <div style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              padding: "16px 20px", borderBottom: "1px solid #f1f5f9",
+              background: "#0f172a", borderRadius: "16px 16px 0 0",
+            }}>
               <span style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Payment Slip</span>
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={handlePrint} style={{ padding: "6px 14px", background: "#6366f1", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>🖨 Print</button>
-                <button onClick={() => setShowSlip(false)} style={{ padding: "6px 12px", background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>✕ Close</button>
+                <button
+                  onClick={handlePrint}
+                  style={{
+                    padding: "6px 14px", background: "#6366f1", color: "#fff",
+                    border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                  }}
+                >
+                  🖨 Print
+                </button>
+                <button
+                  onClick={() => setShowSlip(false)}
+                  style={{
+                    padding: "6px 12px", background: "rgba(255,255,255,0.15)", color: "#fff",
+                    border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                  }}
+                >
+                  ✕ Close
+                </button>
               </div>
             </div>
 
-            {/* SLIP CONTENT */}
+            {/* slip content */}
             <div id={`slip-${payout._id}`} style={{ padding: "36px 40px", fontFamily: "'Segoe UI', sans-serif", color: "#111827" }}>
               {/* Header */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28, paddingBottom: 20, borderBottom: "2px solid #e5e7eb" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  {slip.companyLogo && (
-                    <img src={slip.companyLogo} alt="logo" style={{ height: 52, objectFit: "contain" }} />
-                  )}
+                  {slip.companyLogo && <img src={slip.companyLogo} alt="logo" style={{ height: 52, objectFit: "contain" }} />}
                   <div>
                     <div style={{ fontSize: 20, fontWeight: 900, color: "#1e40af", letterSpacing: "-0.02em" }}>{slip.companyName}</div>
                     {slip.companyAddress && <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>{slip.companyAddress}</div>}
@@ -309,21 +728,21 @@ function PayoutCard({ payout }) {
                 </div>
               </div>
 
-              {/* Company contact row */}
+              {/* contact row */}
               <div style={{ display: "flex", gap: 20, marginBottom: 24, fontSize: 12, color: "#6b7280", flexWrap: "wrap" }}>
-                {slip.companyPhone   && <span> {slip.companyPhone}</span>}
-                {slip.companyEmail   && <span> {slip.companyEmail}</span>}
-                {slip.companyWebsite && <span> {slip.companyWebsite}</span>}
+                {slip.companyPhone   && <span>📞 {slip.companyPhone}</span>}
+                {slip.companyEmail   && <span>✉️ {slip.companyEmail}</span>}
+                {slip.companyWebsite && <span>🌐 {slip.companyWebsite}</span>}
               </div>
 
-              {/* Paid To */}
+              {/* paid to */}
               <div style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "16px 20px", marginBottom: 20 }}>
                 <div style={{ fontSize: 10, fontWeight: 800, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Paid To</div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: "#0f172a" }}>{slip.agentName}</div>
                 {slip.agentPhone && <div style={{ fontSize: 13, color: "#475569", marginTop: 2 }}>📱 {slip.agentPhone}</div>}
               </div>
 
-              {/* Payment details */}
+              {/* amount */}
               <div style={{ background: "linear-gradient(135deg,#1e40af,#3730a3)", borderRadius: 12, padding: "20px 24px", marginBottom: 20, color: "#fff" }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "#93c5fd", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Amount Paid</div>
                 <div style={{ fontSize: 38, fontWeight: 900 }}>{fmt(slip.amount)}</div>
@@ -333,13 +752,13 @@ function PayoutCard({ payout }) {
                 </div>
               </div>
 
-              {/* Transaction info */}
+              {/* transaction info */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
                 {[
-                  { label: "Payment Mode",     value: slip.paymentMode   || "—" },
-                  { label: "Transaction ID",   value: slip.transactionId || "—" },
-                  { label: "Payment Date",     value: new Date(slip.paidOn).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) },
-                  { label: "Status",           value: "Paid" },
+                  { label: "Payment Mode",   value: slip.paymentMode   || "—" },
+                  { label: "Transaction ID", value: slip.transactionId || "—" },
+                  { label: "Payment Date",   value: new Date(slip.paidOn).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) },
+                  { label: "Status",         value: "✅ Paid" },
                 ].map(r => (
                   <div key={r.label} style={{ padding: "12px 14px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8 }}>
                     <div style={{ fontSize: 10, color: "#9ca3af", fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>{r.label}</div>
@@ -348,7 +767,7 @@ function PayoutCard({ payout }) {
                 ))}
               </div>
 
-              {/* Custom note */}
+              {/* custom note */}
               {slip.slipNote && (
                 <div style={{ background: "#fffbeb", border: "1.5px solid #fde68a", borderRadius: 10, padding: "14px 18px", marginBottom: 20 }}>
                   <div style={{ fontSize: 10, fontWeight: 800, color: "#92400e", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Message</div>
@@ -356,7 +775,7 @@ function PayoutCard({ payout }) {
                 </div>
               )}
 
-              {/* Signature */}
+              {/* signature */}
               <div style={{ marginTop: 28, paddingTop: 20, borderTop: "1px solid #e5e7eb", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
                 <div style={{ fontSize: 11, color: "#9ca3af" }}>This is a system-generated receipt. No physical signature required.</div>
                 {slip.adminSignature && (
@@ -373,6 +792,7 @@ function PayoutCard({ payout }) {
     </>
   );
 }
+
 function SalaryTxnItem({ txn }) {
   const isCredit = txn.type === "credit";  
   return (

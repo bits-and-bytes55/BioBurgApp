@@ -8,7 +8,11 @@ import {
   sendCampaign,
   getCampaignROI,
 } from "../controllers/marketingAgentController.js";
-import { protectAgent } from "../middleware/authMiddleware.js";
+import {
+  protectAgent,
+  requireAgentPermission,
+} from "../middleware/authMiddleware.js";
+
 
 const router = express.Router();
 
@@ -17,18 +21,17 @@ router.use(protectAgent);
 
 // /api/agent/campaigns
 router.route("/")
-  .get(getCampaigns)
-  .post(createCampaign);
+  .get(requireAgentPermission("marketing"), getCampaigns)
+  .post(requireAgentPermission("marketing"), createCampaign);
 
-// /api/agent/campaigns/roi  ← MUST be before /:id
-router.get("/roi", getCampaignROI);
+router.get("/roi", requireAgentPermission("marketing"), getCampaignROI);
 
-// /api/agent/campaigns/:id
 router.route("/:id")
-  .get(getCampaign)
-  .put(updateCampaign)
-  .delete(deleteCampaign);
+  .get(requireAgentPermission("marketing"), getCampaign)
+  .put(requireAgentPermission("marketing"), updateCampaign)
+  .delete(requireAgentPermission("marketing"), deleteCampaign);
 
-router.post("/:id/send", sendCampaign);
+router.post("/:id/send", requireAgentPermission("marketing"), sendCampaign);
+
 
 export default router;

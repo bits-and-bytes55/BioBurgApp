@@ -56,13 +56,22 @@ const getCalendarDays = (year, month) => ({
 
 //  API fetch helper 
 const apiFetch = async (url, options = {}) => {
+  const token = localStorage.getItem("agentToken");
+
   const res = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
     ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {}),
+    },
   });
+
   const contentType = res.headers.get("content-type") || "";
-  if (!contentType.includes("application/json"))
+  if (!contentType.includes("application/json")) {
     throw new Error(`Server returned ${res.status} — check API route is mounted`);
+  }
+
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || "Request failed");
   return data;

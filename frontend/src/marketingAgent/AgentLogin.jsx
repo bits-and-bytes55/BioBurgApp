@@ -33,27 +33,62 @@ const AgentLogin = () => {
     }, 1200);
   };
 
-  const handleLogin = async () => {
+    const handleLogin = async () => {
     if (!email || !password) {
       toast.error("Please fill in all fields.");
       return;
     }
+
     if (!captchaVerified) {
       toast.error("Please verify you are not a robot.");
       return;
     }
+
     try {
       setLoading(true);
+
       const { data } = await agentLogin({ email, password });
-      localStorage.setItem("agentToken", data.token);
-      if (data.success) {
-        toast.success("Login Successful!");
-        navigate("/agent/dashboard");
-      } else {
-        toast.error("Invalid Credentials");
+
+      if (!data.success || !data.token) {
+        toast.error(data.message || "Invalid credentials");
+        return;
       }
+
+      const agent = data.agent || {};
+      const permissions = agent.permissions || {};
+
+      localStorage.setItem("agentToken", data.token);
+      localStorage.setItem("agentProfile", JSON.stringify(agent));
+      localStorage.setItem("agentPermissions", JSON.stringify(permissions));
+
+      toast.success("Login Successful!");
+
+      const firstAllowedPath =
+        permissions.dashboard ? "/agent/dashboard" :
+        permissions.jobActivity ? "/agent/job-activity" :
+        permissions.dcr ? "/agent/dcr/new" :
+        permissions.workingPlan ? "/agent/plan/daily" :
+        permissions.geoTracking ? "/agent/geo-tracking" :
+        permissions.routePlanning ? "/agent/route-planning" :
+        permissions.dailyExpenses ? "/agent/daily-expenses" :
+        permissions.workPerformance ? "/agent/work-performance" :
+        permissions.responses ? "/agent/responses" :
+        permissions.products ? "/agent/products" :
+        permissions.orders ? "/agent/orders/create-bill" :
+        permissions.billing ? "/agent/billing/invoices" :
+        permissions.marketing ? "/agent/marketing" :
+        permissions.leads ? "/agent/leads" :
+        permissions.reports ? "/agent/marketing-chart" :
+        permissions.support ? "/agent/support-tickets" :
+        permissions.profile ? "/agent/profile" :
+        "/agent/profile";
+
+      navigate(firstAllowedPath);
     } catch (err) {
-      toast.error("Something went wrong. Please try again.");
+      toast.error(
+        err.response?.data?.message ||
+          "Login failed. Please check your email and password."
+      );
     } finally {
       setLoading(false);
     }

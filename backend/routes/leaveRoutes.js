@@ -5,20 +5,24 @@ import {
   getMyLeaves,
   getAllLeaves,
   updateLeaveStatus,
+  cancelLeave,
 } from "../controllers/leaveController.js";
 
-import { protectAgent } from "../middleware/marketingAgenTauthMiddleware.js";
+import {
+  protectAgent,
+  requireAgentPermission,
+} from "../middleware/authMiddleware.js";
+
 import { protect, adminMiddleware } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// AGENT
-router.post("/", protectAgent, submitLeave);
-router.get("/", protectAgent, getMyLeaves);
-
-// ADMIN
 router.get("/admin/all", protect, adminMiddleware, getAllLeaves);
+router.patch("/admin/:id", protect, adminMiddleware, updateLeaveStatus);
 
-router.patch("/admin/:id",protect,adminMiddleware, updateLeaveStatus);
+router.post("/", protectAgent, requireAgentPermission("profile"), submitLeave);
+router.get("/", protectAgent, requireAgentPermission("profile"), getMyLeaves);
+router.delete("/:id", protectAgent, requireAgentPermission("profile"), cancelLeave);
+
 
 export default router;

@@ -9,16 +9,22 @@ import {
   deleteEventsByDate,
 } from "../controllers/calendarController.js";
 
+import {
+  protectAgent,
+  requireAgentPermission,
+} from "../middleware/authMiddleware.js";
+
+
 const router = express.Router();
+router.get("/events/upcoming", protectAgent, requireAgentPermission("calendar"), getUpcomingEvents);
+router.get("/events", protectAgent, requireAgentPermission("calendar"), getEvents);
 
-router.get("/events/upcoming", getUpcomingEvents);   
-router.get("/events",          getEvents);
+router.post("/events", protectAgent, requireAgentPermission("calendar"), createEvent);
 
-router.post("/events", createEvent);
+router.put("/events/:id", protectAgent, requireAgentPermission("calendar"), updateEvent);
+router.delete("/events/:id", protectAgent, requireAgentPermission("calendar"), deleteEvent);
 
-router.put   ("/events/:id", updateEvent);
-router.delete("/events/:id", deleteEvent);
+router.delete("/events/date/:date", protectAgent, requireAgentPermission("calendar"), deleteEventsByDate);
 
-router.delete("/events/date/:date", deleteEventsByDate);
 
 export default router;
